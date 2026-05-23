@@ -1,0 +1,250 @@
+// ==============================================
+// NDS UTILITIES - Bootstrap 5 Inspired
+// ==============================================
+@use './mixins' as *;
+@use 'sass:map';
+
+// Generate spacing utilities using NDS spacing tokens
+// Pattern: {property}{sides?}-{breakpoint?}-{size}
+// Following Bootstrap 5 exact naming conventions
+
+// Spacing map - numeric NDS tokens only
+$spacers: (
+  0: var(--spacing-0),
+  1: var(--spacing-1),
+  2: var(--spacing-2),
+  3: var(--spacing-3),
+  4: var(--spacing-4),
+  5: var(--spacing-5)
+);
+
+// Use only numeric spacers
+$all-spacers: $spacers;
+
+// ==============================================
+// NDS FLEX UTILITY
+// ==============================================
+
+.nds-flex {
+  display: flex;
+  justify-content: var(--justify, flex-start);
+  align-items: var(--align, center);
+  gap: var(--gap, var(--spacing-xl));
+}
+
+// Direction overrides — unscoped so components like .nds-card-actions
+// can flip direction with just .nds-row without wrapping in .nds-flex.
+.nds-row {
+  flex-direction: row !important;
+}
+
+.nds-col {
+  flex-direction: column !important;
+}
+
+// Reverse directions
+.nds-row.nds-reverse {
+  flex-direction: row-reverse !important;
+}
+
+.nds-col.nds-reverse {
+  flex-direction: column-reverse !important;
+}
+
+// Wrap utilities
+.nds-wrap {
+  flex-wrap: wrap !important;
+}
+
+.nds-nowrap {
+  flex-wrap: nowrap !important;
+}
+
+.nds-number-format {
+  --_number-icon-size: var(--number-icon-size, 1em);
+  display: inline-flex;
+  align-items: baseline;
+  line-height: normal;
+  gap: var(--spacing-xs);
+  @include ltr{
+    flex-direction: row-reverse;
+  }
+  >.nds-icon {
+    width: var(--_number-icon-size);
+    height: var(--_number-icon-size);
+    align-self: center;
+    @include dark {
+      filter: invert(1);
+    }
+  }
+  &[data-currency]::after {
+    align-self: center;
+  }
+  &[data-currency="SAR"]::after {
+    content: "";
+    display: inline-block;
+    width: var(--_number-icon-size);
+    height: var(--_number-icon-size);
+    background: currentColor;
+    mask: var(--nds-icon-riyal) no-repeat center / contain;
+  }
+  &[data-currency="USD"]::after {
+    content: "$";
+  }
+  &[data-currency="EUR"]::after {
+    content: "€";
+  }
+  &[data-currency="GBP"]::after {
+    content: "£";
+  }
+  &[data-currency="JPY"]::after {
+    content: "¥";
+  }
+  &[data-currency="CNY"]::after {
+    content: "¥";
+  }
+  &[data-currency="INR"]::after {
+    content: "₹";
+  }
+  &[data-currency="KRW"]::after {
+    content: "₩";
+  }
+  &[data-currency="TRY"]::after {
+    content: "₺";
+  }
+  // Zero-price display: render the label as-is (e.g. "Free") and suppress
+  // the currency icon. Pairs with data-currency for consistent typography.
+  &[data-free]::after {
+    display: none;
+  }
+}
+
+:where(.nds-truncate:not([hidden])) {
+  --_truncate: var(--truncate, 1);
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: var(--_truncate);
+  line-clamp: var(--_truncate);
+  text-overflow: ellipsis;
+  white-space: wrap;
+  /* line-height: normal; */
+}
+
+// ==============================================
+// ALIGNMENT UTILITIES
+// ==============================================
+
+// Center alignment utility
+// Note: Uses mobile-first approach. For start/end alignment, use text-align CSS property directly
+
+// Base center alignment class (applies to all screens unless overridden)
+.nds-center {
+  text-align: center !important;
+  margin-inline: auto;
+}
+
+// Responsive center alignment (mobile-first, cascades upward)
+@each $breakpoint, $query in $breakpoints-range {
+  @media #{$query} {
+    .nds-center-#{$breakpoint},
+    .nds-center-#{$breakpoint}>* {
+      text-align: center !important;
+    }
+  }
+}
+
+.nds-flush {
+  padding: 0 !important;
+  margin: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+}
+
+
+.nds-expandable {
+  position: relative;
+  // Gradient mask custom properties
+  --mask-fade-percentage: 35%; // Fade last 35% of content
+  // Default constrained state to prevent CLS
+  .nds-expandable-content {
+    overflow-y: hidden;
+    max-height: var(--max-height, 300px);
+  }
+}
+
+.nds-expandable[data-state~="expandable"] {
+  &:has(>.nds-expandable-content),
+  &>*:has(>.nds-expandable-content) {
+    overflow: hidden;
+  }
+  .nds-expandable-content {
+    mask-image: linear-gradient(180deg, black calc(100% - var(--mask-fade-percentage)), transparent 100%);
+  }
+  .nds-expand-btn {
+    position: absolute;
+    bottom: 0;
+    inset-inline-end: 0;
+  }
+  &[data-state~="expanded"] {
+    .nds-expandable-content {
+      max-height: 100%;
+      padding-bottom: var(--spacing-4xl);
+      mask-image: none;
+      -webkit-mask-image: none;
+    }
+  }
+}
+
+
+// ==============================================
+// DIRECTION UTILITIES
+// ==============================================
+
+// Force LTR direction on a subtree — useful for phone numbers, codes, URLs,
+// and any LTR-only content that must render predictably inside an RTL page.
+.nds-ltr {
+  direction: ltr !important;
+}
+
+// ==============================================
+// TEXT COLOR UTILITIES
+// ==============================================
+
+// Brand-colored text on any element. Pairs well with <strong>/<span> inside
+// card meta, definition lists, and inline emphasis where the anchor-only
+// .nds-color selector does not apply.
+.nds-color-primary {
+  color: var(--text-primary);
+}
+
+// ==============================================
+// VISIBILITY UTILITIES
+// ==============================================
+
+/* Hidden utility - ensures elements with hidden attribute are properly hidden
+ * Uses !important to override any display property (flex, grid, block, etc.)
+ * Supports both hidden attribute and .hidden class for legacy compatibility
+ */
+.hidden {
+  display: none;
+}
+
+// Responsive visibility — pair with a tablet/mobile variant of the same
+// component to swap rendering across the desktop breakpoint (961px) without
+// JS. Both instances stay in the DOM, so progressive enhancement stays trivial.
+.nds-desktop-only {
+  @include tablet(max) { display: none !important; }
+}
+
+.nds-mobile-only {
+  @include desktop(min) { display: none !important; }
+}
+
+// Small red notice shown above a form ("*Required information" etc.).
+.nds-required-notice {
+  color: var(--text-error);
+  font-size: var(--typo-text-sm-FS);
+  line-height: var(--typo-text-sm-LH);
+  margin-block-end: var(--spacing-md);
+}

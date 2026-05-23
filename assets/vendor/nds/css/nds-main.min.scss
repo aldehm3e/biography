@@ -1,0 +1,91 @@
+---
+# Main SCSS file for NDS (National Design System)
+# This file compiles all Sass components into CSS for Jekyll
+---
+/*!
+ * National Design System
+ * Version: {{ site.version }}
+ * License: {{ site.license }}
+ * Repository: {{ site.repository_url }}
+ * Author: {{ site.author }}
+ * Profile: {{ site.author_profile }}
+ */
+// Note: fonts, reset, hero, grid, content-layout, section-layout
+// are in nds.critical.min.scss (loaded as blocking CSS)
+
+// Import variables (CSS custom properties)
+// NOTE: a11y mode overrides (variables-a11y) + the accessibility panel
+// (components/accessibility) live in the optional assets/css/nds-accessibility.min.css
+// bundle — not here. Core only reads --user-* a11y vars with fallbacks.
+@use 'variables-dga';
+@use 'variables';
+@use 'variables-dark';
+
+// Section styles - visual tokens, color variants, meta, actions, 404, sideInfo
+@use 'layout/section';
+
+// NOTE: Icon tokens + .nds-icon base are in assets/css/nds-icons.min.css
+// (loaded as a separate stylesheet via _includes/head.html).
+
+// Import base styles (dividers, links, interactive elements)
+@use 'base';
+
+// Import animations
+@use 'animations';
+
+@use 'components/link';
+@use 'components/breadcrumb';
+@use 'components/avatar';
+@use 'components/persona';
+@use 'components/backdrop';
+@use 'components/buttons';
+@use 'components/cards';
+@use 'components/modal';
+@use 'components/checkbox';
+@use 'components/chips';
+@use 'components/date-picker';
+@use 'components/dropmenu';
+@use 'components/autocomplete';
+@use 'components/filter';
+@use 'components/multiselect';
+@use 'components/featured-icons';
+@use 'components/feedback-icons';
+@use 'components/stepper';
+@use 'components/swiper';
+@use 'components/switch';
+@use 'components/tags';
+@use 'components/accordion';
+@use 'components/alert';
+@use 'components/tables';
+@use 'components/tabs';
+@use 'components/mainnav';
+@use 'components/DGAdigitalStamp';
+@use 'components/forms';
+@use 'components/otp';
+@use 'components/ipv';
+@use 'components/pagination';
+@use 'components/progress';
+@use 'components/quote';
+@use 'components/radio';
+@use 'components/rating';
+@use 'components/upload';
+@use 'components/code';
+@use 'components/copy';
+@use 'components/share';
+@use 'components/sidemenu';
+@use 'components/drawer';
+@use 'components/toc';
+@use 'components/tooltip';
+@use 'components/empty';
+@use 'components/scroll-more';
+@use 'components/user-feedback.scss';
+@use 'components/footer';
+@use 'components/cookie';
+@use 'components/loading';
+@use 'components/definition-list';
+@use 'components/chart';
+@use 'components/cooldown-button';
+@use 'components/metric';
+
+// Import utilities
+@use 'utilities';

@@ -1,0 +1,288 @@
+@use '../mixins' as *;
+/* ========================================
+   FOOTER BASE STYLES
+   ======================================== */
+
+.nds-footer {
+    background: var(--colors-neutral-100);
+    padding-block: var(--spacing-4xl);
+    z-index: 1;
+
+    :root[data-theme="dark"] &:not(.nds-green) {
+        background: var(--colors-neutral-700);
+    }
+}
+
+/* ========================================
+   FOOTER CONTENT COLUMNS
+   ======================================== */
+
+.nds-footer-content {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-4xl);
+    margin-bottom: var(--spacing-4xl);
+}
+
+.nds-footer-column {
+    flex: 1 1 160px;
+    min-width: 0;
+    width: calc(50% - var(--spacing-4xl)/2);
+}
+
+.nds-footer-heading {
+    font-size: var(--typo-text-md-FS);
+    line-height: var(--typo-text-md-LH);
+    font-weight: 600;
+    margin: 0 0 var(--spacing-md);
+    padding-block-end: var(--spacing-md);
+    border-block-end: 1px solid var(--divider-color);
+}
+
+.nds-footer-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+
+    li {
+        margin: 0;
+    }
+}
+
+.nds-footer-link {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: inherit;
+    text-decoration: none;
+
+    .nds-label {
+        font-size: var(--typo-text-sm-FS);
+        line-height: var(--typo-text-sm-LH);
+    }
+
+    &:hover,
+    &:focus-visible {
+        text-decoration: underline;
+    }
+}
+
+/* ========================================
+   FOOTER ICONS COLUMN (social + mobile apps merged)
+   ======================================== */
+
+.nds-footer-icons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2xl);
+    max-width: 100%;
+}
+
+.nds-footer-icon-group {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.nds-footer-icon-row {
+    display: flex;
+    gap: var(--spacing-md);
+    flex-wrap: wrap;
+}
+
+/* ========================================
+   FOOTER BOTTOM SECTION
+   ======================================== */
+
+.nds-footer-bottom {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.nds-footer-meta {
+    flex: 1;
+}
+
+.nds-footer-links {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md) var(--spacing-xl);
+    margin-block-end: var(--spacing-4xl);
+
+    a {
+        text-decoration: underline;
+    }
+
+    .nds-label {
+        font-size: var(--typo-text-sm-FS);
+        line-height: var(--typo-text-sm-LH);
+    }
+}
+
+.nds-footer-legal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-md);
+}
+
+.nds-footer-copyright {
+    font-size: var(--typo-text-sm-FS);
+    line-height: var(--typo-text-sm-LH);
+    font-weight: 600;
+}
+
+.nds-footer-policy {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--spacing-md) var(--spacing-xl);
+
+    a {
+        text-decoration: none;
+    }
+
+    .nds-label {
+        font-size: var(--typo-text-sm-FS);
+        line-height: var(--typo-text-sm-LH);
+    }
+}
+
+/* ========================================
+   FOOTER LOGOS
+   ======================================== */
+
+.nds-footer-logos {
+    width: 25%;
+    min-width: 200px;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--spacing-xl);
+    align-items: center;
+
+    &>* {
+        display: inline-flex;
+    }
+
+    img {
+        height: 40px;
+        width: auto;
+        transition: opacity 0.3s ease;
+
+        &:hover {
+            opacity: 0.8;
+        }
+
+        // Invert logos on dark backgrounds when marked with nds-oncolor
+        &.nds-oncolor {
+
+            :root[data-theme="dark"] &,
+            .nds-footer.nds-green & {
+                filter: brightness(0) invert(1);
+            }
+        }
+    }
+}
+
+/* ========================================
+   GREEN VARIANT
+   ======================================== */
+
+.nds-footer.nds-green {
+    background: var(--background-footer);
+
+    // Light mode: force dark-bg appearance since green bg stays dark regardless of theme
+    :root:not([data-theme="dark"]) & {
+        color: var(--text-oncolor-primary);
+        --divider-color: var(--alpha-white-10);
+
+        .nds-btn.nds-subtle {
+            --btn-bg: transparent;
+            --btn-bg-hover: var(--button-background-transparent-hovered);
+            --btn-bg-active: var(--button-background-transparent-pressed);
+            --btn-bg-selected: var(--button-background-transparent-selected);
+            --btn-bg-disabled: transparent;
+            --btn-color: var(--text-oncolor-primary);
+            --btn-loading-color: var(--text-oncolor-primary);
+            --btn-loading-track: var(--alpha-white-20);
+            --btn-indicator-color: var(--alpha-white-40);
+            --btn-indicator-active: var(--alpha-white-60);
+            --btn-indicator-selected: var(--text-oncolor-primary);
+        }
+
+        .nds-btn.nds-secondary-outline {
+            --btn-bg: var(--button-background-transparent-default);
+            --btn-bg-hover: var(--button-background-transparent-hovered);
+            --btn-bg-active: var(--button-background-transparent-pressed);
+            --btn-bg-selected: var(--button-background-transparent-selected);
+            --btn-bg-disabled: var(--button-background-transparent-default);
+            --btn-color: var(--colors-base-white);
+            --btn-border: var(--border-white-40);
+            --btn-border-hover: var(--border-white-40);
+            --btn-border-active: var(--border-white-40);
+            --btn-border-selected: var(--border-white-40);
+            --btn-loading-color: var(--colors-base-white);
+            --btn-loading-track: var(--alpha-white-20);
+        }
+
+        :is(.nds-footer-bottom, .nds-footer-content) a {
+            --link-color: var(--link-oncolor);
+            --link-hover: var(--link-oncolor-hovered);
+            --link-pressed: var(--link-oncolor-pressed);
+            --link-focused: var(--link-oncolor-focused);
+            --link-visited: var(--link-oncolor-visited);
+        }
+
+        .nds-footer-heading {
+            color: var(--text-oncolor-primary);
+        }
+    }
+}
+
+/* ========================================
+   RESPONSIVE FOOTER STYLES
+   ======================================== */
+
+@include tablet(max) {
+    .nds-footer-column {
+        flex: 1 1 calc(50% - var(--spacing-4xl) / 2);
+    }
+
+    .nds-footer-icons {
+        flex-basis: 100%;
+    }
+}
+
+@include mobile {
+    .nds-footer {
+        .nds-footer-column {
+            flex-basis: 100%;
+        }
+
+        .nds-footer-bottom {
+            justify-content: center;
+            margin: auto;
+            flex-direction: column;
+            gap: var(--spacing-xl);
+            text-align: center;
+        }
+
+        .nds-footer-meta :is(.nds-footer-links, .nds-footer-policy) {
+            justify-content: center;
+        }
+
+        .nds-footer-legal {
+            align-items: center;
+        }
+
+        .nds-footer-logos {
+            width: 100%;
+            min-width: auto;
+            justify-content: center;
+        }
+    }
+}

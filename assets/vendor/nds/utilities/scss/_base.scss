@@ -1,0 +1,155 @@
+@use './mixins' as *;
+
+/* ========================================
+   VIEW TRANSITIONS (theme switch)
+   ======================================== */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+    animation: none;
+    mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+    z-index: 1;
+}
+
+/* ========================================
+   SCROLLBAR
+   ======================================== */
+
+:root {
+    scrollbar-color: var(--colors-neutral-400) var(--background-default);
+}
+
+/* ========================================
+   MARK (highlighted text)
+   ======================================== */
+
+mark {
+    background-color: var(--background-mark);
+    color: inherit;
+}
+
+/* ========================================
+   DIVIDERS
+   ======================================== */
+
+// Unified divider: empty → single line; with content → text between flanking lines.
+// Uses logical props so it adapts automatically to writing-mode.
+.nds-divider {
+    --_divider: var(--divider, var(--spacing-xs));
+    --_divider-size: var(--divider-size, 1px);
+
+    margin-block: var(--_divider);
+    flex-shrink: 0;
+    border: 0;
+    border-block-start: var(--_divider-size) solid var(--divider-color);
+
+    // Reset hr-specific defaults when the class is used on <hr>.
+    width: auto;
+    opacity: 1;
+    color: inherit;
+
+    // With content: flex row with flanking lines via pseudo-elements.
+    // (Pseudo-elements don't render on <hr>, so this branch is for <div>/<span>.)
+    &:not(:empty) {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-md);
+        color: var(--text-secondary-paragraph);
+        font-size: var(--typo-text-sm-FS);
+        line-height: var(--typo-text-sm-LH);
+        border-block-start: 0;
+
+        &::before,
+        &::after {
+            content: '';
+            flex: 1;
+            border-block-start: var(--_divider-size) solid var(--divider-color);
+        }
+    }
+
+    &.nds-md { --divider: var(--spacing-md); }
+    &.nds-lg { --divider: var(--spacing-lg); }
+    &.nds-xl { --divider: var(--spacing-xl); }
+    &.nds-2xl { --divider: var(--spacing-2xl); }
+    &.nds-3xl { --divider: var(--spacing-3xl); }
+    &.nds-4xl { --divider: var(--spacing-4xl); }
+
+    // Vertical modifier: flips the rule to a vertical line via writing-mode
+    // and stretches to the flex parent's cross axis so it is actually visible.
+    &.nds-vertical {
+        writing-mode: vertical-rl;
+        align-self: stretch;
+        margin-block: 0;
+        margin-inline: var(--_divider);
+
+        &:not(:empty)::before,
+        &:not(:empty)::after {
+            min-height: 16px;
+        }
+    }
+}
+
+
+/* ========================================
+   MINIMAL LAYOUT
+   ======================================== */
+
+body.nds-minimal[style*="--bg-img"] {
+    background:
+        linear-gradient(color-mix(in srgb, var(--background-body) var(--bg-opacity-top, 80%), transparent),
+            color-mix(in srgb, var(--background-body) var(--bg-opacity-bottom, 80%), transparent)),
+        var(--bg-img) center / cover no-repeat fixed;
+}
+
+/* ========================================
+   INTERACTIVE ELEMENTS
+   ======================================== */
+
+:is(button, .button, .btn, .nds-btn, .nds-nav-link, [role="button"], [role="tab"]) {
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+:is(button) {
+    background-color: transparent;
+    border: none;
+    cursor: pointer;
+}
+
+
+/* ========================================
+   DESCRIPTION — universal secondary text
+   Companion to .nds-label. Used anywhere a small, de-emphasised
+   paragraph-ish line is needed (cards, drawer items, menus, etc.).
+   Layout (width, flow) is left to the hosting component.
+   ======================================== */
+
+.nds-description {
+    font-size: var(--typo-text-sm-FS);
+    line-height: var(--typo-text-sm-LH);
+    color: var(--text-secondary-paragraph);
+    font-weight: 400;
+    white-space: normal;
+    text-align: start;
+}
+
+/* ========================================
+   LAST EDIT
+   ======================================== */
+
+.nds-last-edit {
+    font-size: var(--typo-text-clamp-md-FS);
+    text-align: end;
+    height: 24px;
+    display: block;
+    margin-top: calc((24px + var(--spacing-md)) * -1);
+    width: 100%;
+    max-width: var(--nds-content-MaxWidth, 1280px);
+    margin-inline: auto;
+    padding: 0 var(--nds-viewport-padding, 32px);
+}

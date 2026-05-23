@@ -1,0 +1,279 @@
+/**
+ * NDS Swiper Component - CSS Scroll-Snap First
+ * Minimal foundation with native scroll behavior
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// CONTAINER
+// ==============================================
+
+.nds-swiper {
+    // --swiper-slides set by JavaScript in constructor to prevent CLS
+    --swiper-total: var(--total, 1);
+    --swiper-slides: var(--slides, 1);
+    --swiper-gap: var(--gap, var(--spacing-xl));
+    --swiper-peek: 0px;
+    --swiper-padding: var(--padding, 0);
+
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-2xl);
+    position: relative;
+    width: 100%;
+
+    .nds-max-width & {
+        --swiper-padding: var(--padding, var(--nds-viewport-padding));
+    }
+
+    // Peek width = the raw --peek px + one gap. JS sets --peek and toggles
+    // [data-swiper-peek]; doing the gap addition here keeps swiper init free
+    // of a getComputedStyle('--gap') read (a forced reflow).
+    &[data-swiper-peek] {
+        --swiper-peek: calc(var(--peek, 0px) + var(--swiper-gap));
+    }
+
+    // Pre-init guard lives in _skeleton.scss (critical CSS) so it applies
+    // before main CSS — see the .nds-swiper:not([data-swiper-initialized])
+    // rules there.
+}
+
+// ==============================================
+// WRAPPER (scroll container)
+// ==============================================
+
+.nds-swiper-wrapper {
+    display: flex;
+    height: 100%;
+    width: 100%;
+    gap: var(--swiper-gap);
+
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+
+    scrollbar-width: none;
+    &::-webkit-scrollbar { display: none; }
+
+    user-select: none;
+
+    padding-inline: var(--swiper-padding);
+    scroll-padding-inline: max(var(--swiper-peek), var(--swiper-padding));
+
+    .nds-swiper:not(.nds-hero) & {
+        padding-inline: max(2px, var(--swiper-padding)); // 2px floor for shadow clipping
+    }
+    @include desktop(min) {
+        .nds-content-layout.nds-cardView & {
+            padding-inline: 0;
+        }
+    }
+}
+
+// ==============================================
+// SLIDES
+// ==============================================
+
+.nds-swiper-slide {
+    // Width = (100% − peek − gap × (slides − 1)) / slides
+    flex: 0 0 calc((100% - var(--swiper-peek) - (var(--swiper-gap) * (var(--swiper-slides, 1) - 1))) / var(--swiper-slides, 1));
+    min-width: 0;
+    height: auto;
+    position: relative;
+    box-sizing: border-box;
+
+    scroll-snap-align: start;
+
+    .nds-swiper:not(.nds-hero) &:first-child {
+        padding-inline-start: 2px;
+    }
+    .nds-swiper:not(.nds-hero) &:last-child {
+        padding-inline-end: 2px;
+    }
+    .nds-swiper:not(.nds-hero) &:has(.nds-card.nds-shadow) {
+        padding-inline: 4px;
+        padding-block: 4px 8px;
+    }
+
+    > .nds-card {
+        height: 100%;
+        max-width: unset;
+    }
+}
+
+// ==============================================
+// NAVIGATION BUTTONS
+// Arrow glyph + JS hook both come from .nds-prev / .nds-next.
+// They can sit anywhere inside .nds-swiper. Size, shape, and on-color
+// treatment are the consumer's job — apply standard button modifiers
+// (.nds-icon-only, .nds-md/.nds-sm, .nds-oncolor) directly on the button.
+// ==============================================
+
+.nds-swiper :is(.nds-prev, .nds-next) {
+    user-select: none;
+    // pointerdown handler doesn't preventDefault on touchstart, so block native
+    // tap-and-drag scroll initiation here instead.
+    touch-action: manipulation;
+}
+
+// ==============================================
+// PAGINATION
+// ==============================================
+
+.nds-swiper-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: var(--spacing-lg);
+
+    .nds-swiper & {
+        padding-block: var(--spacing-md);
+        float: inline-end;
+        margin-inline-end: var(--nds-viewport-padding);
+    }
+
+    // Bullet size variants
+    &.nds-lg .nds-bullet { --_bullet-size: 16px; }
+    &.nds-md .nds-bullet { --_bullet-size: 12px; }
+    &.nds-sm .nds-bullet { --_bullet-size: 8px; }
+}
+
+.nds-bullet {
+
+    // Theme-resolved color tokens (with public override slots)
+    --_bullet-default: var(--bullet-default, var(--colors-neutral-200));
+    --_bullet-active: var(--bullet-active, var(--colors-primary-sa-flag-600-primary));
+    --_bullet-border: var(--bullet-border, transparent);
+
+    @include dark {
+        --_bullet-default: var(--bullet-default, var(--colors-neutral-700));
+    }
+
+    // Per-property tokens; states only rebind these (no property restatement)
+    --_bullet-bg: var(--_bullet-default);
+    --_bullet-bcolor: var(--_bullet-border);
+    --_bullet-opacity: 0.6;
+    --_bullet-size: 16px;
+
+    width: var(--_bullet-size);
+    height: var(--_bullet-size);
+    border-radius: 50%;
+    background-color: var(--_bullet-bg);
+    border: 1px solid var(--_bullet-bcolor);
+    opacity: var(--_bullet-opacity);
+    cursor: pointer;
+    transition: opacity var(--nds-transition),
+                background-color var(--nds-transition),
+                border-color var(--nds-transition);
+    padding: 0;
+    user-select: none;
+    touch-action: manipulation;
+
+    &:hover { --_bullet-opacity: 0.8; }
+
+    &[data-status="active"] {
+        --_bullet-bg: var(--_bullet-active);
+        --_bullet-bcolor: var(--_bullet-active);
+        --_bullet-opacity: 1;
+    }
+}
+
+// ==============================================
+// NAVIGATION ROW (optional wrapper grouping prev/next/pagination on one line)
+// ==============================================
+
+.nds-swiper-navigation {
+    display: flex;
+    justify-content: space-between;
+    width: 100%;
+    gap: var(--spacing-xl);
+
+    padding-inline: max(var(--nds-viewport-padding), calc((100% - var(--nds-content-MaxWidth)) / 2));
+
+    .nds-max-width & {
+        padding-inline: max(calc(var(--nds-viewport-padding) + var(--spacing-lg)), calc((100% - var(--nds-content-MaxWidth)) / 2));
+    }
+
+    .nds-swiper-buttons {
+        display: flex;
+        gap: var(--spacing-md);
+    }
+
+    // Reset float/margins from the base pagination rule when controls live
+    // inside this row wrapper (buttons themselves are flex items, no overrides needed).
+    .nds-swiper-pagination {
+        margin-block: 0 !important;
+        margin-inline: 0 !important;
+        float: unset;
+    }
+}
+
+// ==============================================
+// ON-COLOR (dark backgrounds, including hero)
+// ==============================================
+
+.nds-swiper.nds-oncolor,
+.nds-oncolor {
+    :is(.nds-section-title, .nds-section-description) {
+        color: var(--text-oncolor-primary);
+    }
+
+    .nds-bullet {
+        --_bullet-default: var(--bullet-default, var(--colors-alpha-alpha-white-60));
+        --_bullet-active: var(--bullet-active, var(--colors-base-white));
+    }
+}
+
+// ==============================================
+// HERO VARIANT
+// Full-bleed slider with image backgrounds.
+// All `.nds-swiper.nds-hero` overrides live here.
+// ==============================================
+
+.nds-swiper.nds-hero {
+    width: 100%;
+    height: 100%;
+    position: relative;
+
+    .nds-swiper-wrapper {
+        gap: 0;
+    }
+
+    .nds-swiper-slide {
+        flex: 0 0 100%;
+        position: relative;
+        background-size: cover;
+        background-position: center;
+        color: var(--text-oncolor-primary);
+        overflow: hidden;
+        height: 100%;
+        width: 100%;
+    }
+
+    .nds-swiper-navigation {
+        position: absolute;
+        bottom: 0;
+        padding-block: var(--spacing-xl);
+    }
+}
+
+// ==============================================
+// NAVIGATION VARIANT — .nds-center
+// Bullets stay in the center, arrows pushed to the row's outer edges.
+// ==============================================
+
+.nds-swiper-navigation.nds-center {
+    // Promote prev/next to flex children of the nav so the row becomes
+    // [prev] [bullets] [next] under the existing `justify-content: space-between`.
+    .nds-swiper-buttons {
+        display: contents;
+    }
+
+    .nds-next {
+        order: 1;
+    }
+}

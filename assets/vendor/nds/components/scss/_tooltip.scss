@@ -1,0 +1,180 @@
+/**
+ * NDS Tooltip Component
+ * Floating balloon with a title + body (and optional leading icon),
+ * anchored to a trigger via a visible arrow. Viewport-aware fixed
+ * positioning with flip-up and horizontal clamping.
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// 1. CONFIGURATION
+// ==============================================
+
+.nds-tooltip {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  vertical-align: text-bottom;
+
+  // ==============================================
+  // 2. TRIGGER
+  // ==============================================
+
+  // The trigger is a <button> wrapping an `.nds-feedback-icon` chip, so
+  // strip default button chrome — the inner chip paints the whole visual.
+  &-trigger {
+    display: inline-flex;
+    padding: 0;
+    border: 0;
+    background: transparent;
+    color: inherit;
+    cursor: help;
+  }
+
+  // Text-trigger mode — applies when the tooltip trigger has no icon.
+  // "Icon" = any `.nds-icon` descendant (the NDS icon base class, which
+  // also lives inside every `.nds-feedback-icon` chip). Covers:
+  //   - Root is the trigger (no `.nds-tooltip-trigger` child) → underline.
+  //   - Explicit `.nds-tooltip-trigger` that holds only text → underline.
+  //   - Explicit `.nds-tooltip-trigger` with `.nds-icon` inside → no underline.
+  // Custom triggers using raw `<svg>` or `<img>` should either wrap the
+  // graphic in `.nds-icon` (the design-system convention) or override
+  // `text-decoration: none` in author CSS.
+  &:not(:has(> .nds-tooltip-trigger .nds-icon)) {
+    cursor: help;
+    text-decoration: underline dotted;
+    text-underline-offset: 3px;
+    vertical-align: unset;
+  }
+
+  // Idle help-trigger chip — neutral gray so the trigger reads as "there's
+  // a tooltip here" rather than as an active status chip. Scoped by the
+  // icon's own feedback wrapper (or any ancestor inside the trigger) having
+  // `data-status="help"`, so the tooltip's outer data-status stays free
+  // to signal something else. Skipped when the chip uses `.nds-outline`
+  // (transparent bg) and when open (status-driven color kicks in).
+  &:not([data-state~="open"]) &-trigger [data-status="help"] .nds-feedback-icon:not(:is(.nds-outline, .nds-feedback.nds-outline > *)) {
+    background-color: var(--icon-default-500);
+  }
+
+}
+
+// ==============================================
+// 3. BALLOON
+// ==============================================
+// Lives at body level when portaled (escapes container-type/transform
+// stacking contexts), so its variables and state-driven rules must apply
+// via the balloon's own attributes — we can't rely on `.nds-tooltip` as
+// an ancestor selector.
+
+.nds-tooltip-balloon {
+  --_tooltip-bg: var(--tooltip-background-light);
+  --_tooltip-title: var(--tooltip-text-heading-light);
+  --_tooltip-body: var(--tooltip-text-paragraph-light);
+  --_tooltip-padding: var(--tooltip-padding);
+  --_tooltip-gap: var(--tooltip-gap);
+  --_tooltip-arrow-size: var(--tooltip-arrow-size, 10px);
+  --_tooltip-max-width: var(--tooltip-max-width, 240px);
+  --_arrow-inline-start: 16px;
+
+  // Auto-swap to inverse tokens when the page is in dark theme.
+  @include dark {
+    --_tooltip-bg: var(--tooltip-background-dark);
+    --_tooltip-title: var(--tooltip-text-heading-dark);
+    --_tooltip-body: var(--tooltip-text-paragraph-dark);
+  }
+
+  // Balloon is marked `hidden` in source; the attribute controls visibility.
+  &:not([hidden]) {
+    display: flex;
+    gap: var(--_tooltip-gap);
+    align-items: flex-start;
+    position: fixed;
+    z-index: 1000;
+    width: max-content;
+    max-width: var(--_tooltip-max-width);
+    padding: var(--_tooltip-padding);
+    background-color: var(--_tooltip-bg);
+    color: var(--_tooltip-body);
+    border: 1px solid var(--border-neutral-secondary);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+
+    font-size: var(--typo-text-xs-FS);
+    line-height: var(--typo-text-xs-LH);
+  }
+
+  // CSS-only arrow: rotated square inheriting background + border so only
+  // the two edges facing away from the balloon body are visible.
+  //
+  // The rotation is purely visual, so logical border properties produce
+  // the wrong chevron in RTL. RTL is the default; `@include ltr` swaps the
+  // hidden edges so the same physical pair (top + left for "arrow-up",
+  // bottom + right for "arrow-down") remains visible.
+  &::before {
+    content: "";
+    position: absolute;
+    width: var(--_tooltip-arrow-size);
+    height: var(--_tooltip-arrow-size);
+    background: inherit;
+    border: inherit;
+    transform: rotate(45deg);
+    top: calc(var(--_tooltip-arrow-size) / -2 - 1px);
+    // JS computes a physical left-offset from the balloon's left edge, so
+    // use `left` (not `inset-inline-start`) — the value is the same in
+    // both directions.
+    left: var(--_arrow-inline-start);
+
+    // RTL default: hide physical bottom + right.
+    border-block-end: 0;
+    border-inline-start: 0;
+  }
+
+  // Flipped above trigger → arrow points down from balloon bottom.
+  // The attribute is mirrored onto the balloon by JS so this works whether
+  // the balloon is in source position or portaled to <body>.
+  &[data-position-vertical="top"]::before {
+    top: auto;
+    bottom: calc(var(--_tooltip-arrow-size) / -2 - 1px);
+    border-block-end: inherit;
+    border-inline-start: inherit;
+    border-block-start: 0;
+    border-inline-end: 0;
+  }
+
+  @include ltr {
+    &::before {
+      border-inline-start: inherit;
+      border-inline-end: 0;
+    }
+
+    &[data-position-vertical="top"]::before {
+      border-inline-start: 0;
+      border-inline-end: inherit;
+    }
+  }
+
+  // ============================================================
+  // 4. CONTENT — body / title / message live inside the balloon
+  // ============================================================
+
+  .nds-tooltip-body {
+    display: block;
+    flex: 1;
+    color: var(--_tooltip-body);
+  }
+
+  .nds-tooltip-title {
+    display: block;
+    font-weight: 600;
+    color: var(--_tooltip-title);
+    margin-block-end: var(--_tooltip-gap);
+  }
+
+  .nds-tooltip-message {
+    display: block;
+    margin: 0;
+    color: var(--_tooltip-body);
+  }
+}

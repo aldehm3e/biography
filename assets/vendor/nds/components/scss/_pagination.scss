@@ -1,0 +1,175 @@
+/**
+* NDS Pagination - SCSS Version
+* Navigation component for paginated content using button indicators
+*/
+
+@use '../mixins' as *;
+
+// ==============================================
+// PAGINATION CONTAINER
+// ==============================================
+
+.nds-pagination {
+  --_pagination-margin-top: var(--pagination-margin-top, var(--spacing-2xl));
+  width: 100%;
+  margin-top: var(--_pagination-margin-top);
+
+  &:not(:has(>.nds-pagination-list)) {
+    display: none;
+  }
+}
+
+.nds-pagination-list {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+
+}
+
+// ==============================================
+// PAGINATION ITEMS
+// ==============================================
+
+.nds-pagination-item {
+  display: inline-flex;
+
+  // Pagination button styling
+  .nds-btn {
+    --btn-FS: var(--typo-text-md-FS);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+
+    .nds-label {
+      text-align: center;
+      width: 100%;
+      position: relative;
+    }
+
+
+
+    // Active state
+    &:is([aria-current="page"], [data-state~="active"]) {
+      font-weight: 600;
+      color: var(--button-label-primary-default);
+
+      &:not(.nds-dropmenu-trigger:hover) {
+        background-color: unset;
+      }
+
+      &.nds-indicator:before {
+        background-color: var(--button-background-primary-hovered);
+        color: var(--button-background-primary-hovered);
+
+        @include dark {
+          background-color: var(--button-background-primary-default);
+          color: var(--button-background-primary-default);
+        }
+      }
+
+
+    }
+  }
+}
+
+// ==============================================
+// NAVIGATION BUTTONS (Previous/Next)
+// ==============================================
+
+.nds-pagination-item:is(.nds-pagination-prev, .nds-pagination-next) {
+  .nds-btn {
+    aspect-ratio: 1;
+
+    i {
+      @include ltr {
+        transform: scaleX(-1);
+      }
+    }
+  }
+}
+
+// ==============================================
+// ELLIPSIS WITH DROPDOWN
+// ==============================================
+
+// Trigger lives inside the wrapper, never portaled — descendant selectors
+// from `.nds-pagination-ellipsis` are safe.
+.nds-pagination-ellipsis .nds-dropmenu-trigger>.nds-label {
+  display: none;
+}
+
+// Menu + items: target both nested (closed/in-place) and portaled
+// (`data-portal-scope="nds-pagination-ellipsis"` adds the matching class
+// to the menu when it moves to <body>).
+.nds-pagination-ellipsis .nds-dropmenu-menu,
+.nds-dropmenu-menu.nds-pagination-ellipsis {
+  min-width: 60px;
+  /* max-height: 300px;
+  overflow: hidden auto; */
+
+  .nds-dropmenu-item {
+    --btn-indicator-selected: var(--button-background-primary-default);
+    justify-content: center;
+    min-width: 40px;
+    min-height: 40px;
+
+    &:is([aria-current="page"], [data-state~="active"]):not(.nds-dropmenu-trigger:hover) {
+      background-color: unset;
+    }
+
+
+  }
+}
+
+// ==============================================
+// DISABLED STATE
+// ==============================================
+
+.nds-pagination-item .nds-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+// ==============================================
+// PAGINATION SIZES
+// ==============================================
+
+.nds-pagination.nds-md .nds-btn {
+  --btn-size: 32px;
+}
+
+.nds-pagination.nds-sm .nds-btn {
+  --btn-size: 24px;
+  --btn-FS: var(--typo-text-sm-FS);
+}
+
+
+// ==============================================
+// AUTO-PAGINATION CONTENT
+// ==============================================
+
+.nds-paged-content {
+  width: 100%;
+}
+
+.nds-pagination-ellipsis .nds-dropmenu-trigger[data-state~="active"] {
+
+  >.nds-label {
+    display: block;
+  }
+
+  &::before {
+    display: none;
+  }
+
+  &::after {
+    position: absolute;
+    transform: translateY(calc((var(--btn-size) / 2) - 2px));
+  }
+}

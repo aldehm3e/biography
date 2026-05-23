@@ -1,0 +1,437 @@
+/**
+ * NDS Alert Component - SCSS Version
+ * Alert notifications built on top of the card component
+ *
+ * Features:
+ * - Uses existing .nds-card component structure
+ * - Featured icons from nds-featured-icon
+ * - Close button (optional)
+ * - Color variants: success, info, warning, error, neutral
+ * - Inline layout
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// ALERT COMPONENT (extends card)
+// ==============================================
+
+.nds-alert.nds-card:not([hidden]) {
+  // Alert-only internal tokens (not in card)
+  --_alert-stripe: var(--alert-stripe, var(--border-neutral-primary));
+  --_alert-icon-bg: var(--alert-icon-bg, var(--background-neutral-light));
+
+  // Extend card component styles
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: var(--spacing-lg);
+  padding: var(--spacing-lg);
+  padding-inline-start: calc(var(--spacing-lg) + 8px);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--_card-border);
+  max-width: 100%;
+  width: 100%;
+  position: relative;
+  overflow: clip;
+  grid-column: 1 / -1;
+  isolation: isolate;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset-block-start: 0;
+    inset-inline-start: 0;
+    display: block;
+    width: 8px;
+    height: 100%;
+    background-color: var(--_alert-stripe);
+    opacity: 0.7;
+  }
+
+  @include mobile {
+      flex-direction: column;
+      padding-inline-start: var(--spacing-lg);
+      padding-block-start: calc(var(--spacing-lg) + 8px);
+      &::after {
+        width: 100%;
+        height: 8px;
+      }
+
+  }
+
+
+  // ==============================================
+  // ALERT ICON (uses feedback-icon)
+  // ==============================================
+
+  .nds-feedback-icon {
+    --nds-icon-size: 20px;
+    width: calc(var(--nds-icon-size)*2);
+    height: calc(var(--nds-icon-size)*2);
+    background-color: var(--_alert-icon-bg);
+  }
+
+  // ==============================================
+  // ALERT CONTENT
+  // ==============================================
+
+  .nds-alert-content {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+    flex: 1;
+    min-width: 0;
+  }
+
+  .nds-alert-text {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+  }
+
+  .nds-alert-title {
+    font-size: var(--typo-text-md-FS);
+    line-height: var(--typo-text-md-LH);
+    font-weight: 600;
+    color: var(--_card-title);
+    margin: 0;
+  }
+
+  .nds-alert-description {
+    font-size: var(--typo-text-sm-FS);
+    line-height: var(--typo-text-sm-LH);
+    font-weight: 400;
+    color: var(--text-subdued);
+    margin: 0;
+  }
+
+  // ==============================================
+  // ALERT ACTIONS
+  // ==============================================
+
+  .nds-alert-actions {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-top: var(--spacing-sm);
+  }
+
+  // ==============================================
+  // ALERT CLOSE BUTTON
+  // ==============================================
+
+  .nds-alert-close {
+    position: absolute;
+    inset-block-start: 8px;
+    inset-inline-end: 8px;
+    @include mobile{
+      inset-block-start: calc(8px + 8px);
+    }
+  }
+
+  // Solid backdrop + alpha tint overlay to prevent overlap bleed-through
+  &.nds-color {
+    background-color: var(--background-default);
+
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background-color: var(--_card-bg);
+      pointer-events: none;
+      z-index: -1;
+    }
+  }
+
+  // ==============================================
+  // COLOR VARIANTS (.nds-color fills the card backdrop)
+  // The base --alert-stripe / --alert-icon-bg tokens are set globally
+  // via [data-status="..."] rules at the bottom of this file.
+  // Card-backdrop tokens stay scoped here because card tokens are
+  // shared across components — only the `.nds-color` opt-in should
+  // apply them to the alert's card.
+  // ==============================================
+
+  &.nds-color {
+    &[data-status="success"] {
+      --card-bg: var(--background-success-25);
+      --card-border: var(--border-success-light);
+      --card-title: var(--text-success);
+      @include dark {
+        --card-bg: var(--alpha-success-10);
+        --card-border: var(--border-success-light);
+      }
+    }
+
+    &[data-status="info"] {
+      --card-bg: var(--background-info-25);
+      --card-border: var(--border-info-light);
+      --card-title: var(--text-info);
+      @include dark {
+        --card-bg: var(--alpha-info-10);
+        --card-border: var(--border-info-light);
+      }
+    }
+
+    &[data-status="warning"] {
+      --card-bg: var(--background-warning-25);
+      --card-border: var(--border-warning-light);
+      --card-title: var(--text-warning);
+      @include dark {
+        --card-bg: var(--alpha-warning-10);
+        --card-border: var(--border-warning-light);
+      }
+    }
+
+    &:is([data-status="error"], [data-status="critical"]) {
+      --card-bg: var(--background-error-25);
+      --card-border: var(--border-error-light);
+      --card-title: var(--text-error);
+      @include dark {
+        --card-bg: var(--alpha-error-10);
+        --card-border: var(--border-error-light);
+      }
+    }
+
+    &[data-status="neutral"] {
+      --card-bg: var(--background-neutral-light);
+      --card-border: var(--border-neutral-secondary);
+      --card-title: var(--text-default);
+      @include dark {
+        --card-bg: var(--alpha-white-10);
+        --card-border: var(--border-neutral-light);
+      }
+    }
+  }
+
+  // ==============================================
+  // LAYOUT VARIANTS
+  // ==============================================
+
+  // Inline variant (single line, bottom stripe, solid icon)
+  &.nds-inline {
+    flex-direction: row;
+    align-items: center;
+    padding: var(--spacing-md) var(--spacing-lg);
+    padding-inline-start: var(--spacing-lg);
+    gap: var(--spacing-md);
+    border: none;
+
+    // Move stripe to bottom, 2px height
+    &::after {
+      inset-block-start: auto;
+      inset-block-end: 0;
+      inset-inline-start: 0;
+      width: 100%;
+      height: 2px;
+      opacity: 1;
+    }
+
+    // Smaller icon (no 2x multiplier)
+    .nds-feedback-icon {
+      width: var(--nds-icon-size);
+      height: var(--nds-icon-size);
+    }
+
+    // Always colored (no nds-color class needed)
+    background-color: var(--background-default);
+    &::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      background-color: var(--_card-bg);
+      pointer-events: none;
+      z-index: -1;
+    }
+
+    // Variant tokens: icon bg + card bg/title/description, light + dark
+    &[data-status="success"] {
+      --alert-icon-bg: var(--background-success);
+      --card-bg: var(--background-success-25);
+      --card-title: var(--text-success);
+      --_inline-desc: var(--text-success);
+      @include dark { --alert-icon-bg: var(--background-success); --card-bg: var(--alpha-success-10); }
+    }
+    &[data-status="info"] {
+      --alert-icon-bg: var(--background-info);
+      --card-bg: var(--background-info-25);
+      --card-title: var(--text-info);
+      --_inline-desc: var(--text-info);
+      @include dark { --alert-icon-bg: var(--background-info); --card-bg: var(--alpha-info-10); }
+    }
+    &[data-status="warning"] {
+      --alert-icon-bg: var(--background-warning);
+      --card-bg: var(--background-warning-25);
+      --card-title: var(--text-warning);
+      --_inline-desc: var(--text-warning);
+      @include dark { --alert-icon-bg: var(--background-warning); --card-bg: var(--alpha-warning-10); }
+    }
+    &:is([data-status="error"], [data-status="critical"]) {
+      --alert-icon-bg: var(--background-error);
+      --card-bg: var(--background-error-25);
+      --card-title: var(--text-error);
+      --_inline-desc: var(--text-error);
+      @include dark { --alert-icon-bg: var(--background-error); --card-bg: var(--alpha-error-10); }
+    }
+    &[data-status="neutral"] {
+      --alert-icon-bg: var(--icon-neutral);
+      --card-bg: var(--background-neutral-light);
+      @include dark { --card-bg: var(--alpha-white-10); }
+    }
+
+    // Critical uses warning triangle icon
+    &[data-status="critical"] .nds-feedback-icon .nds-icon { --nds-icon: var(--nds-icon-alert-circle); }
+
+    .nds-alert-title,
+    .nds-alert-description {
+      font-size: var(--typo-text-clamp-md-FS);
+      line-height: var(--typo-text-clamp-md-LH);
+    }
+
+    .nds-alert-description {
+      color: var(--_inline-desc, var(--_card-title));
+    }
+
+    .nds-alert-content {
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: self-start;
+      justify-content: space-between;
+      gap: var(--spacing-md);
+    }
+
+    .nds-alert-text {
+      display: block;
+      white-space: nowrap;
+    }
+
+    .nds-alert-title,
+    .nds-alert-description {
+      display: inline;
+      white-space: normal;
+    }
+
+    .nds-alert-title {
+      margin-inline-end: var(--spacing-sm);
+    }
+
+    @include mobile {
+      .nds-alert-actions {
+        flex: 1 1 100%;
+      }
+    }
+
+    .nds-alert-actions {
+      margin-top: 0;
+
+      .nds-link {
+        font-size: var(--typo-text-clamp-md-FS);
+        line-height: var(--typo-text-clamp-md-LH);
+        text-decoration: underline;
+      }
+    }
+
+    .nds-alert-close {
+      position: relative;
+      inset-block-start: auto;
+      inset-inline-end: auto;
+    }
+  }
+}
+
+// ==============================================
+// INHERITED STATUS — alert-private tokens cascade from any ancestor
+// with [data-status]. Mirrors the featured-icon / feedback-icon
+// pattern. --alert-stripe / --alert-icon-bg are only consumed by
+// .nds-alert, so setting them broadly is safe. The .nds-color and
+// .nds-inline variants inside .nds-alert override these where needed.
+// ==============================================
+
+[data-status="success"] {
+  --alert-stripe: var(--background-success);
+  --alert-icon-bg: var(--background-success-light);
+  @include dark { --alert-icon-bg: var(--alpha-success-10); }
+}
+
+[data-status="info"] {
+  --alert-stripe: var(--background-info);
+  --alert-icon-bg: var(--background-info-light);
+  @include dark { --alert-icon-bg: var(--alpha-info-10); }
+}
+
+[data-status="warning"] {
+  --alert-stripe: var(--background-warning);
+  --alert-icon-bg: var(--background-warning-light);
+  @include dark { --alert-icon-bg: var(--alpha-warning-10); }
+}
+
+:is([data-status="error"], [data-status="critical"]) {
+  --alert-stripe: var(--background-error);
+  --alert-icon-bg: var(--background-error-light);
+  @include dark { --alert-icon-bg: var(--alpha-error-10); }
+}
+
+[data-status="neutral"] {
+  --alert-stripe: var(--border-neutral-light);
+  --alert-icon-bg: var(--background-neutral-light);
+  @include dark { --alert-icon-bg: var(--alpha-white-10); }
+}
+
+// ==============================================
+// TOAST PLACEHOLDER CONTAINERS
+// ==============================================
+
+.nds-alert-placeholder {
+  position: fixed;
+  z-index: 9999;
+  inset-inline-end: max(var(--nds-viewport-padding), calc((100vw - var(--nds-content-MaxWidth, 1280px)) / 2));
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xl);
+  pointer-events: none;
+  isolation: isolate;
+
+  @include mobile {
+    inset-inline: var(--nds-viewport-padding);
+  }
+
+  // Top position (default)
+  &[data-position="top"] {
+    inset-block-start: calc(var(--_toast-top, var(--nds-nav-height)) + var(--spacing-md));
+  }
+
+  // Bottom position
+  &[data-position="bottom"] {
+    inset-block-end: var(--nds-viewport-padding);
+  }
+}
+
+// ==============================================
+// TOAST NOTIFICATIONS
+// ==============================================
+
+.nds-alert.nds-toast {
+  width: fit-content;
+  min-width: 300px;
+  max-width: 600px;
+  opacity: 0;
+  transition: opacity var(--nds-transition);
+  pointer-events: auto;
+
+  @include mobile {
+    min-width: auto;
+    max-width: none;
+    width: auto;
+  }
+
+  &[data-state~="toast-show"] {
+    opacity: 1;
+  }
+
+  &[data-state~="toast-hide"] {
+    opacity: 0;
+  }
+
+}

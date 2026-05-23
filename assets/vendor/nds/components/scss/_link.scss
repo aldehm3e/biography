@@ -1,0 +1,84 @@
+@use '../mixins' as *;
+
+:where(.nds-link, a):not(.nds-btn, .nds-card) {
+    color: var(--link-color, var(--link-neutral));
+    text-decoration: var(--link-decoration, none);
+    word-wrap: break-word;
+
+    &:is(:hover, :active, .nds-underline) {
+        --link-decoration: underline;
+    }
+
+    // LVHA-ordered state colors. Setting `color` directly avoids the custom-property
+    // round-trip on :visited (which is inconsistent across engines).
+    &:visited {
+        color: var(--link-visited, var(--link-neutral-visited));
+    }
+
+    &:focus {
+        color: var(--link-focused, var(--link-neutral-focused));
+    }
+
+    &:hover {
+        color: var(--link-hover, var(--link-neutral-hovered));
+    }
+
+    &:active {
+        color: var(--link-pressed, var(--link-neutral-pressed));
+    }
+
+    &:is(.nds-primary, .nds-color) {
+        --link-color: var(--link-primary);
+        --link-hover: var(--link-primary-hovered);
+        --link-pressed: var(--link-primary-pressed);
+        --link-focused: var(--link-primary-focused);
+        --link-visited: var(--link-primary-visited);
+    }
+
+    &.nds-oncolor {
+        --link-color: var(--link-oncolor);
+        --link-hover: var(--link-oncolor-hovered);
+        --link-pressed: var(--link-oncolor-pressed);
+        --link-focused: var(--link-oncolor-focused);
+        --link-visited: var(--link-oncolor-visited);
+    }
+
+    :where(.nds-content-section:not(.nds-demo-section)) & {
+        --link-decoration: underline;
+
+        &:not(.nds-neutral, .nds-oncolor) {
+            --link-color: var(--link-primary);
+            --link-hover: var(--link-primary-hovered);
+            --link-pressed: var(--link-primary-pressed);
+            --link-focused: var(--link-primary-focused);
+            --link-visited: var(--link-primary-visited);
+        }
+    }
+}
+
+:is(.nds-link, a):not(.nds-card):where(.nds-icon, .nds-external) {
+
+    >.nds-label{
+         flex: unset !important;
+    }
+
+    &::after {
+        content: "";
+        display: inline-block;
+        width: 1em;
+        height: 1em;
+        background: currentColor;
+        vertical-align: text-bottom;
+        margin-inline-start: var(--spacing-xs);
+        mask: var(--_link-icon) center / contain no-repeat;
+    }
+
+    &.nds-icon {
+        --_link-icon: var(--nds-icon-link-04);
+    }
+
+    &.nds-external {
+        --_link-icon: var(--nds-icon-link-square-02);
+    }
+
+}

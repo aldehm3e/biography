@@ -1,0 +1,222 @@
+/**
+ * NDS Chip Component - SCSS Version
+ * Small interactive elements for tags, categories, and selections
+ *
+ * Variants: Primary (Green), Neutral (Gray)
+ * Sizes: Small (20px), Medium (24px), Large (32px)
+ * States: Default, Hover, Pressed, Selected, Focused, Disabled
+ * Features: Leading icons, Trailing icons, Rounded corners, On-color variants
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// BASE CHIP STYLES
+// ==============================================
+
+.nds-chip {
+  // Private custom properties with public override capability
+  --_chip-bg: var(--chip-bg, var(--chip-background-neutral-default));
+  --_chip-text: var(--chip-text, var(--chip-text-neutral-default));
+  --_chip-icon: var(--chip-icon, var(--_chip-text));
+  --_chip-size: var(--chip-size, 24px);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  border: none;
+  border-radius: var(--radius-sm);
+  font-family: 'IBM Plex Sans Arabic', sans-serif;
+  font-weight: 500;
+  text-align: center;
+  white-space: nowrap;
+  cursor: pointer;
+  box-sizing: border-box;
+  height: var(--_chip-size);
+  line-height: var(--_chip-size);
+  background-color: var(--_chip-bg);
+  color: var(--_chip-text);
+
+  &.nds-rounded {
+    border-radius: 999px;
+  }
+
+  &:is(:focus-visible, [data-state~="focused"]) {
+    @include btn-focus;
+  }
+
+  &:is(:disabled, [data-state~="disabled"]) {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+    background-color: var(--background-disabled);
+    color: var(--text-default-disabled);
+  }
+
+  .nds-label {
+    --_truncate: var(--truncate, 1);
+    overflow: hidden;
+    display: -webkit-box !important;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: var(--_truncate);
+    line-clamp: var(--_truncate);
+    text-overflow: ellipsis;
+    padding-inline: var(--spacing-xxs);
+    text-align: start;
+    max-width: 160px;
+  }
+
+  // ==============================================
+  // CHIP SIZES
+  // ==============================================
+
+  &.nds-md,
+  & {
+    --chip-size: 24px;
+    padding: var(--spacing-sm) var(--spacing-lg);
+    font-size: var(--typo-text-xs-FS);
+  }
+
+  &.nds-sm {
+    --chip-size: 20px;
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: var(--typo-text-xs-FS);
+  }
+
+  &.nds-lg {
+    --chip-size: 32px;
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-size: var(--typo-text-md-FS);
+  }
+
+  // ==============================================
+  // COLOR VARIANTS
+  // ==============================================
+
+  &:is(.nds-primary, .nds-green) {
+    --chip-bg: var(--chip-background-primary-default);
+    --chip-text: var(--chip-text-primary-default);
+    &:is(:hover, [data-state~="hover"]) {
+      --chip-bg: var(--chip-background-primary-hovered);
+    }
+
+    &:is(:active, .pressed, [data-state~="pressed"]) {
+      --chip-bg: var(--chip-background-primary-pressed);
+      --chip-text: var(--chip-text-primary-selected);
+    }
+
+    &[data-state~="selected"] {
+      --chip-bg: var(--chip-background-primary-selected);
+      --chip-text: var(--chip-text-oncolor-primary);
+    }
+
+    &:is(:focus-visible, [data-state~="focused"]) {
+      --chip-bg: var(--chip-background-primary-focused);
+      --chip-text: var(--chip-text-primary-default);
+    }
+
+    &.nds-oncolor {
+      --chip-bg: var(--chip-background-on-color-default);
+      --chip-text: var(--colors-base-black);
+
+      &:is(:hover, [data-state~="hover"]) {
+        --chip-bg: var(--chip-background-on-color-hovered);
+      }
+
+      &:is(:active, .pressed, [data-state~="pressed"]) {
+        --chip-bg: var(--chip-background-on-color-pressed);
+      }
+
+      &[data-state~="selected"] {
+        --chip-bg: var(--chip-background-on-color-selected);
+      }
+
+      &:is(:focus-visible, [data-state~="focused"]) {
+        --chip-bg: var(--chip-background-on-color-focused);
+        @include btn-focus-oncolor;
+      }
+
+      &:is(:disabled, [data-state~="disabled"]) {
+        background-color: var(--chip-background-on-color-disabled);
+        color: var(--text-default-oncolor-disabled);
+      }
+    }
+  }
+
+  &:is(.nds-neutral, .nds-gray) {
+    --chip-bg: var(--chip-background-neutral-default);
+    --chip-text: var(--chip-text-neutral-default);
+    &:is(:hover, [data-state~="hover"]) {
+      --chip-bg: var(--chip-background-neutral-hovered);
+    }
+
+    &:is(:active, .pressed, [data-state~="pressed"]) {
+      --chip-bg: var(--chip-background-neutral-pressed);
+    }
+
+    &[data-state~="selected"] {
+      --chip-bg: var(--chip-background-neutral-selected);
+      --chip-text: var(--chip-text-neutral-selected);
+    }
+
+    &:is(:focus-visible, [data-state~="focused"]) {
+      --chip-bg: var(--chip-background-neutral-focused);
+      --chip-text: var(--chip-text-neutral-default);
+    }
+
+    &.nds-oncolor {
+      --chip-bg: var(--chip-background-on-color-default);
+      --chip-text: var(--colors-base-black);
+
+      &:is(:hover, [data-state~="hover"]) {
+        --chip-bg: var(--chip-background-on-color-hovered);
+      }
+
+      &:is(:active, .pressed, [data-state~="pressed"]) {
+        --chip-bg: var(--chip-background-on-color-pressed);
+      }
+
+      &[data-state~="selected"] {
+        --chip-bg: var(--chip-background-on-color-selected);
+      }
+
+      &:is(:focus-visible, [data-state~="focused"]) {
+        --chip-bg: var(--chip-background-on-color-focused);
+        @include btn-focus-oncolor;
+      }
+
+      &:is(:disabled, [data-state~="disabled"]) {
+        background-color: var(--chip-background-on-color-disabled);
+        color: var(--text-default-oncolor-disabled);
+      }
+    }
+  }
+
+  // ==============================================
+  // CHIP WITH ICONS
+  // ==============================================
+
+  :is(.nds-icon, i) {
+    color: var(--_chip-icon);
+  }
+
+  &.nds-lead-icon {
+    :is(.nds-icon, i):first-child {
+      margin-inline-end: var(--spacing-xs);
+    }
+  }
+
+  &.nds-trail-icon {
+    :is(.nds-icon, i):last-child {
+      margin-inline-start: var(--spacing-xs);
+    }
+  }
+}
+
+.nds-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  align-items: center;
+}

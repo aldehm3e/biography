@@ -1,0 +1,627 @@
+@use '../mixins' as *;
+
+.nds-form:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xl);
+}
+
+.nds-form-container:not([hidden]) {
+    --_form-width: var(--form-width, 100%);
+    display: flex;
+    gap: var(--spacing-md);
+    flex-direction: column;
+    width: var(--_form-width);
+
+    .nds-form-header {
+        display: flex;
+        flex-direction: column;
+
+        label {
+            display: flex;
+            flex-direction: column;
+            cursor: pointer;
+        }
+
+        .nds-label {
+            color: var(--form-field-text-label);
+            font-size: var(--typo-text-md-FS);
+            line-height: var(--typo-text-md-LH);
+            font-weight: 500;
+            cursor: pointer;
+        }
+    }
+
+    // Required field indicator (using data-required attribute or legacy class)
+    &:is([data-required], .nds-required) {
+
+        .nds-form-header .nds-label::before,
+        >.nds-label::before {
+            content: "* ";
+            color: var(--controls-control-text-error);
+        }
+    }
+
+    // ==============================================
+    // FORM CONTAINER STATUS (data-status attribute)
+    // ==============================================
+
+    // Error state - style form control border
+    &[data-status="error"] .nds-form-control {
+        border-color: var(--form-field-border-error);
+
+        &::before {
+            background-color: var(--form-field-border-error);
+        }
+    }
+
+    /* // Success state
+    &[data-status="success"] .nds-form-control {
+        border-color: var(--form-field-border-success);
+
+        &::before {
+            background-color: var(--form-field-border-success);
+        }
+    }
+
+    // Warning state
+    &[data-status="warning"] .nds-form-control {
+        border-color: var(--form-field-border-warning);
+
+        &::before {
+            background-color: var(--form-field-border-warning);
+        }
+    }
+
+    // Info state
+    &[data-status="info"] .nds-form-control {
+        border-color: var(--form-field-border-info);
+
+        &::before {
+            background-color: var(--form-field-border-info);
+        }
+    } */
+
+    // ==============================================
+    // FORM CONTAINER STATE (data-state attribute)
+    // ==============================================
+
+    // Focus state (not readonly)
+    &[data-state~="focus"]:not([data-state~="readonly"]) .nds-form-control {
+        &::before {
+            width: 100%;
+        }
+
+        box-shadow: var(--shadow-md);
+
+        &,
+        ::-webkit-input-placeholder {
+            color: var(--form-field-text-focused);
+        }
+    }
+
+    // Active state (not readonly)
+    &[data-state~="active"]:not([data-state~="readonly"]) .nds-form-control {
+        &::before {
+            width: 50%;
+        }
+
+        border-color: var(--form-field-border-default);
+        --_form-control-bg: var(--form-field-background-darker);
+        box-shadow: var(--shadow-md);
+
+        &,
+        ::-webkit-input-placeholder {
+            color: var(--form-field-text-pressed);
+        }
+    }
+
+    // Readonly state — non-interactive across every form type. The label
+    // toggles checkbox/radio/switch via `for=`, so killing pointer events on
+    // the whole container is the only reliable way to prevent value changes.
+    &[data-state~="readonly"] {
+        pointer-events: none;
+
+        .nds-form-control {
+            border-color: var(--border-neutral-primary);
+            background-color: transparent;
+            color: var(--form-field-text-readonly);
+
+            ::-webkit-input-placeholder {
+                color: var(--form-field-text-placeholder);
+            }
+
+            &:hover {
+                border-color: var(--border-neutral-primary);
+                color: var(--form-field-text-readonly);
+
+                ::-webkit-input-placeholder {
+                    color: var(--form-field-text-placeholder);
+                }
+            }
+        }
+    }
+
+    // Disabled state — same non-interactivity rationale as readonly above.
+    &[data-state~="disabled"] {
+        pointer-events: none;
+        user-select: none;
+
+        .nds-form-header .nds-label,
+        .nds-form-header .nds-info {
+            color: var(--text-default-disabled);
+        }
+
+        .nds-form-control {
+            background-color: transparent;
+            color: var(--text-default-disabled);
+            border-color: var(--border-disabled);
+
+            ::-webkit-input-placeholder {
+                color: var(--text-default-disabled);
+            }
+        }
+    }
+}
+
+:is(.nds-form-container, .nds-form-group) {
+    .nds-label+.nds-info {
+        color: var(--text-primary-paragraph);
+        font-size: var(--typo-text-sm-FS);
+        line-height: var(--typo-text-sm-LH);
+        min-width: 200px;
+    }
+
+    .nds-label+.nds-note {
+        color: var(--text-secondary-paragraph);
+    }
+}
+
+fieldset {
+    border: 0;
+    padding: 0;
+    margin: 0;
+    min-width: 0; // Fix for flexbox overflow
+
+    &>legend,
+    >legend>.nds-label {
+        padding: 0;
+        margin-bottom: var(--spacing-xl);
+        font-size: var(--typo-text-lg-FS);
+        font-weight: 500;
+        line-height: 1;
+    }
+
+    // Auto-add required indicator when group has data-required, data-min-checked, or nds-required class
+    &:is([data-required], [data-min-checked], .nds-required) {
+
+        >legend>.nds-label::before,
+        >.nds-label::before {
+            content: "* ";
+            color: var(--controls-control-text-error);
+        }
+    }
+}
+
+.nds-form-control {
+    --_input-size: var(--input-size, 40px);
+    --_input-radius: var(--input-radius, var(--radius-sm));
+    // Single source of truth for the wrapper bg — the autofill mask reads this
+    // (via autofill-reset mixin) so the inset-shadow mask always tracks the
+    // wrapper's current state bg (active/lighter/darker) instead of staying
+    // pinned to --form-field-background-default.
+    --_form-control-bg: var(--form-field-background-default);
+    display: flex;
+    min-height: var(--_input-size);
+    height: var(--_input-size);
+    justify-content: flex-start;
+    align-items: self-start;
+    padding: var(--spacing-none) var(--spacing-md);
+    border-radius: var(--_input-radius);
+    gap: var(--spacing-md);
+    border: 1px solid var(--form-field-border-default);
+    background-color: var(--_form-control-bg);
+    position: relative;
+
+
+    :is(input, textarea, select) {
+        /* min-height: var(--_input-size); */
+
+        // Strip the browser default outline on text-entry inputs — focus
+        // affordance is on the form-control border/underline instead.
+        // Exclude checkbox/radio: they use appearance:none so the input
+        // IS the visual element and needs its own :focus-visible ring
+        // (see _checkbox.scss / _radio.scss).
+        &:not(:disabled):not([type="checkbox"]):not([type="radio"]) {
+            color: var(--form-field-text-focused);
+            outline: unset !important;
+            outline-offset: unset !important;
+
+            // Suppress the global *:focus-visible inset ring (from _reset.scss);
+            // the wrapper's ::before underline is the focus affordance here.
+            // No !important — the autofill-reset mixin paints its mask via
+            // !important inset box-shadow and must still win over this.
+            &:focus-visible {
+                box-shadow: none;
+            }
+        }
+
+    }
+
+    ::-webkit-input-placeholder {
+        color: var(--form-field-text-placeholder);
+    }
+
+    &:hover {
+        border-color: var(--form-field-border-hovered);
+
+        &,
+        ::-webkit-input-placeholder {
+            color: var(--form-field-text-hovered);
+        }
+    }
+
+    &::before {
+        content: "";
+        position: absolute;
+        bottom: 0px;
+        left: 50%;
+        width: 0%;
+        height: 2px;
+        border-radius: 0 0 3px 3px;
+        transform: translateX(-50%);
+        background-color: var(--form-field-border-pressed);
+        transition: width var(--nds-transition);
+        z-index: 2;
+    }
+
+    // Size: Medium (32px)
+    .nds-md>& {
+        --_input-size: 32px;
+        font-size: var(--typo-text-sm-FS);
+
+        .nds-form-action>.nds-btn {
+            --btn-size: 32px;
+        }
+    }
+
+    // Legacy class support (deprecated)
+    &:is(.nds-focus, .focus) {
+        &::before {
+            width: 100%;
+        }
+
+        box-shadow: var(--shadow-md);
+
+        &,
+        ::-webkit-input-placeholder {
+            color: var(--form-field-text-focused);
+        }
+    }
+
+    >i {
+        align-self: center;
+        font-size: 20px;
+    }
+
+    >input {
+        background-color: transparent;
+        border: 0px;
+        outline: 0px;
+        height: 100%;
+        width: 100%;
+
+        &:focus {
+            color: var(--form-field-text-focused);
+        }
+    }
+
+    .nds-textarea>& {
+        padding: var(--form-textarea-padding);
+        height: fit-content;
+        width: 100%;
+
+        >textarea {
+            padding: var(--spacing-md);
+            min-height: 40px;
+            min-width: 100%;
+        }
+    }
+
+    .nds-select>& {
+        >select {
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            appearance: none;
+            cursor: pointer;
+            width: 100%;
+            height: 100%;
+        }
+
+        &::after {
+            content: "";
+            pointer-events: none;
+            position: absolute;
+            left: var(--spacing-md);
+            transition: transform 0.1s ease;
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background: currentColor;
+            mask: var(--nds-icon-arrow-left-01) center / contain no-repeat;
+            rotate: -90deg;
+            top: 50%;
+            translate: 0 -50%;
+
+            @include ltr {
+                & {
+                    left: unset;
+                    right: var(--spacing-md);
+                }
+            }
+        }
+    }
+
+    .nds-select[data-state~="open"]>&::after {
+        transform: rotate(180deg);
+    }
+
+    // Custom dropdown styles for nds-select when using input instead of
+    // select element. Position/border/shadow/scroll are inherited from
+    // `.nds-dropmenu-menu` (added by JS at init); only the input-side
+    // affordances remain here.
+    .nds-select-input {
+        cursor: pointer;
+    }
+
+    .nds-form-action:not([hidden]) {
+        display: flex;
+        gap: var(--spacing-sm);
+        flex-direction: row;
+        margin-inline-end: calc(var(--spacing-md) * -1);
+        align-self: stretch;
+
+        &:first-child {
+            margin-inline-end: unset;
+            margin-inline-start: calc(var(--spacing-md) * -1);
+        }
+
+        &:not(.nds-prefix, .nds-suffix) {
+            >.nds-btn {
+                --btn-size: 32px;
+            }
+        }
+
+        >*:not([hidden]):not(.nds-dropmenu, .nds-dropmenu-menu, .nds-browse-btn) {
+            --btn-height: 100%;
+            --btn-height-min: var(--btn-height);
+            --btn-radius: var(--_input-radius);
+            padding-block: 0;
+            position: relative;
+            height: var(--btn-height);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            &:not(:first-child):not([hidden] + *)::before {
+                content: '';
+                width: 1px;
+                background-color: var(--border-neutral-primary);
+                height: calc(100% - var(--spacing-lg));
+                position: absolute;
+                inset-inline-start: calc(var(--spacing-sm) / -1.5);
+                top: 50%;
+                transform: translateY(-50%);
+            }
+        }
+
+        // Prefix/Suffix modifiers
+        &:is(.nds-prefix, .nds-suffix) {
+            gap: 0;
+            white-space: nowrap;
+
+            >*:not([hidden]):not(.nds-dropmenu, .nds-dropmenu-menu, .nds-browse-btn) {
+                --btn-radius: 0 !important;
+
+                &:not(:first-child)::before {
+                    display: none;
+                }
+            }
+
+            > :not(button):not(a) {
+                --btn-color: var(--text-secondary-paragraph);
+            }
+        }
+
+        &.nds-suffix {
+            >*:last-child {
+                border-start-end-radius: var(--_input-radius);
+                border-end-end-radius: var(--_input-radius);
+            }
+        }
+
+        &.nds-prefix {
+            margin-inline-end: unset;
+            margin-inline-start: calc(var(--spacing-md) * -1);
+
+            >*:first-child {
+                border-start-start-radius: var(--_input-radius);
+                border-end-start-radius: var(--_input-radius);
+            }
+        }
+    }
+}
+
+// Filled-background style variants — opt-in via .nds-form-container modifier.
+// Excluded from .nds-file-upload (its form-control is a Browse-Files button surface).
+// Border uses :where() so its specificity stays at (0,1,0); existing
+// hover/focus/active/status rules keep their own border colors via cascade.
+:where(.nds-form-container.nds-lighter:not(.nds-file-upload),
+    .nds-form-container.nds-darker:not(.nds-file-upload)) .nds-form-control {
+    border-color: transparent;
+}
+
+.nds-form-container:not(.nds-file-upload) {
+    &.nds-lighter .nds-form-control {
+        --_form-control-bg: var(--form-field-background-lighter);
+    }
+
+    &.nds-darker .nds-form-control {
+        --_form-control-bg: var(--form-field-background-darker);
+    }
+
+    // Without this, the [data-state~="active"] rule above swaps the bg to
+    // --form-field-background-darker the moment the user types into a lighter field.
+    &.nds-lighter[data-state~="active"]:not([data-state~="readonly"]) .nds-form-control {
+        --_form-control-bg: var(--form-field-background-lighter);
+    }
+}
+
+.nds-form-container[data-state~="listening"] .nds-voice-input>i {
+    animation: colorCycle 1s linear infinite alternate;
+}
+
+.nds-toggle-password.show i {
+    --nds-icon: var(--nds-icon-eye);
+}
+
+// ==============================================
+// SHARED FORM GROUP (checkbox / radio / switch groups)
+// All three group classes also carry .nds-form-group in HTML.
+// ==============================================
+
+.nds-form-group {
+    display: flex;
+    flex-direction: column;
+    row-gap: var(--spacing-xl);
+    column-gap: var(--spacing-4xl);
+
+    &:has(>.nds-label) {
+        .nds-form-container {
+            padding-inline-start: var(--spacing-md);
+        }
+    }
+
+    &.nds-rowView {
+        flex-direction: row;
+        flex-wrap: wrap;
+
+        >.nds-feedback {
+            flex-basis: 100%;
+            width: 100%;
+        }
+    }
+
+    &:is([data-required], [data-min-checked], .nds-required) {
+        >.nds-label::before {
+            content: "* ";
+            color: var(--controls-control-text-error);
+        }
+    }
+
+    &[data-state~="disabled"] {
+        opacity: 0.5;
+        pointer-events: none;
+
+        .nds-form-container {
+            pointer-events: none;
+        }
+    }
+
+    &[data-status]>.nds-feedback {
+        display: flex;
+    }
+
+    &[data-status="error"]>.nds-feedback {
+        color: var(--text-error);
+    }
+
+    &[data-status="success"]>.nds-feedback {
+        color: var(--text-success);
+    }
+
+    &[data-status="warning"]>.nds-feedback {
+        color: var(--text-warning);
+    }
+
+    &[data-status="info"]>.nds-feedback {
+        color: var(--text-info);
+    }
+}
+
+// ==============================================
+// SHARED SELECTION-CONTROL CONTAINER (checkbox / radio / switch)
+// ==============================================
+
+:is(.nds-check-container, .nds-radio-container, .nds-switch-container) {
+    &.nds-form-container:not([hidden]) {
+        flex-direction: row-reverse;
+        width: fit-content;
+        flex-wrap: nowrap;
+        justify-content: flex-end;
+
+        .nds-form-header .nds-label {
+            color: var(--text-display);
+            font-weight: 500;
+        }
+
+        .nds-form-control {
+            min-width: unset;
+            min-height: unset;
+            width: fit-content;
+            height: fit-content;
+            padding: 0;
+            border: 0;
+            box-shadow: unset;
+            background-color: unset !important;
+            position: relative;
+        }
+    }
+}
+
+// Shared ripple (checkbox + radio)
+:is(.nds-check-container, .nds-radio-container) {
+    &.nds-form-container:not([hidden]) .nds-form-control {
+        &::before {
+            content: "";
+            position: absolute;
+            inset: 50% auto auto 50%;
+            width: var(--nds-input-size, 16px);
+            height: var(--nds-input-size, 16px);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            background-color: var(--controls-control-ripple-effect);
+            transition: width var(--nds-transition), height var(--nds-transition);
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        &:has(input:not(:disabled):hover)::before {
+            width: calc(var(--nds-input-size, 16px) * 2);
+            height: calc(var(--nds-input-size, 16px) * 2);
+        }
+    }
+}
+
+// ==============================================
+// SHARED RESPONSIVE (checkbox / radio / switch)
+// ==============================================
+
+@include mobile {
+    :is(.nds-check-container, .nds-radio-container, .nds-switch-container) {
+        gap: var(--spacing-sm);
+
+        &.nds-md {
+            gap: var(--spacing-md);
+        }
+
+        &.nds-lg {
+            gap: var(--spacing-lg);
+        }
+    }
+
+    .nds-form-group:is(.nds-check-group, .nds-radio-group, .nds-switch-group) {
+        row-gap: var(--spacing-lg);
+        column-gap: var(--spacing-4xl);
+    }
+}

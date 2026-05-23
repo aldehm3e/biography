@@ -1,0 +1,662 @@
+/**
+ * NDS Cards - SCSS Version
+ * Card component for displaying content with featured icons, tags, ratings, buttons, and checkboxes
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// BASE CARD STYLES
+// ==============================================
+
+.nds-card {
+  // Reset public tokens so parent cards don't bleed into nested child cards.
+  --card-bg: initial;
+  --card-bg-hover: initial;
+  --card-border: initial;
+  --card-border-hover: initial;
+  --card-border-active: initial;
+  --card-padding: initial;
+  --card-gap: initial;
+  --card-radius: initial;
+  --card-text: initial;
+  --card-title: initial;
+  --card-subtitle: initial;
+  --card-number: initial;
+  --card-rating: initial;
+  --card-width: initial;
+  --card-width-min: initial;
+  --card-width-max: initial;
+  --icon-color: initial;
+  --icon-bg-color: initial;
+  --avatar-color: initial;
+
+  // Internal custom properties with external fallbacks
+  --_card-bg: var(--card-bg, var(--background-card));
+  --_card-bg-hover: var(--card-bg-hover, var(--background-card-hovered));
+  --_card-border: var(--card-border, var(--border-neutral-primary));
+  --_card-border-hover: var(--card-border-hover, var(--border-primary));
+  --_card-border-active: var(--card-border-active, var(--border-neutral-primary));
+  --_card-padding: var(--card-padding, var(--spacing-xl));
+  --_card-gap: var(--card-gap, var(--spacing-3xl));
+  --_card-radius: var(--card-radius, var(--components-card-radius));
+  --_card-text: var(--card-text, var(--text-display));
+  --_card-title: var(--card-title, var(--text-display));
+  --_card-subtitle: var(--card-subtitle, var(--text-primary));
+  --_card-number: var(--card-number, var(--text-primary-sa-flag));
+  --_card-icon: var(--icon-color, var(--featuredicons-icon-primary));
+  --_card-icon-bg: var(--icon-bg-color, var(--featuredicons-background-brand-light));
+  --icon-color: var(--_card-icon);
+  --icon-bg-color: var(--_card-icon-bg);
+  --avatar-color: var(--_card-icon);
+  --_card-rating: var(--card-rating, var(--text-secondary-paragraph));
+  --_card-width: var(--card-width, 100%);
+  --_card-width-min: var(--card-width-min, 0);
+  --_card-width-max: var(--card-width-max, var(--card-width, 360px));
+
+  font-family: var(--nds-font-family);
+  text-align: start;
+  background-color: var(--_card-bg);
+  border: 1px solid transparent;
+  border-radius: var(--_card-radius);
+  padding: var(--_card-padding);
+  min-width: var(--_card-width-min);
+  width: var(--_card-width);
+  max-width: var(--_card-width-max);
+  position: relative;
+
+  // Display properties only for standard cards (cards with nds-card-* children)
+  &:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--_card-gap);
+    flex-wrap: nowrap;
+  }
+
+  // Shadow variant
+  &.nds-shadow {
+    box-shadow: var(--shadow-md);
+
+    &:not(.nds-stroke) {
+      border: 1px solid var(--border-neutral-tertiary);
+    }
+  }
+
+  // Stroke variant
+  &.nds-stroke {
+    border: 1px solid var(--_card-border);
+  }
+
+  &.nds-rowView {
+    flex-direction: row;
+
+    .nds-card-header {
+      flex: 0 1;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      justify-content: center;
+    }
+  }
+
+  // Color fill variant (tinted background)
+  &.nds-color {
+    --card-bg: var(--background-success-25);
+    --card-bg-hover: var(--colors-green-50);
+    --card-border: var(--border-success-light);
+    --card-title: var(--colors-green-700);
+
+    @include dark {
+      --card-bg: var(--alpha-success-10);
+      --card-bg-hover: var(--alpha-success-20);
+      --card-border: var(--border-success-light);
+      --card-title: var(--colors-green-400);
+    }
+  }
+
+  &:is(.nds-full-width, .nds-full) {
+    --card-width: 100%;
+  }
+
+  &:is(.nds-center, .nds-statistic) {
+    :is(.nds-card-header, .nds-card-content > *, .nds-card-text > *, .nds-card-tags, .nds-card-actions) {
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+    }
+
+    :is(.nds-card-rating) {
+      flex-direction: column;
+    }
+
+  }
+
+
+  // ==============================================
+  // CARD HEADER SECTION
+  // ==============================================
+
+  .nds-card-header:not([hidden]) {
+    position: relative;
+    display: flex;
+    gap: var(--spacing-md);
+
+    &:is(:has(.nds-close), .nds-rowView) {
+      width: 100%;
+      flex-direction: row;
+      justify-content: space-between;
+    }
+  }
+
+  .nds-card-image:not(.nds-avatar) {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    aspect-ratio: var(--img-ratio, 2 / 1);
+    border-radius: var(--radius-md, 8px);
+    overflow: hidden;
+
+    &::after {
+      --_overlay: var(--overlay, 0);
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(0deg, rgba(9, 42, 30, var(--_overlay)) 0%, rgba(9, 42, 30, var(--_overlay)) 100%);
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    img {
+      max-width: 100%;
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+      object-position: var(--img-pos-x, 50%) var(--img-pos-y, 50%);
+    }
+  }
+
+  &:not(.nds-center, .nds-statistic) .nds-card-featured-icon {
+    align-self: flex-start;
+  }
+
+  // ==============================================
+  // CARD CONTENT SECTION
+  // ==============================================
+
+  .nds-card-content:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--_card-gap);
+    width: 100%;
+    flex: 1;
+  }
+
+  .nds-card-text:not([hidden]) {
+    display: flex;
+    justify-content: flex-start;
+    flex-direction: column;
+    gap: var(--spacing-md, 8px);
+    width: 100%;
+    white-space: wrap;
+    flex: 1;
+
+
+    .nds-card-title {
+      font-size: var(--typo-text-lg-FS);
+      line-height: var(--typo-text-lg-LH);
+      font-weight: 700;
+      color: var(--_card-title);
+      margin: 0;
+      width: 100%;
+    }
+
+    .nds-card-subtitle {
+      font-size: var(--typo-text-md-FS);
+      line-height: var(--typo-text-md-LH);
+      font-weight: 600;
+      color: var(--_card-subtitle);
+      margin: 0;
+      width: 100%;
+    }
+
+
+    .nds-card-description {
+      font-size: var(--typo-text-md-FS);
+      line-height: var(--typo-text-md-LH);
+      font-weight: 400;
+      color: var(--_card-text);
+      margin: 0;
+      width: 100%;
+    }
+  }
+
+  .nds-card-meta:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+    gap: var(--_card-gap);
+    width: 100%;
+  }
+
+  // ==============================================
+  // CARD TAGS SECTION
+  // ==============================================
+
+  .nds-card-tags:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md, 8px);
+    align-items: flex-start;
+  }
+
+  // ==============================================
+  // CARD RATING SECTION
+  // ==============================================
+
+  .nds-card-rating:not([hidden]) {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs, 4px);
+  }
+
+  .nds-card-rating-text {
+    font-size: var(--typo-text-xs-FS);
+    line-height: var(--typo-text-xs-LH);
+    font-weight: 400;
+    color: var(--_card-rating);
+    margin: 0;
+  }
+
+  // ==============================================
+  // CARD CHECKBOX SECTION
+  // ==============================================
+
+  .nds-card-checkbox {
+    position: absolute;
+    top: var(--spacing-xl, 16px);
+    inset-inline-end: var(--spacing-xl, 16px);
+    z-index: 3;
+  }
+
+
+  // ==============================================
+  // CARD Status SECTION
+  // ==============================================
+
+  .nds-card-status {
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+  }
+
+
+  // ==============================================
+  // CARD ACTIONS SECTION
+  // ==============================================
+
+  .nds-card-actions:not([hidden]) {
+    display: flex;
+    gap: var(--spacing-xl, 16px);
+    align-items: flex-start;
+    width: 100%;
+    margin-top: auto;
+    flex-direction: row;
+
+    &.nds-end {
+      justify-content: flex-end;
+    }
+
+  }
+}
+
+// ==============================================
+// CARD FORM SECTION
+// ==============================================
+
+// Form wrapper inside a card — matches card's own flex-column layout so
+// wrapping .nds-card-content / .nds-card-actions in a <form class="nds-form">
+// doesn't break the card's vertical rhythm.
+.nds-card>.nds-form:not([hidden]),
+.nds-card-form:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  gap: var(--_card-gap);
+}
+
+
+// ==============================================
+// CARD VARIANTS
+// ==============================================
+
+// Statistic card variant
+.nds-card.nds-statistic {
+  justify-content: flex-start !important;
+
+  .nds-card-header {
+    align-items: center;
+  }
+
+  .nds-card-featured-icon {
+    align-self: center;
+    margin-bottom: 0;
+  }
+
+  .nds-card-content {
+    align-items: center;
+  }
+
+  .nds-card-text {
+
+    &>* {
+      align-items: center;
+      text-align: center;
+    }
+
+    :is(.nds-card-number, .nds-counter-value, .nds-number-format) {
+      color: var(--_card-number);
+      font-size: var(--typo-display-clamp-lg-FS);
+      line-height: var(--typo-display-clamp-lg-LH);
+      font-weight: 500;
+      letter-spacing: -0.96px;
+      direction: ltr;
+      display: block;
+      width: 100%;
+
+      &.nds-md {
+        font-size: var(--typo-display-clamp-md-FS);
+        line-height: var(--typo-display-clamp-md-LH);
+      }
+
+      &.nds-sm {
+        font-size: var(--typo-display-clamp-sm-FS);
+        line-height: var(--typo-display-clamp-sm-LH);
+      }
+    }
+
+  }
+}
+
+
+// Statistic card variant
+.nds-card.nds-user {
+  --_card-width: var(--card-width, 224px);
+
+  .nds-card-tags {
+    min-height: 48px;
+  }
+}
+
+// ==============================================
+// COLORED CARD VARIANTS
+// ==============================================
+
+.nds-card:not(.nds-oncolor, [disabled]) {
+  &.nds-gold {
+    --card-border-hover: var(--colors-secondary-gold-600);
+    --card-border-active: var(--colors-secondary-gold-400);
+    --card-title: var(--colors-secondary-gold-800);
+    --card-subtitle: var(--colors-secondary-gold-800);
+    --card-number: var(--colors-secondary-gold-800);
+    --icon-bg-color: var(--colors-secondary-gold-100);
+    --icon-color: var(--colors-secondary-gold-800);
+
+    &.nds-color {
+      --card-bg: var(--colors-secondary-gold-50);
+      --card-bg-hover: var(--colors-secondary-gold-100);
+      --card-border: var(--colors-secondary-gold-300);
+    }
+
+    @include dark {
+      --card-title: var(--colors-secondary-gold-400);
+      --card-subtitle: var(--colors-secondary-gold-400);
+      --card-number: var(--colors-secondary-gold-400);
+      --icon-bg-color: var(--alpha-warning-10);
+      --icon-color: var(--colors-secondary-gold-400);
+
+      &.nds-color {
+        --card-bg: var(--alpha-warning-10);
+        --card-bg-hover: var(--alpha-warning-20);
+        --card-border: var(--colors-secondary-gold-700);
+      }
+    }
+  }
+
+  &.nds-neutral {
+    --card-border-hover: var(--colors-neutral-500);
+    --card-border-active: var(--colors-neutral-300);
+    --card-title: var(--colors-neutral-800);
+    --card-subtitle: var(--colors-neutral-600);
+    --card-number: var(--colors-neutral-600);
+    --icon-bg-color: var(--colors-neutral-50);
+    --icon-color: var(--colors-neutral-600);
+
+    &.nds-color {
+      --card-bg: var(--colors-neutral-50);
+      --card-bg-hover: var(--colors-neutral-100);
+      --card-border: var(--colors-neutral-200);
+      --icon-bg-color: var(--colors-neutral-100);
+    }
+
+    @include dark {
+      --card-title: var(--colors-neutral-200);
+      --card-subtitle: var(--colors-neutral-400);
+      --card-number: var(--colors-neutral-400);
+      --icon-bg-color: var(--alpha-white-10);
+      --icon-color: var(--colors-neutral-400);
+
+      &.nds-color {
+        --card-bg: var(--alpha-white-10);
+        --card-bg-hover: var(--alpha-white-20);
+        --card-border: var(--colors-neutral-500);
+      }
+    }
+  }
+
+  &.nds-lavendar {
+    --card-border-hover: var(--colors-tertiary-lavendar-500);
+    --card-border-active: var(--colors-tertiary-lavendar-300);
+    --card-title: var(--colors-tertiary-lavendar-600);
+    --card-subtitle: var(--colors-tertiary-lavendar-600);
+    --card-number: var(--colors-tertiary-lavendar-600);
+    --icon-bg-color: var(--colors-tertiary-lavendar-50);
+    --icon-color: var(--colors-tertiary-lavendar-600);
+
+    &.nds-color {
+      --card-bg: var(--colors-tertiary-lavendar-50);
+      --card-bg-hover: var(--colors-tertiary-lavendar-100);
+      --card-border: var(--colors-tertiary-lavendar-200);
+      --icon-bg-color: var(--alpha-lavender-10);
+    }
+
+    @include dark {
+      --card-title: var(--colors-tertiary-lavendar-300);
+      --card-subtitle: var(--colors-tertiary-lavendar-300);
+      --card-number: var(--colors-tertiary-lavendar-300);
+      --icon-bg-color: var(--alpha-lavender-10);
+      --icon-color: var(--colors-tertiary-lavendar-300);
+
+      &.nds-color {
+        --card-bg: var(--alpha-lavender-10);
+        --card-bg-hover: var(--alpha-lavender-20);
+        --card-border: var(--colors-tertiary-lavendar-500);
+      }
+    }
+  }
+
+  &.nds-yellow {
+    --card-border-hover: var(--colors-yellow-600);
+    --card-border-active: var(--colors-yellow-300);
+    --card-title: var(--colors-yellow-700);
+    --card-subtitle: var(--colors-yellow-700);
+    --card-number: var(--colors-yellow-700);
+    --icon-bg-color: var(--colors-yellow-50);
+    --icon-color: var(--colors-yellow-700);
+
+    &.nds-color {
+      --card-bg: var(--colors-yellow-25);
+      --card-bg-hover: var(--colors-yellow-50);
+      --card-border: var(--colors-yellow-200);
+      --icon-bg-color: var(--colors-yellow-50);
+    }
+
+    @include dark {
+      --card-title: var(--colors-yellow-400);
+      --card-subtitle: var(--colors-yellow-400);
+      --card-number: var(--colors-yellow-400);
+      --icon-bg-color: var(--alpha-warning-10);
+      --icon-color: var(--colors-yellow-400);
+
+      &.nds-color {
+        --card-bg: var(--alpha-warning-10);
+        --card-bg-hover: var(--alpha-warning-20);
+        --card-border: var(--colors-yellow-200);
+      }
+    }
+  }
+
+  &.nds-red {
+    --card-border-hover: var(--colors-red-600);
+    --card-border-active: var(--colors-red-300);
+    --card-title: var(--colors-red-700);
+    --card-subtitle: var(--colors-red-700);
+    --card-number: var(--colors-red-700);
+    --icon-bg-color: var(--colors-red-50);
+    --icon-color: var(--colors-red-700);
+
+    &.nds-color {
+      --card-bg: var(--colors-red-50);
+      --card-bg-hover: var(--colors-red-100);
+      --card-border: var(--colors-red-200);
+      --icon-bg-color: var(--alpha-error-10);
+    }
+
+    @include dark {
+      --card-title: var(--colors-red-400);
+      --card-subtitle: var(--colors-red-400);
+      --card-number: var(--colors-red-400);
+      --icon-bg-color: var(--alpha-error-10);
+      --icon-color: var(--colors-red-400);
+
+      &.nds-color {
+        --card-bg: var(--alpha-error-10);
+        --card-bg-hover: var(--alpha-error-20);
+        --card-border: var(--colors-red-700);
+      }
+    }
+  }
+
+  &.nds-blue {
+    --card-border-hover: var(--colors-blue-600);
+    --card-border-active: var(--colors-blue-300);
+    --card-title: var(--colors-blue-700);
+    --card-subtitle: var(--colors-blue-700);
+    --card-number: var(--colors-blue-700);
+    --icon-bg-color: var(--colors-blue-50);
+    --icon-color: var(--colors-blue-700);
+
+    &.nds-color {
+      --card-bg: var(--colors-blue-50);
+      --card-bg-hover: var(--colors-blue-100);
+      --card-border: var(--colors-blue-200);
+      --icon-bg-color: var(--alpha-info-10);
+    }
+
+    @include dark {
+      --card-title: var(--colors-blue-400);
+      --card-subtitle: var(--colors-blue-400);
+      --card-number: var(--colors-blue-400);
+      --icon-bg-color: var(--alpha-info-10);
+      --icon-color: var(--colors-blue-400);
+
+      &.nds-color {
+        --card-bg: var(--alpha-info-10);
+        --card-bg-hover: var(--alpha-info-20);
+        --card-border: var(--colors-blue-700);
+      }
+    }
+  }
+}
+
+// ==============================================
+// ONCOLOR VARIANT (for dark backgrounds)
+// ==============================================
+
+.nds-card.nds-oncolor {
+  --card-bg: var(--alpha-white-10);
+  --card-bg-hover: var(--alpha-white-20);
+  --card-border: var(--alpha-white-20);
+  --card-border-hover: var(--alpha-white-40);
+  --card-border-active: var(--alpha-white-30);
+  --card-text: var(--text-oncolor-primary);
+  --card-title: var(--text-oncolor-primary);
+  --card-subtitle: var(--text-oncolor-secondary);
+  --card-number: var(--text-oncolor-primary);
+  --icon-bg-color: var(--alpha-white-10);
+  --icon-color: var(--featuredicons-icon-oncolor);
+  --card-rating: var(--alpha-white-80);
+}
+
+
+// ==============================================
+// INTERACTIVE STATES
+// ==============================================
+
+.nds-card:is(a, button) {
+  cursor: pointer;
+
+  &:hover {
+    background-color: var(--_card-bg-hover);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  // Shadow variant interactive states
+  &.nds-shadow {
+    &:hover {
+      box-shadow: var(--shadow-lg);
+    }
+
+    &:active {
+      box-shadow: var(--shadow-md);
+    }
+  }
+
+  // Stroke variant interactive states
+  &.nds-stroke {
+    &:hover {
+      border-color: var(--_card-border-hover);
+    }
+
+    &:active {
+      border-color: var(--_card-border-active);
+    }
+  }
+}
+
+// ==============================================
+// DISABLED STATE
+// ==============================================
+
+.nds-card:is([disabled], .nds-disabled) {
+  --_card-bg: var(--background-disabled);
+  --_card-text: var(--text-default-disabled);
+  --_card-title: var(--text-default-disabled);
+  --_card-subtitle: var(--text-default-disabled);
+  --_card-number: var(--text-default-disabled);
+  --_card-border: var(--border-disabled);
+  --_card-icon: var(--icon-default-400);
+  --_card-icon-bg: var(--background-inverse-disabled);
+  --icon-color: var(--icon-default-400);
+  --icon-bg-color: var(--background-inverse-disabled);
+  --_card-rating: var(--text-default-disabled);
+  box-shadow: none;
+  pointer-events: none;
+
+  :is(.nds-card-image, .nds-card-meta, .nds-card-actions) {
+    opacity: 0.5;
+  }
+}

@@ -1,0 +1,252 @@
+/**
+ * NDS Tags Component - SCSS Version
+ * Tag components with multiple variants and states
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// BASE TAG STYLES
+// ==============================================
+
+.nds-tag {
+  // Private custom properties with public override capability
+  --_bg: var(--tag-bg, var(--tag-background-neutral-light));
+  --_text: var(--tag-text, var(--tag-text-neutral));
+  --_border: var(--tag-border, var(--tag-border-neutral-light));
+  --_icon: var(--tag-icon, var(--tag-icon-neutral));
+  --_tag-height: var(--tag-height, 32px);
+  --_tag-fs: var(--tag-fs, var(--typo-text-md-FS));
+  --_tag-padding-inline: var(--tag-padding-inline, var(--spacing-xl));
+  --_tag-dot-size: var(--tag-dot-size, 10px);
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  font-weight: 500;
+  font-size: var(--_tag-fs);
+  line-height: var(--_tag-height);
+  height: var(--_tag-height);
+  min-width: fit-content;
+  white-space: nowrap;
+  border-radius: var(--radius-sm);
+  position: relative;
+  padding: var(--spacing-none) var(--_tag-padding-inline);
+  background-color: var(--_bg);
+  color: var(--_text);
+  border: 1px solid var(--_border);
+
+  .nds-label{
+    display: flex;
+    align-items: center;
+  }
+
+  // ==============================================
+  // SIZE VARIATIONS
+  // ==============================================
+
+  &.nds-sm {
+    --tag-height: 24px;
+    --tag-fs: var(--typo-text-sm-FS);
+    --tag-padding-inline: var(--spacing-md);
+  }
+
+  &.nds-xs {
+    --tag-height: 20px;
+    --tag-fs: var(--typo-text-xs-FS);
+    --tag-padding-inline: var(--spacing-md);
+  }
+
+  // ==============================================
+  // ICON SUPPORT
+  // ==============================================
+
+  :is(.nds-icon, i) {
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--_icon);
+  }
+
+  &.nds-icon-only {
+    aspect-ratio: 1;
+    width: var(--_tag-height);
+    padding: var(--spacing-none) var(--spacing-xxs);
+    justify-content: center;
+
+    .nds-label {
+      display: none !important;
+    }
+  }
+
+  // ==============================================
+  // COLOR VARIANTS
+  // ==============================================
+
+  &:is(.nds-gray:where(:not([data-status])), [data-status="neutral"]) {
+    --tag-bg: var(--tag-background-neutral-light);
+    --tag-text: var(--tag-text-neutral);
+    --tag-border: var(--tag-border-neutral-light);
+    --tag-icon: var(--tag-icon-neutral);
+
+    &.nds-inverted {
+      --tag-bg: var(--tag-background-neutral);
+      --tag-text: var(--text-oncolor-primary);
+      --tag-border: transparent;
+      --tag-icon: var(--tag-dot);
+    }
+
+    &.nds-outline {
+      --tag-bg: transparent;
+      --tag-border: var(--tag-border-neutral);
+      --tag-text: var(--tag-text-neutral);
+    }
+  }
+
+  &:is(.nds-green:where(:not([data-status])), [data-status="success"]) {
+    --tag-bg: var(--tag-background-success-light);
+    --tag-text: var(--tag-text-success);
+    --tag-border: var(--tag-border-success-light);
+    --tag-icon: var(--tag-icon-success);
+
+    &.nds-inverted {
+      --tag-bg: var(--tag-background-success);
+      --tag-text: var(--text-oncolor-primary);
+      --tag-border: transparent;
+      --tag-icon: var(--tag-dot);
+    }
+
+    &.nds-outline {
+      --tag-bg: transparent;
+      --tag-border: var(--tag-border-success);
+      --tag-text: var(--tag-text-success);
+    }
+  }
+
+  &:is(.nds-blue:where(:not([data-status])), [data-status="info"]) {
+    --tag-bg: var(--tag-background-info-light);
+    --tag-text: var(--tag-text-info);
+    --tag-border: var(--tag-border-info-light);
+    --tag-icon: var(--tag-icon-info);
+
+    &.nds-inverted {
+      --tag-bg: var(--tag-background-info);
+      --tag-text: var(--text-oncolor-primary);
+      --tag-border: transparent;
+      --tag-icon: var(--tag-dot);
+    }
+
+    &.nds-outline {
+      --tag-bg: transparent;
+      --tag-border: var(--tag-border-info);
+      --tag-text: var(--tag-text-info);
+    }
+  }
+
+  &:is(.nds-yellow:where(:not([data-status])), [data-status="warning"]) {
+    --tag-bg: var(--tag-background-warning-light);
+    --tag-text: var(--tag-text-warning);
+    --tag-border: var(--tag-border-warning-light);
+    --tag-icon: var(--tag-icon-warning);
+
+    &.nds-inverted {
+      --tag-bg: var(--tag-background-warning);
+      --tag-text: var(--text-oncolor-primary);
+      --tag-border: transparent;
+      --tag-icon: var(--tag-dot);
+    }
+
+    &.nds-outline {
+      --tag-bg: transparent;
+      --tag-border: var(--tag-border-warning);
+      --tag-text: var(--tag-text-warning);
+    }
+  }
+
+  &:is(.nds-red:where(:not([data-status])), [data-status="error"]) {
+    --tag-bg: var(--tag-background-error-light);
+    --tag-text: var(--tag-text-error);
+    --tag-border: var(--tag-border-error-light);
+    --tag-icon: var(--tag-icon-error);
+
+    &.nds-inverted {
+      --tag-bg: var(--tag-background-error);
+      --tag-text: var(--text-oncolor-primary);
+      --tag-border: transparent;
+      --tag-icon: var(--tag-dot);
+    }
+
+    &.nds-outline {
+      --tag-bg: transparent;
+      --tag-border: var(--tag-border-error);
+      --tag-text: var(--tag-text-error);
+    }
+  }
+
+  &.nds-oncolor {
+    --tag-bg: var(--tag-background-on-color);
+    --tag-text: var(--text-oncolor-primary);
+    --tag-border: transparent;
+    --tag-icon: var(--text-oncolor-primary);
+
+    &.nds-outline {
+      --tag-bg: transparent;
+      --tag-border: var(--tag-border-on-color);
+      --tag-text: var(--text-oncolor-primary);
+    }
+  }
+
+
+  // ==============================================
+  // GHOST VARIANT
+  // ==============================================
+
+  &.nds-ghost {
+    --tag-bg: transparent;
+    --tag-border: transparent;
+    --tag-text: var(--tag-text-neutral);
+  }
+
+  // ==============================================
+  // STATUS VARIANT
+  // ==============================================
+
+  &[data-status] {
+    border-radius: 999px;
+    --tag-border: transparent;
+
+    .nds-label {
+      &::before {
+        content: "";
+        display: inline-block;
+        width: var(--_tag-dot-size);
+        height: var(--_tag-dot-size);
+        border-radius: 50%;
+        background-color: var(--_icon);
+        margin-inline-end: var(--spacing-md);
+      }
+    }
+  }
+
+  // ==============================================
+  // ROUNDED VARIANT
+  // ==============================================
+
+  &.nds-rounded {
+    border-radius: 999px;
+  }
+
+}
+
+// ==============================================
+// TAG GROUP
+// ==============================================
+
+.nds-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-sm);
+  align-items: flex-start;
+}

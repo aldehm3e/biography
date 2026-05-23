@@ -1,0 +1,131 @@
+/**
+ * NDS Modal Component - SCSS Version
+ * Modal dialog built on top of the card component with backdrop overlay
+ *
+ * Features:
+ * - Uses existing .nds-card component structure
+ * - Close button in card-header (top-right LTR, top-left RTL)
+ * - Backdrop overlay with blur effect
+ * - Smooth fade/scale animations
+ * - Size variants: SM (400px), MD (600px), LG (800px), Full
+ * - Responsive: Full-screen on mobile
+ * - Accessibility: Focus trap, ESC key, ARIA attributes
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// MODAL CONTAINER (extends card)
+// ==============================================
+
+// Note: Backdrop styles moved to _backdrop.scss
+// Modal now uses the unified NDSBackdrop API
+
+.nds-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1101;
+  max-height: 80svh;
+  height: fit-content;
+  margin: auto;
+  overflow: visible;
+  transition: transform var(--nds-transition), opacity var(--nds-transition);
+  opacity: 1;
+
+  // Extend card component styles
+  &.nds-card {
+    max-width: 600px;
+    width: calc(100% - var(--spacing-xl) * 2);
+    overflow-y: auto;
+
+    // Desktop: centered with margin auto
+    transform: translateY(0);
+
+    // Closing state - fade out on desktop
+    &[data-state="closing"] {
+      opacity: 0;
+    }
+
+    // Mobile: bottom sheet animation
+    @include mobile {
+      width: 100%;
+      max-width: 100%;
+      margin: 0;
+      inset: auto 0 0 0;
+      border-radius: var(--components-card-radius) var(--components-card-radius) 0 0;
+      min-height: 256px;
+      // Initial state - off screen at bottom
+      transform: translateY(100%);
+      opacity: 1;
+
+      .nds-card-actions {
+        flex-direction: column;
+        gap: var(--spacing-lg, 12px);
+
+        .nds-btn {
+          width: 100%;
+
+          .nds-label {
+            text-align: center;
+          }
+        }
+      }
+
+      // When modal is shown - slide up
+      &[data-state="open"] {
+        transform: translateY(0);
+      }
+
+      // When closing - slide back down
+      &[data-state="closing"] {
+        transform: translateY(100%);
+      }
+    }
+  }
+
+}
+
+// ==============================================
+// SIZE VARIANTS
+// ==============================================
+
+.nds-modal.nds-sm {
+  max-width: 400px;
+
+  @include mobile {
+    max-width: 100%;
+  }
+}
+
+.nds-modal.nds-md {
+  max-width: 600px;
+}
+
+.nds-modal.nds-lg {
+  max-width: 800px;
+}
+
+.nds-modal.nds-full {
+  max-width: calc(100vw - var(--spacing-10xl));
+
+  @include mobile {
+    max-width: 100%;
+  }
+}
+
+// ==============================================
+// ACCESSIBILITY
+// ==============================================
+
+// Note: Body scroll lock moved to _backdrop.scss (body[data-state="backdrop"])
+
+// Focus trap styles
+.nds-modal[role="dialog"] {
+  &:focus {
+    outline: none;
+  }
+}
+
+.nds-modal {
+  cursor: default;
+}

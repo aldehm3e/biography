@@ -1,0 +1,234 @@
+@use '../mixins' as *;
+
+/* ── Content layout ── */
+
+main {
+    overflow-x: clip;
+    flex: 1;
+    display: grid;
+    align-content: start;
+}
+
+.nds-content-layout {
+    --_layout-min-height: var(--layout-min-height, 400px);
+    --_layout-gap: var(--layout-gap, 0);
+    --_main-padding-block: var(--main-padding-block, 0);
+    --_main-padding-inline: var(--main-padding-inline, 0);
+    --_main-gap: var(--main-gap, 0);
+
+    position: relative;
+    min-height: var(--_layout-min-height);
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: var(--_layout-gap);
+    width: 100%;
+
+    @include desktop(min) {
+        &.nds-wSideMenu {
+            grid-template-columns: var(--nds-sidemenu-width) 1fr;
+        }
+    }
+
+    .nds-main-content {
+        display: flex;
+        flex-wrap: wrap;
+        align-content: stretch;
+        position: relative;
+        padding-block: var(--_main-padding-block);
+        padding-inline: var(--_main-padding-inline);
+        gap: var(--_main-gap);
+        min-width: 0;
+    }
+
+    /* ── Middle (centered/hero) ── */
+
+    &.nds-middle {
+        --layout-min-height: 100dvh;
+        align-items: center;
+        justify-content: center;
+
+        &.nds-content-wrapper {
+            padding: var(--nds-viewport-padding);
+        }
+
+        .nds-main-content {
+            justify-content: center;
+        }
+    }
+
+    /* ── Edge-to-edge ── */
+
+    &.nds-toEdge {
+        --nds-content-MaxWidth: 100%;
+        --layout-gap: 0;
+        padding: 0;
+        height: 100%;
+
+        &:is(.nds-wSideMenu, .nds-wSideInfo) .nds-main-content {
+            --main-padding-block: 0;
+            --main-padding-inline: 0;
+            --main-gap: 0;
+        }
+    }
+
+    /* ── No sidebar ── */
+
+    &:not(.nds-wSideMenu, .nds-wSideInfo) {
+        @include desktop(min) {
+            --section-padding-block: var(--spacing-7xl);
+        }
+
+        &:not(.nds-cardView) .nds-user-feedback-section {
+            --section-padding-block: var(--spacing-5xl);
+        }
+
+        .nds-main-content {
+            section.nds-noBg {
+                --section-margin-block-start: var(--spacing-5xl);
+            }
+
+            section.nds-noBg:first-of-type {
+                --section-margin-block-start: 0;
+            }
+
+            section.nds-noBg:not(:has(+ .nds-noBg)) {
+                --section-margin-block-end: var(--spacing-5xl);
+            }
+        }
+
+        >aside {
+            display: none !important;
+        }
+    }
+
+    /* ── Post layout ── */
+
+    &.nds-post .nds-main-content section:first-of-type {
+        --section-padding-block-start: 0;
+    }
+
+    /* ── Card view ── */
+
+    &.nds-cardView {
+        --section-padding-block: var(--nds-viewport-padding);
+        --layout-gap: var(--spacing-xl);
+        --main-padding-block: var(--spacing-xl);
+        --main-gap: var(--spacing-4xl);
+
+        @include desktop(min) {
+            --main-padding-block: 0;
+            padding-inline: var(--nds-viewport-padding);
+            padding-block: var(--spacing-xl);
+        }
+
+        .nds-main-content {
+            section:not(.nds-hero-section, .nds-ghost) {
+                --section-shadow: var(--shadow-md);
+                --section-border-radius: var(--radius-md);
+                max-width: var(--nds-content-MaxWidth);
+                margin-inline: auto;
+                padding-inline: var(--nds-viewport-padding);
+
+                @include tablet(max) {
+                    margin-inline: var(--nds-viewport-padding) !important;
+                    max-width: calc(100% - var(--nds-viewport-padding) * 2);
+                }
+            }
+        }
+
+        .nds-content-section {
+            --section-title-FS: var(--typo-display-clamp-sm-FS);
+            --section-title-LH: var(--typo-display-clamp-sm-LH);
+            --section-title-MB: var(--typo-display-clamp-sm-MB);
+        }
+
+        .nds-content-section.nds-ghost {
+            --section-padding-block: 0;
+
+            @include desktop(min) {
+                --_wrapper-padding: 0;
+            }
+
+            @include tablet(max) {
+                --_wrapper-padding: 0;
+
+                :has(>.nds-section-body>.nds-card),
+                .nds-section-body:has(>.nds-card) {
+                    padding-inline: var(--nds-viewport-padding);
+                }
+
+                .nds-section-head {
+                    padding-inline: var(--nds-viewport-padding);
+                }
+            }
+        }
+    }
+
+    /* ── Side menu layout ── */
+
+    &:is(.nds-wSideMenu) {
+        .nds-content-section {
+            @include desktop(min) {
+                --section-shadow: var(--shadow-md);
+            }
+
+            @include tablet(max) {
+                &:first-child {
+                    --section-padding-block-start: var(--spacing-4xl);
+                }
+
+                &:first-child:is(.nds-hero-section) {
+                    --section-padding-block-start: var(--spacing-6xl);
+                }
+            }
+        }
+    }
+
+    @include desktop(min) {
+        &:is(.nds-wSideMenu):not(.nds-toEdge) {
+            margin-inline: auto;
+            padding-inline: max(var(--nds-viewport-padding), calc((100% - var(--nds-content-MaxWidth)) / 2));
+        }
+    }
+
+    /* ── Section striping ── */
+
+    @mixin _section-striping {
+        .nds-content-section:not(.nds-user-feedback-section, .nds-primary, .nds-green, .nds-gradient-green, .nds-neutral, .nds-brand):nth-of-type(even) {
+            --section-bg: var(--background-stripe);
+        }
+    }
+
+    &:not(.nds-wSideMenu, .nds-cardView) .nds-main-content {
+        @include _section-striping;
+    }
+
+    &:not(.nds-cardView):is(.nds-wSideMenu) .nds-main-content {
+        @include tablet(max) {
+            @include _section-striping;
+        }
+    }
+
+    /* ── Mobile ── */
+
+    @include mobile {
+        --layout-gap: 0 !important;
+    }
+}
+
+/* ── Content wrapper ── */
+
+:is(.nds-content-wrapper, .nds-hero-section, .nds-content-section) {
+    --_wrapper-padding: max(var(--nds-viewport-padding), calc((100% - var(--nds-content-MaxWidth)) / 2));
+    width: 100%;
+    padding-inline: var(--_wrapper-padding);
+
+    .nds-full-width {
+        width: 100vw !important;
+        margin-inline: calc(50% - 50vw);
+    }
+
+    .nds-max-width {
+        margin-inline: calc(var(--_wrapper-padding) * -1);
+    }
+}

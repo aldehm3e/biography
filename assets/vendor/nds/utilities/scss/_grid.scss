@@ -1,0 +1,71 @@
+/* ── Grid system ── */
+@use './mixins' as *;
+
+.nds-grid {
+  // Reset public props so they don't inherit from an ancestor grid.
+  --max-col: initial;
+  --mid-col: initial;
+  --min-col: initial;
+  --max-track: initial;
+  --mid-track: initial;
+  --min-track: initial;
+  --min-width: initial;
+
+  --_gap-min: var(--spacing-md);
+  --_cols: var(--max-col, auto-fit);
+  --_tracks: var(--max-track);
+  --_row-gap: var(--row-gap, var(--gap, var(--spacing-2xl)));
+  --_col-gap: var(--col-gap, var(--gap, var(--spacing-2xl)));
+
+  &:not([hidden]) {
+    display: grid !important;
+    grid-template-columns: var(--_tracks, repeat(var(--_cols), minmax(var(--min-width, 0), 1fr)));
+  }
+
+  row-gap: var(--_row-gap);
+  column-gap: var(--_col-gap);
+  justify-items: var(--justify, stretch);
+  align-items: var(--align, start);
+  width: 100%;
+  height: stretch;
+
+  > * {
+    max-width: 100% !important;
+    min-width: 0;
+    height: 100%;
+  }
+
+  @include tablet(max) {
+    --_cols: var(--mid-col, var(--max-col, auto-fit));
+    --_tracks: var(--mid-track, var(--max-track));
+    --_row-gap: max(var(--_gap-min), calc(var(--row-gap, var(--gap, var(--spacing-4xl)/ 2))));
+    --_col-gap: max(var(--_gap-min), calc(var(--col-gap, var(--gap, var(--spacing-4xl)/ 2))));
+  }
+
+  @include mobile {
+    --_cols: var(--min-col, var(--mid-col, var(--max-col, auto-fit)));
+    --_tracks: var(--min-track, var(--mid-track, var(--max-track)));
+  }
+
+  /* Container query overrides — progressive enhancement on top of media queries.
+     Unnamed @container finds the nearest container ancestor: a block when the
+     grid is inside one (e.g. inner grid), the section-wrapper otherwise (e.g.
+     outer grid directly in section-body). When no container ancestor exists
+     at all, these rules are ignored and the @media rules above remain the
+     fallback. */
+  @container (width <= 768px) {
+    --_cols: var(--mid-col, var(--max-col, auto-fit));
+    --_tracks: var(--mid-track, var(--max-track));
+    --_row-gap: max(var(--_gap-min), calc(var(--row-gap, var(--gap, var(--spacing-4xl))) / 2));
+    --_col-gap: max(var(--_gap-min), calc(var(--col-gap, var(--gap, var(--spacing-4xl))) / 2));
+  }
+
+  @container (width <= 480px) {
+    --_cols: var(--min-col, var(--mid-col, var(--max-col, auto-fit)));
+    --_tracks: var(--min-track, var(--mid-track, var(--max-track)));
+  }
+
+  &.nds-center {
+    --justify: center;
+  }
+}

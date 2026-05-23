@@ -1,0 +1,56 @@
+/* ========================================
+   COOKIE POPUP COMPONENT
+   Composes on .nds-card for background, padding, typography, and layout.
+   Only popup-specific overlay behavior lives here.
+   ======================================== */
+
+@use '../mixins' as *;
+
+.nds-cookie-popup.nds-card {
+    --card-width: 100%;
+    --card-padding: var(--spacing-3xl);
+    --card-gap: var(--spacing-lg);
+    --card-radius: var(--components-card-radius) var(--components-card-radius) 0 0;
+
+    &:not([hidden]) {
+        position: fixed;
+        bottom: 0;
+        inset-inline: 0;
+        box-shadow: var(--shadow-md-top);
+        z-index: 1000;
+        animation: slideUp var(--nds-transition);
+
+        @include reduced-motion {
+            animation: none;
+        }
+    }
+
+    &.nds-compact {
+        @include tablet('min') {
+            --card-radius: var(--components-card-radius);
+            --card-width: calc(100% - var(--spacing-4xl));
+            --card-width-max: 480px;
+            margin-inline: auto;
+            bottom: var(--spacing-3xl);
+        }
+    }
+
+    .nds-card-actions {
+        flex-direction: column;
+    }
+}
+
+.nds-cookie-popup-links {
+    display: flex;
+    gap: var(--spacing-lg);
+
+    a {
+        color: var(--text-primary);
+        text-decoration: none;
+
+        &:hover {
+            color: var(--text-default);
+            text-decoration: underline;
+        }
+    }
+}

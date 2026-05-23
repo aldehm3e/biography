@@ -1,0 +1,234 @@
+// Time & Date - Simplified with Core Functions
+(() => {
+    'use strict';
+
+    // Helper to get Saudi Arabia date (GMT+3) — embedded into every cache
+    // key below so a tab that crosses midnight automatically reads the
+    // new day's entry instead of stale data.
+    function getSaudiDate() {
+        return new Date().toLocaleDateString('en-CA', {
+            timeZone: 'Asia/Riyadh'
+        });
+    }
+
+    // Cached payloads live in localStorage, which any same-origin script can
+    // overwrite. Cache primitives only; render imperatively at the consumer
+    // so attacker-controlled bytes can't reach the HTML parser. Pattern
+    // matches `_js/nds-cityWeather.js` post-fix.
+    function renderDate(parent, content) {
+        while (parent.firstChild) parent.removeChild(parent.firstChild);
+        const icon = document.createElement('i');
+        icon.className = 'nds-icon nds-hgi-calendar-03';
+        icon.setAttribute('aria-hidden', 'true');
+        const span = document.createElement('span');
+        span.className = 'text';
+        span.textContent = content;
+        parent.appendChild(icon);
+        parent.appendChild(span);
+    }
+
+    // Hijri date with efficient dual-language caching
+    async function getHijriDate(isArabic, returnStructured = false) {
+        const today = getSaudiDate();
+        const arabicKey = `hijri_ar_${today}`;
+        const englishKey = `hijri_en_${today}`;
+        const dataKey = `hijri_data_${today}`;
+
+        // Check if we already have all three cached. Keys embed today, so
+        // day-boundary invalidation is handled by the cache-miss path.
+        const arabicCached = NDS.cache.get(arabicKey);
+        const englishCached = NDS.cache.get(englishKey);
+        const dataCached = NDS.cache.get(dataKey);
+
+        //console.log('Cache check:', { arabicCached: !!arabicCached, englishCached: !!englishCached, dataCached: !!dataCached });
+
+        if (arabicCached && englishCached && dataCached) {
+           /*  console.log('All cached - arabicCached:', arabicCached);
+            console.log('All cached - englishCached:', englishCached);
+            console.log('All cached - dataCached:', dataCached); */
+            return returnStructured ? dataCached : (isArabic ? arabicCached : englishCached);
+        }
+
+        try {
+            const now = new Date();
+            const dateStr = `${now.getDate().toString().padStart(2, '0')}-${(now.getMonth() + 1).toString().padStart(2, '0')}-${now.getFullYear()}`;
+            
+            const response = await fetch(
+                `https://api.aladhan.com/v1/gToH/${dateStr}`,
+                { signal: AbortSignal.timeout(5000) }
+            );
+
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+            const data = await response.json();
+
+            if (data.code === 200) {
+                const hijri = data.data.hijri;
+                
+                // Create both language versions from single API response
+                const arabicDate = `${hijri.day} ${hijri.month.ar} ${hijri.year} هـ`;
+                const englishDate = `${hijri.day} ${hijri.month.en} ${hijri.year} AH`;
+                
+                // Create structured data
+                const hijriData = {
+                    day: parseInt(hijri.day),
+                    month: parseInt(hijri.month.number),
+                    year: parseInt(hijri.year)
+                };
+                
+                // Cache all three for 24 hours
+                NDS.cache.set(arabicKey, arabicDate, 24 * 60);
+                NDS.cache.set(englishKey, englishDate, 24 * 60);
+                NDS.cache.set(dataKey, hijriData, 24 * 60);
+                
+                return returnStructured ? hijriData : (isArabic ? arabicDate : englishDate);
+            }
+            throw new Error('Invalid API response');
+        } catch (error) {
+            // Fallback to browser calculation
+            const date = new Date();
+            if (isArabic) {
+                const hijri = new Intl.DateTimeFormat('ar-TN-u-ca-islamic', {
+                    day: 'numeric', month: 'long', year: 'numeric'
+                }).format(date);
+                return hijri.includes('هـ') ? hijri : `${hijri} هـ`;
+            } else {
+                const hijri = new Intl.DateTimeFormat('en-US-u-ca-islamic', {
+                    day: 'numeric', month: 'long', year: 'numeric'
+                }).format(date);
+                return hijri.includes('AH') ? hijri : `${hijri} AH`;
+            }
+        }
+    }
+
+    // Date function with caching
+    async function updateDate() {
+        const el = document.getElementById('nds-date');
+        if (!el) return;
+
+        const isArabic = NDS.isArabic;
+        const today = getSaudiDate();
+        const type = el.dataset?.calendar || (isArabic ? 'hijri' : 'gregorian');
+        // v2 key: cache shape changed from HTML string to primitive content.
+        const cacheKey = `date_v2_${type}_${isArabic}_${today}`;
+
+        // Check cache first (24 hours)
+        const cached = NDS.cache.get(cacheKey);
+        if (typeof cached === 'string' && cached) {
+            renderDate(el, cached);
+            el.style.display = '';
+            return;
+        }
+
+        let content;
+
+        if (type === 'hijri') {
+            content = await getHijriDate(isArabic);
+        } else {
+            // Gregorian date
+            const locale = isArabic ? 'ar-SA' : 'en-US';
+            content = new Intl.DateTimeFormat(locale, {
+                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+            }).format(new Date());
+        }
+
+        if (content) {
+            renderDate(el, content);
+            el.style.display = '';
+
+            // Cache for 24 hours (primitive content, not HTML)
+            NDS.cache.set(cacheKey, content, 24 * 60);
+        } else {
+            el.style.display = 'none';
+        }
+    }
+
+    // Clock — build the icon + span once, then only mutate the cached
+    // text node on each tick. Displays h:mm AM/PM (no seconds): topbar
+    // clocks don't need second-by-second precision, and ticking once per
+    // minute (aligned to the minute boundary) cuts DOM work 60× vs a
+    // per-second setInterval.
+    let clockText = null;
+    let clockTimer = null;
+
+    function ensureClockDOM() {
+        if (clockText) return true;
+        const el = document.getElementById('nds-realTimeClock');
+        if (!el) return false;
+        const icon = document.createElement('i');
+        icon.className = 'nds-icon nds-hgi-clock-01';
+        icon.setAttribute('aria-hidden', 'true');
+        clockText = document.createTextNode('');
+        const span = document.createElement('span');
+        span.className = 'text';
+        span.appendChild(clockText);
+        el.replaceChildren(icon, span);
+        return true;
+    }
+
+    function updateClock() {
+        if (!ensureClockDOM()) return;
+        const now = new Date();
+        const h = now.getHours();
+        const m = now.getMinutes();
+        clockText.nodeValue = `${h % 12 || 12}:${m.toString().padStart(2, '0')} ${h >= 12 ? 'PM' : 'AM'}`;
+    }
+
+    function scheduleNextMinute() {
+        const now = new Date();
+        const msUntilNext = (60 - now.getSeconds()) * 1000 - now.getMilliseconds();
+        clockTimer = setTimeout(() => {
+            updateClock();
+            scheduleNextMinute();
+        }, msUntilNext);
+    }
+
+    function startClock() {
+        if (clockTimer) return;
+        updateClock();
+        scheduleNextMinute();
+    }
+
+    function stopClock() {
+        if (!clockTimer) return;
+        clearTimeout(clockTimer);
+        clockTimer = null;
+    }
+
+    function initializeTimeDate() {
+        const dateEl = document.getElementById('nds-date');
+        const clockEl = document.getElementById('nds-realTimeClock');
+
+        if (dateEl) {
+            // Defer the initial fetch to an idle slot — on cache miss
+            // updateDate hits api.aladhan.com, and we don't want that
+            // racing critical resources during post-DCL hydration. The
+            // 24h interval and lang-change handler still run inline so
+            // they respond promptly when triggered.
+            NDS.onIdle(updateDate);
+            setInterval(updateDate, 24 * 60 * 60 * 1000);
+            NDS.onAttrChange('html', ['lang'], updateDate);
+        }
+
+        if (clockEl) {
+            // Skip the tick loop while the tab is hidden — no point burning
+            // per-second DOM mutations no one can see. On resume, startClock()
+            // ticks immediately so the time isn't a second stale.
+            if (!document.hidden) startClock();
+            document.addEventListener('visibilitychange', () => {
+                document.hidden ? stopClock() : startClock();
+            });
+        }
+    }
+
+    if (typeof window !== 'undefined') {
+        NDS.TimeDate = {
+            init: initializeTimeDate,
+            getHijriDate,
+            updateDate,
+            updateClock
+        };
+    }
+
+    // Note: Initialization now handled by nds-loader.js unified system
+
+})();

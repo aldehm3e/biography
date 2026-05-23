@@ -1,0 +1,192 @@
+/**
+ * NDS Feedback Component - SCSS Version
+ * Standalone feedback messages with status-based styling
+ * Uses data-status attribute for error, success, warning, info states
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// STANDALONE FEEDBACK COMPONENT
+// ==============================================
+
+.nds-feedback {
+    align-items: center;
+    font-size: var(--typo-text-sm-FS);
+    line-height: var(--typo-text-sm-LH);
+    font-weight: 500;
+    gap: var(--spacing-sm);
+
+    // Show when status is set (on self or parent) or no status
+    &:not([hidden]):not([data-status]),
+    &[data-status]:not([hidden]),
+    [data-status] &:not([hidden]) {
+        display: flex;
+    }
+
+    // ==============================================
+    // TEXT COLOR (scoped to .nds-feedback — `color` inherits to every
+    // descendant, so it must not be set on the ancestor `[data-status]`)
+    // ==============================================
+
+    &[data-status="error"],   [data-status="error"] &   { color: var(--text-error); }
+    &[data-status="success"], [data-status="success"] & { color: var(--text-success); }
+    &[data-status="warning"], [data-status="warning"] & { color: var(--text-warning); }
+    &[data-status="info"],    [data-status="info"] &    { color: var(--text-info); }
+
+    // Neutral/help dark-mode tweaks depend on .nds-outline modifier, so
+    // they stay scoped inside .nds-feedback rather than on the generic
+    // [data-status="..."] rule below.
+    &:is([data-status="neutral"], [data-status="help"]),
+    :is([data-status="neutral"], [data-status="help"]) & {
+        &:not(.nds-outline) .nds-feedback-icon {
+            @include dark {
+                --feedback-ring: var(--colors-neutral-900);
+            }
+        }
+
+        &.nds-outline .nds-feedback-icon {
+            @include dark {
+                --feedback-color: var(--colors-neutral-300);
+            }
+        }
+    }
+
+    // ==============================================
+    // SIZE VARIANTS
+    // ==============================================
+
+    &.nds-sm {
+        --feedback-size: 16px;
+    }
+
+    &.nds-md {
+        --feedback-size: 24px;
+        font-size: var(--typo-text-md-FS);
+        line-height: var(--typo-text-md-LH);
+    }
+
+    .nds-feedback-message {
+        flex: 1;
+    }
+}
+
+// ==============================================
+// INHERITED STATUS — feedback-icon tokens cascade from any ancestor
+// with [data-status]. Mirrors the featured-icon pattern.
+// --feedback-* tokens are only consumed by .nds-feedback-icon (verified),
+// so setting them broadly is safe. The nested `.nds-feedback-icon
+// .nds-icon` rule scopes the `--nds-icon` shape swap to feedback chips
+// only (`--nds-icon` is universal and would bleed if set bare).
+// ==============================================
+
+[data-status="error"] {
+    --feedback-bg: var(--background-error);
+    --feedback-color: var(--icon-error);
+    --feedback-ring: var(--icon-error-ring);
+
+    .nds-feedback-icon .nds-icon { --nds-icon: var(--nds-icon-cancel-circle); }
+}
+
+[data-status="success"] {
+    --feedback-bg: var(--background-success);
+    --feedback-color: var(--icon-success);
+    --feedback-ring: var(--icon-success-ring);
+
+    .nds-feedback-icon .nds-icon { --nds-icon: var(--nds-icon-checkmark-circle-02); }
+}
+
+[data-status="warning"] {
+    --feedback-bg: var(--background-warning);
+    --feedback-color: var(--icon-warning);
+    --feedback-ring: var(--icon-warning-ring);
+
+    .nds-feedback-icon .nds-icon { --nds-icon: var(--nds-icon-alert-circle); }
+}
+
+[data-status="info"] {
+    --feedback-bg: var(--background-info);
+    --feedback-color: var(--icon-info);
+    --feedback-ring: var(--icon-info-ring);
+}
+
+:is([data-status="neutral"], [data-status="help"]) {
+    --feedback-bg: var(--icon-neutral);
+    --feedback-color: var(--icon-neutral);
+    --feedback-ring: var(--icon-neutral-ring);
+}
+
+[data-status="help"] {
+    .nds-feedback-icon .nds-icon { --nds-icon: var(--nds-icon-help-circle); }
+}
+
+// ==============================================
+// FEEDBACK ICON (always inside .nds-feedback)
+// ==============================================
+
+.nds-feedback-icon {
+    --_feedback-size: var(--feedback-size, 24px);
+    --_feedback-bg: var(--feedback-bg, var(--icon-neutral));
+    --_feedback-color: var(--feedback-color, var(--icon-neutral));
+    --_feedback-ring: var(--feedback-ring, var(--icon-neutral-ring));
+
+    @include dark {
+        --_feedback-bg: var(--feedback-bg, var(--icon-neutral));
+        --_feedback-ring: var(--feedback-ring, var(--colors-neutral-900));
+    }
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    border-radius: 50%;
+    position: relative;
+    width: var(--_feedback-size);
+    height: var(--_feedback-size);
+    font-size: var(--_feedback-size);
+    line-height: var(--_feedback-size);
+    padding: 0;
+    border: unset;
+    background-color: var(--_feedback-bg);
+    color: var(--_feedback-color);
+
+    & i {
+        position: relative;
+        z-index: 1;
+    }
+
+    // ==============================================
+    // ICON STYLE VARIANTS — solid by default, .nds-outline opt-in
+    // ==============================================
+
+    // Solid (default): icon paints white over the colored chip background.
+    // Clip the SVG's outer circle stroke so only the inner glyph shows —
+    // the feedback chip already provides the circular background.
+    & > i {
+        color: var(--colors-base-white);
+        clip-path: inset(25.5%);
+    }
+
+    // Outline opt-in: transparent chip, full glyph (including its own ring)
+    // painted in the status color. Supported on the chip itself OR on a
+    // `.nds-feedback.nds-outline` ancestor.
+    &:is(.nds-outline, .nds-feedback.nds-outline > *) {
+        background-color: transparent;
+
+        > i {
+            color: var(--_feedback-color);
+            clip-path: none;
+        }
+    }
+
+    // Ring accent — on the chip itself OR on a `.nds-feedback.nds-ring` ancestor.
+    &:is(.nds-ring, .nds-feedback.nds-ring > *) {
+        box-shadow: 0 0 0 4px var(--_feedback-ring);
+    }
+
+    // Default icon (information-circle) — status-specific shapes are
+    // set in the [data-status="..."] blocks above.
+    .nds-icon {
+        --nds-icon: var(--nds-icon-information-circle);
+    }
+}

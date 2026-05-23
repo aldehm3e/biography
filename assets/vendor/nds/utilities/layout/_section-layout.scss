@@ -1,0 +1,394 @@
+@use '../mixins' as *;
+
+/* ── Section layout tokens ── */
+
+:is(.nds-hero-section, .nds-content-section) {
+    --_section-padding-block: var(--section-padding-block, var(--spacing-5xl));
+    --_section-padding-block-start: var(--section-padding-block-start, var(--_section-padding-block));
+    --_section-padding-block-end: var(--section-padding-block-end, var(--_section-padding-block));
+    --_section-margin-block-start: var(--section-margin-block-start, 0);
+    --_section-margin-block-end: var(--section-margin-block-end, 0);
+    --_section-col-gap: var(--section-col-gap, var(--spacing-xl));
+    --_section-row-gap: var(--section-row-gap, var(--spacing-4xl));
+
+    --_section-title-FS: var(--section-title-FS, var(--typo-display-clamp-md-FS));
+    --_section-title-LH: var(--section-title-LH, var(--typo-display-clamp-md-LH));
+    --_section-title-MB: var(--section-title-MB, var(--typo-display-clamp-md-MB));
+    --_section-shape-size: var(--section-shape-size, var(--_section-title-FS));
+    --_section-subtitle-FS: var(--section-subtitle-FS, var(--typo-text-clamp-lg-FS));
+    --_section-subtitle-LH: var(--section-subtitle-LH, var(--typo-text-clamp-lg-LH));
+    --_section-subtitle-MB: var(--section-subtitle-MB, var(--_section-title-MB));
+    --_section-description-FS: var(--section-description-FS, var(--typo-text-lg-FS));
+    --_section-description-LH: var(--section-description-LH, var(--typo-text-lg-LH));
+    --_section-description-MB: var(--section-description-MB, var(--spacing-2xl));
+    --_section-image-MB: var(--section-image-MB, var(--spacing-2xl));
+
+    width: 100%;
+    padding-block-start: var(--_section-padding-block-start);
+    padding-block-end: var(--_section-padding-block-end);
+    padding-inline: 0;
+    margin-block-start: var(--_section-margin-block-start);
+    margin-block-end: var(--_section-margin-block-end);
+}
+
+/* ── Section head ── */
+
+.nds-section-head {
+    position: relative;
+    column-gap: var(--spacing-xl);
+
+    .nds-section-image ~ & {
+        display: flex;
+        text-align: start;
+        align-items: flex-start;
+        justify-content: center;
+        gap: 0;
+        flex-direction: column;
+    }
+}
+
+.nds-section-head:has(~ .nds-section-body),
+.nds-section-wrapper:not(:last-child) {
+    margin-bottom: var(--spacing-4xl);
+
+    .nds-content-layout.nds-cardView & {
+        margin-bottom: var(--spacing-2xl);
+    }
+}
+
+/* ── Section title ── */
+
+.nds-section-title {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: center;
+    font-size: var(--_section-title-FS);
+    line-height: var(--_section-title-LH);
+    font-weight: bold;
+    letter-spacing: -0.02rem;
+    margin-top: 0;
+    flex-wrap: wrap;
+
+    .nds-center &,
+    &.nds-center {
+        flex-direction: column;
+        gap: var(--spacing-xl);
+    }
+
+    &:not(:last-child) {
+        margin-bottom: var(--_section-title-MB);
+    }
+
+    .nds-section-shape {
+        height: var(--_section-shape-size);
+        width: auto;
+    }
+}
+
+/* ── Section subtitle + description ── */
+
+.nds-section-subtitle,
+.nds-section-description {
+    margin-block-start: 0;
+    max-width: var(--maxwidth-paragraph-max-width, 720px);
+
+    &.nds-full {
+        max-width: none;
+    }
+
+    &:not(:last-child) {
+        margin-bottom: var(--_section-description-MB);
+    }
+}
+
+.nds-section-subtitle {
+    font-size: var(--_section-subtitle-FS);
+    line-height: var(--_section-subtitle-LH);
+    font-weight: 500;
+    letter-spacing: -0.01rem;
+
+    &:not(:last-child) {
+        margin-bottom: var(--_section-subtitle-MB);
+    }
+}
+
+.nds-section-description {
+    font-size: var(--_section-description-FS);
+    line-height: var(--_section-description-LH);
+}
+
+/* ── Section image ── */
+
+.nds-section-image {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-bottom: 0;
+}
+
+/* ── Section body ──
+   In critical CSS so content spacing/sizing is present from first paint —
+   moved here from layout/_section.scss to avoid CLS. */
+
+.nds-section-brief {
+    font-size: var(--typo-text-lg-FS);
+    line-height: var(--typo-text-lg-LH);
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
+
+.nds-section-body {
+
+    margin-block-end: 2rem;
+
+    &:last-child {
+        margin-block-end: 0;
+    }
+
+    & :not(nav, .nds-scroll-more, .nds-drawer, .nds-drawer-list li)>ul,
+    & :not(nav, .nds-scroll-more, .nds-drawer, .nds-drawer-list li)>ol {
+
+        &.nds-divided li {
+            border-bottom: 1px solid var(--divider-color);
+        }
+
+        li {
+            padding-block: var(--spacing-md);
+
+            &:first-child {
+                padding-block-start: 0;
+            }
+
+            &:last-child {
+                padding-block-end: 0;
+                border-bottom: none;
+            }
+        }
+    }
+
+    :is(p, ul, ol, .nds-table-wrapper, .nds-table, .nds-tabs, .nds-code, .nds-definition-list):not(.nds-scroll-more-content) {
+        margin-block-end: 1rem;
+
+        &:is(:last-child, :has(+ .nds-divider), :has(+ hr)) {
+            margin-block-end: 0;
+        }
+    }
+}
+
+/* ── Section meta ── */
+
+.nds-section-meta {
+    display: flex;
+    column-gap: var(--spacing-xl);
+    flex-wrap: wrap;
+    margin-block-end: var(--spacing-md);
+    row-gap: var(--spacing-md);
+    align-items: center;
+}
+
+.nds-section-tags,
+.nds-section-rating {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-sm);
+}
+
+.nds-section-rating {
+    font-size: var(--typo-text-clamp-sm-FS);
+    align-items: flex-end;
+    line-height: 1;
+    --btn-padding: var(--spacing-xs);
+    --btn-height: 24px;
+}
+
+/* ── Section action ── */
+
+.nds-section-action {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    align-items: center;
+    gap: var(--spacing-sm);
+    visibility: visible;
+    position: relative;
+}
+
+/* ── Section wrapper ── */
+
+.nds-section-wrapper {
+    container-type: inline-size;
+    container-name: section;
+    width: 100%;
+
+    display: flex;
+    flex-wrap: wrap;
+    column-gap: var(--_section-col-gap);
+    row-gap: var(--_section-row-gap);
+
+    .nds-section-image .nds-avatar {
+        --avatar-size: 120px;
+
+        @include mobile {
+            --avatar-size: 80px;
+        }
+    }
+
+    .nds-section-head {
+        flex: 1;
+        margin-bottom: 0;
+    }
+
+    .nds-section-action {
+        align-items: self-start;
+        align-self: self-start;
+
+       > .nds-btn > .nds-label {
+            text-align: center;
+        }
+    }
+
+    .nds-section-body {
+        flex: 1 1 100%;
+        min-width: 0;
+    }
+
+    @include mobile {
+        >.nds-section-action {
+            flex: 1 0 100%;
+            flex-direction: row;
+            --btn-width: 100%;
+            width: min-content;
+        }
+    }
+}
+
+/* ── Centered layout ── */
+
+.nds-content-section.nds-center {
+    >.nds-section-wrapper {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .nds-section-head {
+        flex: unset;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 100%;
+    }
+
+    .nds-section-description {
+        margin-inline: auto;
+    }
+
+    .nds-section-action {
+        align-self: center;
+        justify-content: center;
+        flex: 1;
+    }
+
+    .nds-section-body {
+        width: 100%;
+        flex: 1;
+        text-align: unset;
+    }
+}
+
+/* ── Float action ── */
+
+.nds-section-wrapper > .nds-section-head > .nds-section-action {
+    float: inline-end;
+    margin-inline-start: var(--_section-col-gap);
+    margin-block-end: calc(var(--_section-col-gap) / 2);
+    flex-direction: column;
+    flex-wrap: wrap;
+    --btn-width: 100%;
+
+    &.nds-rowView {
+        flex-direction: row;
+        --btn-width: unset;
+    }
+}
+
+.nds-section-wrapper > .nds-section-head:has(> .nds-section-action) ~ .nds-section-action {
+    flex: 1 0 100%;
+    flex-direction: row;
+    --btn-width: unset;
+}
+
+:is(.nds-center, .nds-horizontal) > .nds-section-wrapper > .nds-section-head > .nds-section-action {
+    float: none;
+    order: 1;
+    margin-inline-start: 0;
+    margin-block: var(--_section-col-gap) 0;
+}
+
+@include mobile {
+    // .nds-wrap: collapse float to its own row below the title
+    .nds-section-head:has(> .nds-section-action.nds-wrap) {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .nds-section-head > .nds-section-action.nds-wrap {
+        float: none;
+        order: 1;
+        margin-inline-start: 0;
+        margin-block: var(--_section-col-gap) 0;
+        --btn-width: unset;
+        flex-direction: row;
+    }
+
+    // .nds-minimal: hide trigger button labels (icon-only).
+    // Applies when placed on the section-action wrapper (covers bare .nds-btn
+    // and buttons wrapped in a .nds-dropmenu, e.g. share) or directly on a button.
+    :is(
+        .nds-section-head > .nds-section-action.nds-minimal > .nds-btn,
+        .nds-section-head > .nds-section-action.nds-minimal > .nds-dropmenu > .nds-btn,
+        .nds-btn.nds-minimal
+    ) > .nds-label {
+        display: none;
+    }
+}
+
+/* ── 404 ── */
+
+.nds-content-section.nds-404 {
+
+    .nds-grid {
+        row-gap: var(--spacing-6xl);
+    }
+
+    * {
+        text-align: center;
+        margin-inline: auto;
+        justify-content: center;
+    }
+}
+
+/* ── Horizontal layout ── */
+
+@include desktop(min) {
+    :is(.nds-content-section, .nds-hero-section).nds-horizontal>.nds-section-wrapper {
+
+        &:not(.nds-grid) {
+            display: grid;
+            grid-template-columns: auto 1fr;
+        }
+
+        align-items: center;
+        gap: var(--gap, var(--spacing-6xl));
+
+        .nds-section-action {
+            --btn-width: fit-content;
+        }
+
+        .nds-section-head {
+            display: flex;
+            flex-direction: column;
+        }
+    }
+}

@@ -1,0 +1,166 @@
+@use './mixins' as *;
+
+/* ── Design tokens ── */
+/* Foundation tokens (layout, spacing, fluid typography) are in _variables-critical.scss */
+
+// ══ NDS Custom Tokens ══
+// NDS-specific additions not found in DGA core
+
+:root {
+
+    // Additional color tokens
+    --text-white: var(--colors-base-white);
+    --text-black: var(--colors-base-black);
+    --colors-primary-sa-flag-600: #1b8354;
+    --colors-secondary-gold-600: #dba102;
+    --colors-secondary-gold-primary: var(--colors-secondary-gold-600);
+    --colors-tertiary-lavendar-500: #80519f;
+    --colors-tertiary-lavendar-primary: var(--colors-tertiary-lavendar-500);
+    --colors-neutral-750: #2b3643;
+    --colors-neutral-850: #18212f;
+    --shadow-md-top: 0px -3.288px 6.575px -1.644px rgba(16, 24, 40, 0.10), 0px -1.644px 3.288px -1.644px rgba(16, 24, 40, 0.06);
+    --shadow-inset: inset 0px 0 4px 2px rgba(0, 0, 0, 0.05);
+    --background-mark: var(--colors-primary-sa-flag-100);
+    --background-default: var(--colors-base-white);
+    --background-nav: var(--colors-base-white);
+    --background-topbar: var(--colors-neutral-100);
+    --background-footer: var(--background-sa-flag);
+    --background-stripe: var(--colors-neutral-50);
+    --background-sub-hero: var(--background-brand-light);
+    --background-primary-300: var(--colors-primary-sa-flag-300);
+    --background-surface-elevated: var(--colors-base-white);
+    --background-surface-sunken: var(--colors-neutral-100);
+    --background-overlay: var(--colors-alpha-alpha-black-50);
+    --divider-color: var(--alpha-black-10);
+    --border-focus: var(--colors-base-black);
+    --alpha-lavender-10: #80519f19;
+    --alpha-lavender-20: #80519f33;
+
+    // Chip tokens - Added Manualy 
+    --chip-background-neutral-default: var(--colors-neutral-100);
+    --chip-background-neutral-hovered: var(--colors-neutral-200);
+    --chip-background-neutral-pressed: var(--colors-neutral-300);
+    --chip-background-neutral-selected: var(--colors-neutral-700);
+    --chip-background-neutral-focused: var(--colors-neutral-100);
+    --chip-background-on-color-default: var(--colors-base-white);
+    --chip-background-on-color-hovered: var(--colors-alpha-alpha-white-80);
+    --chip-background-on-color-pressed: var(--colors-alpha-alpha-white-60);
+    --chip-background-on-color-selected: var(--colors-alpha-alpha-white-70);
+    --chip-background-on-color-focused: var(--colors-base-white);
+    --chip-background-on-color-disabled: var(--colors-alpha-alpha-white-20);
+    --chip-background-primary-default: var(--colors-primary-sa-flag-100);
+    --chip-background-primary-hovered: var(--colors-primary-sa-flag-200);
+    --chip-background-primary-pressed: var(--colors-primary-sa-flag-400);
+    --chip-background-primary-selected: var(--colors-primary-sa-flag-600-primary);
+    --chip-background-primary-focused: var(--colors-primary-sa-flag-100);
+    --chip-text-neutral-default: var(--colors-base-black);
+    --chip-text-neutral-selected: var(--colors-base-white);
+    --chip-text-primary-default: var(--colors-primary-sa-flag-800);
+    --chip-text-primary-pressed: var(--colors-primary-sa-flag-900);
+    --chip-text-oncolor-primary: var(--colors-base-white);
+    --chip-text-disabled: var(--colors-neutral-400);
+
+    --chip-text-oncolor-disabled: var(--colors-alpha-alpha-white-40);
+
+    /* Rating Component Tokens - Based on Figma _RatingStar component */
+    /* Default Style */
+    --rating-star-normal-default: var(--colors-neutral-300);
+    /* Background/background-neutral-200 equivalent */
+    --rating-star-selected-default: var(--background-secondary);
+    /* Golden yellow from Figma */
+    --rating-star-pressed-default: var(--colors-secondary-gold-700);
+    --rating-star-hovered-default: var(--colors-secondary-gold-500);
+
+    /* Brand Style */
+    --rating-star-normal-brand: var(--colors-neutral-300);
+    --rating-star-selected-brand: var(--colors-primary-sa-flag-600-primary);
+    --rating-star-pressed-brand: var(--colors-primary-sa-flag-700);
+    --rating-star-hovered-brand: var(--colors-primary-sa-flag-500);
+
+    --form-field-border-success: var(--border-success);
+    --form-field-border-warning: var(--border-warning);
+    --form-field-border-info: var(--border-info);
+
+    // Autocomplete
+    --autocomplete-highlight: var(--colors-primary-sa-flag-100);
+    --autocomplete-active: var(--background-neutral-light);
+
+    // Table (missing in DGA)
+    --table-background-cell: var(--colors-base-white);
+    --table-background-row-selected: var(--colors-primary-sa-flag-50);
+    --table-background-hover-selected: var(--colors-primary-sa-flag-100);
+
+    // Avatar
+    --avatar-background: var(--button-background-neutral-default);
+    --avatar-color: var(--icon-default);
+    --avatar-border: var(--border-white);
+
+    // Button status
+    --button-status-success-bg: var(--background-success-light);
+    --button-status-success-text: var(--text-success);
+    --button-status-error-bg: var(--background-error-light);
+    --button-status-error-text: var(--text-error);
+    --button-status-info-bg: var(--background-info-light);
+    --button-status-info-text: var(--text-info);
+    --button-status-warning-bg: var(--background-warning-light);
+    --button-status-warning-text: var(--text-warning);
+    --button-border-error: var(--colors-red-200);
+    --button-border-success: var(--colors-green-200);
+    --button-border-warning: var(--colors-yellow-200);
+    --button-border-info: var(--colors-blue-200);
+
+    // Focus ring tokens
+    --focus-outline: var(--colors-base-black);
+    --focus-inner: var(--colors-base-white);
+
+    --icon-separator: var(--colors-neutral-400);
+    --icon-neutral: var(--colors-neutral-700);
+    --icon-neutral-ring: var(--colors-neutral-100);
+    --icon-success-ring: var(--colors-green-100);
+    --icon-info-ring: var(--colors-blue-100);
+    --icon-warning-ring: var(--colors-yellow-100);
+    --icon-error-ring: var(--colors-red-100);
+
+    --background-neutral-light: var(--colors-neutral-100);
+    --background-card-hovered: var(--colors-neutral-50);
+
+    // ── DGA Token Corrections ──
+    // Fixes for DGA tokens that don't match the design spec
+    --tag-border-neutral-light: var(--colors-neutral-200); // DGA uses neutral-50, too light
+    --border-disabled: var(--colors-neutral-300); // DGA uses neutral-400, spec is #D2D6DB (neutral-300)
+
+    // NDS overrides (DGA source values adjusted for NDS)
+    /* --button-background-neutral-hovered: var(--colors-neutral-200);
+    --button-background-neutral-focused: var(--colors-neutral-200);
+    --controls-control-primary-pressed: var(--colors-primary-sa-flag-900);
+    --controls-control-neutral-pressed: var(--colors-neutral-700);
+    --controls-control-ripple-effect: var(--colors-neutral-100); */
+
+    // Checkbox-specific (defaults to shared controls tokens)
+    --checkbox-primary-hovered: var(--controls-control-primary-hovered);
+    --checkbox-primary-pressed: var(--controls-control-primary-pressed);
+
+    // Switch-specific (defaults to shared controls tokens)
+    --switch-primary-hovered: var(--controls-control-primary-hovered);
+    --switch-primary-pressed: var(--controls-control-primary-pressed);
+    --switch-neutral-default: var(--colors-neutral-950);
+    --switch-neutral-checked: var(--controls-control-neutral-checked);
+    --switch-neutral-hovered: var(--controls-control-neutral-hovered);
+    --switch-neutral-pressed: var(--controls-control-neutral-pressed);
+
+    // Radio-specific (defaults to shared controls tokens)
+    --radio-neutral-checked: var(--controls-control-neutral-checked);
+    --radio-neutral-hovered: var(--controls-control-neutral-hovered);
+    --radio-neutral-pressed: var(--controls-control-neutral-pressed);
+
+}
+
+// ==============================================
+// RESPONSIVE VARIABLES - MOBILE OVERRIDES
+// ==============================================
+
+@include mobile {
+    :root {
+        --nds-viewport-padding: calc(var(--nds-viewport-base-padding)/2);
+    }
+}

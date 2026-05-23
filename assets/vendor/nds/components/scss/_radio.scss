@@ -1,0 +1,137 @@
+/**
+ * NDS Radio Button Component
+ * Single-selection input controls for mutually exclusive options with clear visual feedback
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// RADIO CONTAINER
+// ==============================================
+
+.nds-form-container.nds-radio-container:not([hidden]) {
+    // Public API token: --nds-input-size (16/20/24)
+    // Public colour tokens read inline: --radio-tile-bg, --radio-tile-border
+
+    // Size variants override the PUBLIC token.
+    &.nds-md { --nds-input-size: 20px; gap: var(--spacing-lg); }
+    &.nds-lg { --nds-input-size: 24px; gap: var(--spacing-xl); }
+
+    &>.nds-form-header .nds-label {
+        font-size: var(--typo-text-md-FS);
+        line-height: var(--nds-input-size, 16px);
+    }
+
+    .nds-form-control.focused:focus-visible {
+        outline: 2px solid var(--colors-base-black) !important;
+        outline-offset: -2px !important;
+        box-shadow: inset 0 0 0 3px var(--focus-inner) !important;
+    }
+}
+
+// ==============================================
+// RADIO GROUP — only component-specific overrides
+// (shared group rules live in _forms.scss on .nds-form-group)
+// ==============================================
+
+// ==============================================
+// RADIO INPUT
+// ==============================================
+
+.nds-radio-container .nds-form-control input[type="radio"] {
+    width:  var(--nds-input-size, 16px);
+    height: var(--nds-input-size, 16px);
+    appearance: none;
+    position: relative;
+    z-index: 1;
+
+    &:not(:disabled) { cursor: pointer; }
+
+    // Custom keyboard focus ring — matches checkbox treatment. The tile
+    // is drawn by ::after, so a circular outline on the input box wraps
+    // it cleanly. :focus-visible keeps it keyboard-only.
+    &:focus-visible {
+        outline: 2px solid var(--colors-base-black);
+        outline-offset: 2px;
+        border-radius: 50%;
+    }
+
+    // Single-pseudo tile. Unchecked: flat disc with a 1px outer outline.
+    // Checked: 3-band ring via `border: Npx white` creating the gap.
+    &::after {
+        --_radio-tile-bg:     var(--radio-tile-bg,     var(--background-default));
+        --_radio-tile-border: var(--radio-tile-border, var(--controls-control-border));
+
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        background-color: var(--_radio-tile-bg);
+        box-shadow: 0 0 0 1px var(--_radio-tile-border);
+        z-index: 1;
+    }
+
+    // ==============================================
+    // CHECKED STATE
+    // ==============================================
+
+    &:checked::after {
+        --radio-tile-bg:     var(--controls-control-primary-checked);
+        --radio-tile-border: var(--radio-tile-bg);
+
+        border: 3px solid var(--background-default);
+    }
+
+    .nds-md &:checked::after { border-width: 4px; }
+    .nds-lg &:checked::after { border-width: 5px; }
+
+    &:checked:not(:disabled) {
+        &:hover::after  { --radio-tile-bg: var(--controls-control-primary-hovered); }
+        &:active::after { --radio-tile-bg: var(--controls-control-primary-pressed); }
+    }
+
+    // Unchecked hover / pressed
+    &:not(:checked, :disabled) {
+        &:hover::after  { --radio-tile-border: var(--controls-control-neutral-hovered); }
+        &:active::after { --radio-tile-border: var(--controls-control-neutral-pressed); }
+    }
+
+    // Neutral variant
+    &.nds-neutral:checked {
+        &::after         { --radio-tile-bg: var(--radio-neutral-checked); }
+
+        &:not(:disabled) {
+            &:hover::after  { --radio-tile-bg: var(--radio-neutral-hovered); }
+            &:active::after { --radio-tile-bg: var(--radio-neutral-pressed); }
+        }
+    }
+
+    // ==============================================
+    // DISABLED STATE
+    // ==============================================
+
+    &:disabled::after {
+        --radio-tile-bg:     var(--background-default);
+        --radio-tile-border: var(--border-disabled);
+    }
+
+    &:checked:disabled::after {
+        --radio-tile-bg:     var(--control-disabled);
+        --radio-tile-border: var(--border-disabled);
+    }
+}
+
+// ==============================================
+// READONLY STATE
+// ==============================================
+
+.nds-radio-container[data-state~="readonly"] .nds-form-control input[type="radio"] {
+    &,
+    &.nds-neutral {
+        &::after,
+        &:hover::after,
+        &:active::after {
+            --radio-tile-border: var(--border-disabled);
+        }
+    }
+}

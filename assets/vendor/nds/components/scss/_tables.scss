@@ -1,0 +1,273 @@
+/**
+ * NDS Table Component
+ * Responsive data tables with consistent styling and interactive features
+ * RTL-first design (Arabic layout by default)
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// RESPONSIVE TABLE WRAPPER
+// ==============================================
+
+.nds-table-wrapper {
+    --_max-width: var(--max-width, 100%);
+    --mask-fade-distance: 48px;
+
+    position: relative;
+    width: 100%;
+    max-width: var(--_max-width);
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    display: block;
+
+    .nds-table {
+        --_min-width: var(--min-width, 600px);
+        min-width: var(--_min-width);
+        display: table;
+    }
+}
+
+// Scroll mask states (determined by JS) — opt-in via .nds-mask on the table
+.nds-table-wrapper[data-state~="has-more"][data-state~="masked"] {
+    mask-image:
+        linear-gradient(to right, transparent 0%, black var(--mask-fade-distance)),
+        linear-gradient(to left, transparent 0%, black var(--mask-fade-distance));
+
+    &[data-state~="at-start"] {
+        mask-image: linear-gradient(to right, transparent 0%, black var(--mask-fade-distance));
+    }
+
+    &[data-state~="at-end"] {
+        mask-image: linear-gradient(to left, transparent 0%, black var(--mask-fade-distance));
+    }
+
+    @include ltr {
+        mask-image:
+            linear-gradient(to right, transparent 0%, black var(--mask-fade-distance)),
+            linear-gradient(to left, transparent 0%, black var(--mask-fade-distance));
+
+        &[data-state~="at-start"] {
+            mask-image: linear-gradient(to left, transparent 0%, black var(--mask-fade-distance));
+        }
+
+        &[data-state~="at-end"] {
+            mask-image: linear-gradient(to right, transparent 0%, black var(--mask-fade-distance));
+        }
+    }
+}
+
+// ==============================================
+// BASE TABLE STYLES
+// ==============================================
+
+.nds-table {
+    width: 100%;
+    background-color: var(--table-cell-border);
+    border: 1px solid var(--table-cell-border);
+    border-radius: var(--radius-md);
+    overflow: clip;
+    max-width: unset !important;
+
+    &.nds-center * {
+        text-align: center;
+    }
+
+    // ── Rows ──
+
+    tr {
+        border-bottom: 1px solid var(--table-cell-border);
+
+        &:last-child {
+            border-bottom: none;
+        }
+    }
+
+    // ── Header cells ──
+
+    :is(th, thead td) {
+        background-color: var(--table-background-header);
+        color: var(--table-text-head);
+        font-weight: 600;
+        font-size: var(--typo-text-sm-FS);
+        padding: var(--table-cell-v-padding) var(--table-cell-h-padding);
+        border-left: 1px solid var(--table-cell-border);
+        border-bottom: 1px solid var(--table-cell-border);
+        text-align: start;
+        vertical-align: middle;
+        white-space: nowrap;
+        height: 48px;
+
+        &:last-child {
+            border-right: none;
+        }
+
+        @include ltr {
+            border-right: 1px solid var(--table-cell-border);
+
+            &:last-child {
+                border-left: none;
+            }
+        }
+    }
+
+    // ── Data cells ──
+
+    td {
+        padding: var(--table-cell-v-padding) var(--table-cell-h-padding);
+        vertical-align: middle;
+        background-color: var(--table-background-cell);
+        color: var(--table-text-body);
+        border-left: 1px solid var(--table-cell-border);
+        height: var(--_table-row-height, 64px);
+
+        &:last-child {
+            border-right: none;
+        }
+
+        @include ltr {
+            border-right: 1px solid var(--table-cell-border);
+
+            &:last-child {
+                border-left: none;
+            }
+        }
+    }
+
+    // ── Row states ──
+
+    tbody tr:nth-child(even) td {
+        background-color: var(--table-background-row);
+    }
+
+    &.nds-interactive {
+        tbody tr:hover td,
+        tbody tr:nth-child(even):hover td {
+            background-color: var(--table-background-header);
+        }
+    }
+
+    tbody tr[data-state~="selected"] {
+        td {
+            background-color: var(--table-background-row-selected);
+        }
+    }
+
+    &.nds-interactive tbody tr[data-state~="selected"]:hover td {
+        background-color: var(--table-background-hover-selected);
+    }
+
+    // ── Column header (label + actions) ──
+
+    .nds-col-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: var(--spacing-1);
+    }
+
+    .nds-col-actions {
+        display: flex;
+        align-items: center;
+        gap: var(--spacing-sm);
+
+        .nds-btn {
+            --btn-size: 32px;
+        }
+    }
+
+    // Sort icon swaps
+    th[data-state~="sorted-asc"] .nds-sort-icon {
+        --nds-icon: var(--nds-icon-sort-by-up-02);
+    }
+
+    th[data-state~="sorted-desc"] .nds-sort-icon {
+        --nds-icon: var(--nds-icon-sort-by-down-02);
+    }
+
+    // ── Accessibility ──
+
+    :is(th, td) {
+        outline: none;
+
+        &:focus {
+            outline: none;
+        }
+    }
+
+    caption {
+        padding: var(--spacing-4);
+        font-weight: 600;
+        text-align: start;
+        background-color: var(--table-background-header);
+        border-bottom: 1px solid var(--table-cell-border);
+    }
+
+    // ── Actions & checkbox columns ──
+
+    .table-actions {
+        display: flex;
+        gap: var(--spacing-1);
+        align-items: center;
+
+        .nds-btn {
+            min-width: auto;
+        }
+    }
+
+    .actions-column {
+        width: 1%;
+    }
+
+    :is(th, td):has(.nds-check-container),
+    .checkbox-column {
+        width: 40px;
+        text-align: center;
+
+        .nds-form-container.nds-check-container {
+            margin: 0;
+
+            .nds-form-control {
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                margin: 0;
+
+                .nds-check {
+                    margin: 0;
+                }
+            }
+        }
+    }
+}
+
+// ==============================================
+// COMPACT TABLE VARIANT
+// ==============================================
+
+.nds-table.nds-compact {
+    --_table-row-height: var(--table-row-height, 48px);
+}
+
+// ==============================================
+// TABLE LOADING STATE
+// ==============================================
+
+.nds-table[data-state~="loading"] {
+    tbody tr td {
+        background-color: var(--table-background-row);
+        color: var(--text-disabled);
+        animation: tableLoading 1.5s ease-in-out infinite alternate;
+    }
+}
+
+@keyframes tableLoading {
+    0% {
+        opacity: 0.5;
+    }
+
+    100% {
+        opacity: 1;
+    }
+}

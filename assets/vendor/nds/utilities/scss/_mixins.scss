@@ -1,0 +1,453 @@
+/**
+ * NDS Design System Mixins
+ * Reusable Sass mixins for common patterns
+ */
+
+@use "sass:math";
+@use "sass:map";
+
+// ==============================================
+// BREAKPOINTS
+// ==============================================
+
+// Grid breakpoints (viewport-based)
+$grid-breakpoints: (
+  md: 600px,
+  lg: 960px,
+  xl: 1280px
+);
+
+// Viewport breakpoints — all (includes sm as alias for base)
+$breakpoints-all: (
+  sm: '(min-width: 0px)',
+  md: '(min-width: 600px)',
+  lg: '(min-width: 960px)',
+  xl: '(min-width: 1280px)'
+);
+
+// Viewport breakpoints — responsive only (excludes sm to avoid redundant classes)
+$breakpoints-responsive: (
+  md: '(min-width: 600px)',
+  lg: '(min-width: 960px)',
+  xl: '(min-width: 1280px)'
+);
+
+// Viewport breakpoints — range-based (exclusive ranges for alignment utilities)
+$breakpoints-range: (
+  sm: '(max-width: 599px)',
+  md: '(min-width: 600px) and (max-width: 959px)',
+  lg: '(min-width: 960px) and (max-width: 1279px)',
+  xl: '(min-width: 1280px)'
+);
+
+// ==============================================
+// RESPONSIVE MIXINS
+// ==============================================
+
+@mixin mobile {
+  @media (max-width: 600px) {
+    @content;
+  }
+}
+
+@mixin tablet($break: null) {
+  @if $break =='min' {
+    @media (min-width: 601px) {
+      @content;
+    }
+  }
+
+  @else if $break =='max' {
+    @media (max-width: 960px) {
+      @content;
+    }
+  }
+
+  @else {
+    @media (min-width: 601px) and (max-width: 960px) {
+      @content;
+    }
+  }
+}
+
+@mixin desktop($break: null) {
+  @if $break =='min' {
+    @media (min-width: 961px) {
+      @content;
+    }
+  }
+
+  @else if $break =='max' {
+    @media (max-width: 1280px) {
+      @content;
+    }
+  }
+
+  @else {
+    @media (min-width: 961px) and (max-width: 1280px) {
+      @content;
+    }
+  }
+}
+
+@mixin large-desktop($break: null) {
+  @if $break =='min' {
+    @media (min-width: 1344px) {
+      @content;
+    }
+  }
+
+  @else if $break =='max' {
+    @media (max-width: 1920px) {
+      @content;
+    }
+  }
+
+  @else {
+    @media (min-width: 1344px) {
+      @content;
+    }
+  }
+}
+
+// ==============================================
+// RTL/LTR SUPPORT
+// ==============================================
+
+@mixin ltr {
+  @at-root {
+    @each $selector in & {
+
+      :is(html[dir="ltr"], .ltr) #{$selector} {
+        @content;
+      }
+    }
+  }
+}
+
+// ==============================================
+// DARK MODE
+// ==============================================
+
+@mixin dark {
+  @at-root {
+    @each $selector in & {
+
+      :root[data-theme="dark"] #{$selector} {
+        @content;
+      }
+    }
+  }
+}
+
+// ==============================================
+// ACCESSIBILITY MIXINS
+// ==============================================
+
+@mixin high-contrast {
+  @media (prefers-contrast: high) {
+    @content;
+  }
+}
+
+@mixin reduced-motion {
+  @media (prefers-reduced-motion: reduce) {
+    @content;
+  }
+}
+
+@mixin print-media {
+  @media print {
+    @content;
+  }
+}
+
+
+// ==============================================
+// AUTOFILL RESET
+// ==============================================
+
+@mixin autofill-reset($bg: var(--_form-control-bg, var(--form-field-background-default)),
+  $text: var(--form-field-text-focused),
+  $border: var(--form-field-border-default)) {
+
+  // Chrome/Edge/Safari
+  &:is( :-webkit-autofill,
+    :-webkit-autofill:hover,
+    :-webkit-autofill:focus,
+    :autofill,
+    :autofill:hover,
+    :autofill:focus) {
+
+    -webkit-box-shadow: 0 0 0 1000px #{$bg} inset !important;
+    box-shadow: 0 0 0 1000px #{$bg} inset !important;
+    -webkit-text-fill-color: #{$text} !important;
+    caret-color: #{$text};
+    background-clip: padding-box;
+
+    /* avoid "flash" on load in some WebKit builds */
+    transition: background-color 9999s ease-out, color 9999s ease-out;
+  }
+
+  // Firefox
+  &:-moz-autofill {
+    box-shadow: 0 0 0 1000px #{$bg} inset !important;
+    color: #{$text} !important;
+    background-clip: padding-box;
+  }
+
+}
+
+// ==============================================
+// BUTTON BASE MIXINS
+// ==============================================
+
+@mixin btn-base {
+  --_btn-bg: var(--btn-bg, transparent);
+  --_btn-bg-hover: var(--btn-bg-hover, var(--_btn-bg));
+  --_btn-bg-active: var(--btn-bg-active, var(--_btn-bg));
+  --_btn-bg-selected: var(--btn-bg-selected, var(--_btn-bg));
+  --_btn-bg-disabled: var(--btn-bg-disabled, var(--background-disabled));
+  --_btn-color: var(--btn-color, var(--text-default));
+  --_btn-color-hover: var(--btn-color-hover, var(--_btn-color));
+  --_btn-color-disabled: var(--btn-color-disabled, var(--text-default-disabled));
+  --_btn-border: var(--btn-border, transparent);
+  --_btn-border-hover: var(--btn-border-hover, var(--_btn-border));
+  --_btn-border-active: var(--btn-border-active, var(--_btn-border));
+  --_btn-border-selected: var(--btn-border-selected, var(--_btn-border));
+  --_btn-border-disabled: var(--btn-border-disabled, transparent);
+  --_btn-indicator-color: var(--btn-indicator-color, var(--background-neutral-400));
+  --_btn-indicator-active: var(--btn-indicator-active, var(--background-neutral-800));
+  --_btn-indicator-selected: var(--btn-indicator-selected, var(--background-neutral-800));
+  --_btn-loading-color: var(--btn-loading-color, var(--text-default));
+  --_btn-loading-track: var(--btn-loading-track, var(--alpha-black-10));
+  --_btn-size: var(--btn-size, 40px);
+  --_btn-height: var(--btn-height, var(--_btn-size));
+  --_btn-height-min: var(--btn-height-min, fit-content);
+  --_btn-width: var(--btn-width, unset);
+  --_btn-gap: var(--btn-gap, var(--spacing-xs));
+  --_btn-padding: var(--btn-padding, calc((var(--_btn-size) - 8px) / 2));
+  --_btn-radius: var(--btn-radius, var(--radius-sm));
+
+  // Outer * --user-font-scale wraps both the consumer-override path and
+  // the default calc, so an explicit --btn-FS still respects the global
+  // a11y scale. Components that pin --user-font-scale: 1 inside their
+  // subtree (e.g. the accessibility panel) get unscaled button labels
+  // without having to override --_btn-FS directly.
+  --_btn-FS: calc(var(--btn-FS, calc(var(--_btn-size) / 4 + 6px)) * var(--user-font-scale, 1));
+  --_btn-LH: var(--btn-LH, calc(var(--_btn-FS) * 1.5));
+  --_btn-icon-size: var(--btn-icon-size, calc(var(--_btn-size) / 2 + 4px));
+
+  --btn-indicator-size: calc(var(--_btn-size) * 0.075);
+  --_btn-space: calc(var(--_btn-size) - var(--_btn-padding));
+  --loading-size: var(--_btn-space) !important;
+  --loading-border: max(2px, calc(var(--_btn-space) / 10)) !important;
+
+  display: inline-flex;
+  align-items: center;
+  gap: var(--_btn-gap);
+
+  &[hidden] {
+    display: none;
+  }
+
+  border: 1px solid transparent;
+  border-radius: var(--_btn-radius);
+  white-space: nowrap;
+  position: relative;
+  box-sizing: border-box;
+  vertical-align: middle;
+  justify-content: center;
+
+  height: var(--_btn-height);
+  min-height: var(--_btn-height-min);
+  width: var(--_btn-width);
+  min-width: var(--_btn-size);
+
+  padding-inline: var(--_btn-padding);
+  padding-block: 0;
+
+  >.nds-label,
+  i {
+    font-weight: 500;
+    text-decoration: none;
+    font-size: var(--_btn-FS);
+    line-height: var(--_btn-LH);
+  }
+}
+
+// ==============================================
+// BUTTON STATE MIXINS
+// ==============================================
+
+@mixin btn-focus {
+  outline: 2px solid var(--focus-outline) !important;
+  outline-offset: -2px !important;
+  box-shadow: inset 0 0 0 3px var(--focus-inner) !important;
+}
+
+@mixin btn-focus-oncolor {
+  outline: 2px solid var(--colors-base-white) !important;
+  outline-offset: -1px !important;
+  box-shadow: inset 0 0 0 3px var(--colors-base-black) !important;
+}
+
+// ==============================================
+// BUTTON INDICATOR MIXINS
+// ==============================================
+
+@mixin btn-indicator($position: 'b', $size: var(--btn-indicator-size)) {
+  &::before {
+    content: '';
+    position: absolute !important;
+    height: $size;
+    border-radius: var(--radius-full);
+    display: block;
+    /* transition: height var(--nds-transition); */
+
+    @if $position =='b' {
+      bottom: 0;
+      inset-inline: 0;
+      margin-inline: calc((var(--_btn-size) - 8px) / 4);
+    }
+
+    @else if $position =='v' {
+      height: unset;
+      inset-inline-start: 0;
+      bottom: unset;
+      width: $size !important;
+      inset-block: 0;
+      margin-block: calc((var(--_btn-size) - 8px) / 4);
+      margin-inline: unset;
+    }
+  }
+}
+
+@mixin btn-indicator-styles($hover-color: var(--background-neutral-400), $pressed-color: var(--background-neutral-800), $selected-color: var(--background-neutral-800), $position : 'b') {
+  @include btn-indicator($position);
+
+  &:is(:hover, [data-state~="hover"])::before {
+    background-color: $hover-color;
+  }
+
+  &:is(:focus-visible,
+    [aria-selected="true"],
+    [data-state~="open"],
+    [data-state~="selected"],
+    [data-state~="active"],
+    [data-state~="focused"])::before,
+  [data-state~="open"]>&::before {
+    background-color: $selected-color;
+  }
+
+  &:active>&::before {
+    background-color: $pressed-color;
+  }
+}
+
+// ==============================================
+// PROGRESS CIRCLE MIXINS
+// ==============================================
+
+@mixin progress-circle-base($size: 24px, $rotate: -90deg) {
+  --_progress-track-color: var(--progress-track-color, var(--colors-neutral-100));
+  --_progress-color: var(--progress-color, var(--background-primary));
+
+  position: relative;
+  width: var(--progress-size, #{$size}) !important;
+  height: var(--progress-size, #{$size}) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: var(--progress-size, #{$size}) !important;
+    height: var(--progress-size, #{$size}) !important;
+    transform: rotate($rotate) !important;
+
+    @include ltr {
+      transform: rotate($rotate) scaleY(-1) !important;
+    }
+
+    circle {
+      fill: none;
+      stroke-width: 2;
+      stroke-linecap: round;
+      transform: scale(1.08);
+      transform-origin: center center;
+
+      &.nds-progress-bg {
+        stroke: var(--_progress-track-color);
+      }
+
+      &.nds-progress-track {
+        stroke: var(--_progress-color);
+      }
+    }
+  }
+
+  .nds-progress-info {
+    position: absolute;
+    color: var(--text-primary-paragraph);
+    line-height: 1;
+    align-items: center;
+    text-align: center;
+  }
+}
+
+@mixin progress-circle-text($size: 24px) {
+  .nds-progress-info {
+    padding: 0 clamp(8px, calc(var(--_progress-size, #{$size}) * 0.2), 40px) !important;
+
+    :is(.nds-progress-percentage, .nds-progress-out-of) {
+      display: flex;
+      flex-wrap: nowrap;
+      flex-direction: row;
+      align-items: center;
+      justify-content: center;
+      gap: var(--spacing-xxs);
+      direction: ltr;
+      letter-spacing: clamp(0rem, calc(var(--_progress-size, #{$size}) * -0.0006), -0.12rem) !important;
+    }
+
+    :is(.nds-progress-number, .nds-progress-symbol) {
+      font-size: clamp(10px, calc(var(--_progress-size, #{$size}) * 0.15 + 6px), 36px) !important;
+      font-weight: 700 !important;
+      line-height: normal;
+    }
+    .nds-progress-of {
+      font-size: clamp(14px, calc(var(--_progress-size, #{$size}) * 0.1 + 4px), 30px);
+      line-height: normal;
+    }
+    .nds-progress-text {
+      font-size: clamp(10px, calc(var(--_progress-size, #{$size}) * 0.1), 20px);
+      line-height: clamp(20px, calc(var(--_progress-size, #{$size}) * 0.125 + 5px), 30px);
+      max-height: max(0px, calc(var(--_progress-size, #{$size}) - 80px));
+      overflow: hidden;
+      display: block;
+    }
+  }
+}
+
+@mixin progress-circle-progress($percent: 0) {
+  $circumference: 62.83; // 2πr where r=10
+  $clamped-percent: min($percent, 100);
+  $offset: calc(#{$circumference} - (#{$circumference} * #{$clamped-percent} / 100));
+
+  svg circle.nds-progress-track {
+    stroke-dasharray: $circumference !important;
+    stroke-dashoffset: $offset;
+    transition: stroke-dashoffset 0.3s ease !important;
+  }
+}
+
+// ==============================================
+// SECTION MIXINS
+// ==============================================
+
+@mixin reset-section-style($important: null) {
+  --section-bg: transparent #{$important};
+  --section-shadow: none #{$important};
+  --section-border: none #{$important};
+  --section-border-radius: 0 #{$important};
+}

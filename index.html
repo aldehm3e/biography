@@ -1,0 +1,219 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="موقع سيرة ذاتية عربي قابل للتحرير محليا.">
+  <script>
+    (function () {
+      try {
+        var savedData = JSON.parse(localStorage.getItem("websiteDemo:siteData") || "null");
+        var savedTheme = savedData && savedData.settings && savedData.settings.theme;
+        var quickTheme = savedTheme || localStorage.getItem("websiteDemo:theme");
+        if (quickTheme === "dark" || quickTheme === "light") document.documentElement.dataset.theme = quickTheme;
+      } catch (error) {}
+    })();
+  </script>
+  <title>السيرة الذاتية</title>
+  <!-- Reusable NDS frontend toolkit is vendored locally under assets/vendor/nds/. -->
+  <link rel="icon" type="image/svg+xml" href="assets/vendor/nds/images/favicon.svg">
+  <link rel="stylesheet" href="css/custom.css">
+  <link rel="stylesheet" href="css/nds-icons-full.css">
+  <link rel="stylesheet" href="css/nds-local-components.css">
+  <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
+</head>
+<body data-page="home">
+  <header class="site-header">
+    <nav class="nds-main-nav nds-content-wrapper" id="ndsMainNav" aria-label="التنقل الرئيسي">
+      <div class="site-container nds-nav-container">
+        <a class="nds-brand nds-link" href="index.html" aria-label="الرئيسية">
+          <img class="nds-brand-logo brand-logo" src="assets/vendor/nds/images/palm_swords.svg" width="40" height="40" loading="lazy" alt="">
+          <span class="nds-brand-name">
+            <span data-site-title>السيرة الذاتية</span>
+            <span class="nds-brand-slogan">موقع شخصي</span>
+          </span>
+        </a>
+        <ul class="nds-nav-minimal" hidden>
+          <li class="nds-mainNav-toggler nds-nav-item">
+            <button class="nds-nav-link nds-btn nds-subtle nds-indicator" type="button" data-nav-toggle aria-label="فتح التنقل" aria-expanded="false" aria-controls="ndsNavCollapse">
+              <i class="nds-icon nds-hgi-menu-01" aria-hidden="true"></i>
+            </button>
+          </li>
+        </ul>
+        <div class="nds-collapse" id="ndsNavCollapse" data-nav-panel hidden>
+          <div class="nds-collapse-content">
+            <ul class="nds-nav-primary" data-nav-list></ul>
+            <div class="nds-nav-item nds-show-more">
+              <button class="nds-nav-link nds-btn nds-subtle nds-indicator nds-full" type="button" title="Show More" aria-label="Show More" data-nav-scroll="next">
+                <i class="nds-icon nds-hgi-arrow-down-01" aria-hidden="true"></i>
+              </button>
+            </div>
+            <ul class="header-actions nds-nav-actions" aria-label="أدوات الموقع">
+                            <li class="nds-nav-item nds-dropdown nds-icon-only nds-PAB notification-dropdown" data-notifications-root></li>
+<li class="nds-nav-item nds-icon-only">
+                <a class="nds-nav-link nds-btn nds-subtle nds-indicator nav-admin-link header-admin-link" href="admin.html" aria-label="الإدارة" title="الإدارة">
+                  <i class="nds-icon nds-icon-avatar nav-admin-icon" aria-hidden="true"></i>
+                </a>
+              </li>
+              <li class="nds-nav-item header-date-item"><time class="site-datetime" data-date-time aria-live="polite"></time></li>
+              <li class="nds-nav-item nds-icon-only">
+                <button class="nds-nav-link nds-btn nds-subtle nds-indicator theme-toggle" type="button" data-theme-toggle aria-label="تبديل الوضع الليلي" title="تبديل الوضع الليلي">
+                  <i class="nds-icon nds-hgi-moon-02" aria-hidden="true"></i>
+                </button>
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </nav>
+  </header>
+
+  <main>
+    <div data-home-view>
+      <section class="nds-hero-section home-hero" data-home-hero aria-label="القسم الرئيسي">
+        <div class="hero-slider" data-hero-slider>
+          <div class="hero-slides" data-hero-slides></div>
+          <div class="hero-content site-container" aria-hidden="true"></div>
+          <div class="hero-controls site-container" data-hero-controls hidden>
+            <button class="nds-btn nds-subtle nds-icon-only hero-control" type="button" data-hero-prev aria-label="الشريحة السابقة">
+              <i class="nds-icon nds-hgi-arrow-right-01" aria-hidden="true"></i>
+            </button>
+            <div class="hero-dots" data-hero-dots aria-label="شرائح الهيرو"></div>
+            <button class="nds-btn nds-subtle nds-icon-only hero-control" type="button" data-hero-next aria-label="الشريحة التالية">
+              <i class="nds-icon nds-hgi-arrow-left-01" aria-hidden="true"></i>
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section class="nds-content-section" data-home-empty>
+        <div class="site-container">
+          <div class="nds-card nds-stroke nds-empty-state premium-empty">
+            <div class="nds-card-content">
+              <div class="empty-icon" aria-hidden="true"></div>
+              <h2 class="nds-card-title">لم تتم إضافة محتوى بعد</h2>
+              <p class="nds-card-description">يمكنك إضافة المحتوى من لوحة الإدارة.</p>
+              <a class="nds-btn nds-primary" href="admin.html"><span class="nds-label">فتح لوحة الإدارة</span></a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div data-home-content hidden>
+        <section class="nds-content-section biography-section">
+          <div class="site-container compact-content-container nds-section-wrapper">
+            <div class="nds-section-head">
+              <p class="nds-section-subtitle">السيرة الذاتية</p>
+              <h2 class="nds-section-title">نبذة مختصرة</h2>
+            </div>
+            <div class="nds-section-body">
+              <div class="bio-card nds-card nds-stroke">
+                <div class="nds-card-content bio-layout">
+                  <div class="biography-media">
+                    <div class="avatar-shell nds-avatar">
+                      <img data-owner-avatar alt="" hidden>
+                    </div>
+                  </div>
+                  <div class="bio-text">
+                    <div class="bio-profile">
+                      <h3 class="nds-card-title" data-owner-name></h3>
+                      <p class="nds-card-meta-text" data-owner-title></p>
+                      <p class="nds-card-description content-paragraph" data-owner-intro></p>
+                    </div>
+                    <p class="nds-card-description content-paragraph" data-owner-biography></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="nds-content-section nds-brand professional-section">
+          <div class="site-container compact-content-container nds-section-wrapper">
+            <div class="nds-section-head">
+              <p class="nds-section-subtitle">المحتوى المهني</p>
+              <h2 class="nds-section-title">الخبرات والإنجازات</h2>
+            </div>
+            <div class="nds-section-body">
+              <div class="content-grid">
+                <div>
+                  <h3 class="section-minor-title">الخبرات</h3>
+                  <div class="stack" data-experience-list></div>
+                </div>
+                <div>
+                  <h3 class="section-minor-title">الإنجازات</h3>
+                  <div class="stack" data-achievements-list></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="nds-content-section">
+          <div class="site-container compact-content-container nds-section-wrapper">
+            <div class="nds-section-head">
+              <p class="nds-section-subtitle">المهارات</p>
+              <h2 class="nds-section-title">مجالات الخبرة</h2>
+            </div>
+            <div class="nds-section-body">
+              <div class="chip-list" data-skills-list></div>
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+
+    <section class="nds-content-section" data-extra-page-view hidden>
+      <div class="site-container page-content-container nds-section-wrapper">
+        <div class="nds-section-head">
+          <nav class="nds-breadcrumb-nav" aria-label="مسار الصفحة">
+            <ol class="nds-breadcrumb">
+              <li><a href="index.html">الرئيسية</a></li>
+              <li aria-current="page" data-extra-page-title></li>
+            </ol>
+          </nav>
+          <h1 class="nds-section-title" data-extra-page-title></h1>
+        </div>
+        <div class="nds-section-body page-content" data-extra-page-content></div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer nds-footer nds-green" role="contentinfo" aria-label="تذييل الموقع">
+    <div class="site-container nds-footer-shell">
+      <nav class="nds-footer-content" aria-label="روابط التذييل">
+        <div class="nds-footer-column">
+          <h2 class="nds-footer-heading">روابط سريعة</h2>
+          <ul class="nds-footer-list" data-footer-links></ul>
+        </div>
+        <div class="nds-footer-column nds-footer-icons">
+          <h2 class="nds-footer-heading">وسائل التواصل</h2>
+          <div class="nds-footer-icon-row" data-footer-social></div>
+          <p class="nds-footer-empty" data-footer-social-empty>لم تتم إضافة وسائل تواصل بعد</p>
+        </div>
+      </nav>
+      <hr class="nds-divider nds-lg">
+      <div class="nds-footer-bottom">
+        <div class="nds-footer-meta">
+          <span><span data-site-title>السيرة الذاتية</span> &copy; <span data-current-year></span></span>
+        </div>
+        <div class="nds-footer-logos">
+          <img class="nds-oncolor" src="assets/vendor/nds/images/palm_swords.svg" loading="lazy" width="40" height="40" alt="" aria-hidden="true">
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/default-data.js"></script>
+  <script src="js/store.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-core.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-backdrop.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-mainnav.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-modal.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-feedback.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-forms.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-alert.js"></script>
+  <script src="js/nds-local-components.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

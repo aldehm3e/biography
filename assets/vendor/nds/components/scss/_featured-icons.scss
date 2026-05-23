@@ -1,0 +1,131 @@
+/**
+ * NDS Featured Icon - SCSS Version
+ * Circular background containers with centered icons for highlighting content
+ * Follows Figma specifications with 6 color variants: brand, success, info, warning, error, neutral
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// BASE FEATURED ICON STYLES
+// ==============================================
+
+.nds-featured-icon {
+  // Custom properties with fallbacks for parent override
+  --featuredicons-bg-color: var(--icon-bg-color, var(--featuredicons-background-brand-light));
+  --featuredicons-icon-color: var(--icon-color, var(--featuredicons-icon-primary));
+  --featuredicons-dark-bg-color: var(--dark-bg-color, var(--background-success));
+
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: calc((var(--nds-icon-size) / 4) - 2px);
+  position: relative;
+  width: var(--nds-icon-size);
+  height: var(--nds-icon-size);
+  font-size: calc(var(--nds-icon-size) / 2)!important;
+  padding: calc(var(--nds-icon-size) / 4);
+  line-height: calc(var(--nds-icon-size) / 2)!important;
+  border: unset;
+  background-color: var(--featuredicons-bg-color);
+  color: var(--featuredicons-icon-color);
+  overflow: hidden;
+
+
+  // ==============================================
+  // FEATURED ICON SIZES
+  // ==============================================
+
+  &.nds-md,
+  & {
+    --nds-icon-size: 40px;
+  }
+
+  &.nds-sm {
+    --nds-icon-size: 32px;
+  }
+
+  &.nds-lg {
+    --nds-icon-size: 48px;
+
+  }
+
+  &.nds-xl {
+    --nds-icon-size: 56px;
+  }
+
+  // Brand is the default (no attribute needed). All other status color
+  // variants are handled by the global `[data-status="..."]` rules below,
+  // which cascade through `--icon-bg-color` / `--icon-color` — whether
+  // the status is on the featured icon itself or on any ancestor.
+
+  // ==============================================
+  // FEATURED ICON STYLE VARIANTS
+  // ==============================================
+
+  &.nds-circle {
+    border-radius: 50%;
+  }
+
+  &.nds-outline {
+    background-color: transparent;
+    border: 2px solid currentColor;
+  }
+
+  &.nds-dark {
+    background-color: var(--featuredicons-dark-bg-color);
+    border: 2px solid transparent;
+
+    :is(.nds-icon, i) {
+      color: var(--icon-oncolor);
+    }
+
+    @include dark {
+      --dark-bg-color: var(--colors-primary-sa-flag-700);
+      &[data-status="success"] { --dark-bg-color: var(--colors-green-700); }
+      &[data-status="info"] { --dark-bg-color: var(--colors-blue-700); }
+      &[data-status="warning"] { --dark-bg-color: var(--colors-yellow-700); }
+      &[data-status="error"] { --dark-bg-color: var(--colors-red-700); }
+      &[data-status="neutral"] { --dark-bg-color: var(--colors-neutral-900); }
+    }
+  }
+}
+
+// ==============================================
+// INHERITED STATUS
+// Any ancestor with [data-status] cascades matching tokens to featured
+// icons nested inside. The icon's own [data-status] wins via higher
+// specificity in the direct rules above.
+// --icon-bg-color / --icon-color are only consumed by .nds-featured-icon
+// (and forwarded through cards), so this is safe to apply broadly.
+// ==============================================
+
+[data-status="success"] {
+  --icon-bg-color: var(--featuredicons-background-success-light);
+  --icon-color: var(--featuredicons-icon-success);
+  --dark-bg-color: var(--background-success);
+}
+
+[data-status="info"] {
+  --icon-bg-color: var(--featuredicons-background-info-light);
+  --icon-color: var(--featuredicons-icon-info);
+  --dark-bg-color: var(--background-info);
+}
+
+[data-status="warning"] {
+  --icon-bg-color: var(--featuredicons-background-warning-light);
+  --icon-color: var(--featuredicons-icon-warning);
+  --dark-bg-color: var(--background-warning);
+}
+
+:is([data-status="error"], [data-status="critical"]) {
+  --icon-bg-color: var(--featuredicons-background-error-light);
+  --icon-color: var(--featuredicons-icon-error);
+  --dark-bg-color: var(--background-error);
+}
+
+[data-status="neutral"] {
+  --icon-bg-color: var(--featuredicons-background-default-light);
+  --icon-color: var(--featuredicons-icon-neutral);
+  --dark-bg-color: var(--background-neutral-400);
+}

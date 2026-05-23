@@ -1,0 +1,208 @@
+/* ========================================
+   CODE COMPONENT
+   Code examples, syntax highlighting, and copy functionality
+   ======================================== */
+
+@use '../mixins' as *;
+
+/* ========================================
+   CODE BLOCK
+   ======================================== */
+
+.nds-code {
+  border: 1px solid var(--border-neutral-secondary);
+  border-radius: var(--radius-md);
+  padding: 0;
+  position: relative;
+  overflow: clip;
+  width: -webkit-fill-available;
+
+  .nds-tab-list {
+    justify-content: flex-end;
+
+    @include ltr {
+      justify-content: flex-start;
+    }
+  }
+
+  &.nds-tabs .nds-tab {
+    font-size: var(--typo-text-sm-FS);
+  }
+
+  .nds-tab-content {
+    position: relative;
+    min-height: unset;
+  }
+
+  .nds-tab-panel.code-example {
+    padding: 0;
+  }
+
+  .nds-code-action {
+    position: absolute;
+    top: 0;
+    right: 0;
+    z-index: 2;
+  }
+
+  pre {
+    margin: 0;
+    padding: 0;
+    background: transparent;
+    border: none;
+    overflow-y: hidden;
+    overflow-x: auto;
+  }
+
+  code {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: var(--typo-text-sm-FS);
+    line-height: var(--typo-text-sm-LH);
+    font-weight: 600;
+    direction: ltr;
+    text-align: left;
+    display: none;
+    flex-direction: column;
+    flex-wrap: nowrap;
+    white-space: pre;
+    overflow-y: hidden;
+    overflow-x: auto;
+    margin: 0;
+    padding: var(--spacing-xl) 0;
+    background: transparent;
+    border: none;
+
+    &.line-numbers {
+      counter-reset: line;
+      display: flex !important;
+      flex-direction: column !important;
+      padding-inline-end: var(--spacing-2xl);
+
+      .code-line {
+        display: block;
+        position: relative;
+
+        &::before {
+          counter-increment: line;
+          content: counter(line);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 3em;
+          margin-right: 1rem;
+          color: var(--colors-neutral-500);
+          font-size: var(--typo-text-xs-FS);
+          user-select: none;
+          pointer-events: none;
+          position: relative;
+          z-index: 2;
+        }
+
+        &::after {
+          content: "";
+          display: block;
+          position: absolute;
+          top: calc(var(--spacing-xl) * -1);
+          left: 0;
+          width: 3em;
+          height: calc(100% + var(--spacing-7xl));
+          font-size: var(--typo-text-xs-FS);
+          background-color: var(--background-stripe);
+          border: none;
+          border-right: 1px solid var(--border-neutral-secondary);
+          user-select: none;
+          pointer-events: none;
+          z-index: 1;
+        }
+      }
+    }
+
+    &:not(.line-numbers) {
+      .code-line:first-child {
+        margin-inline-start: var(--spacing-xl);
+      }
+    }
+  }
+}
+
+/* ========================================
+   SYNTAX HIGHLIGHTING TOKENS
+   ======================================== */
+
+.nds-inline-code {
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+:is(.nds-code, .nds-inline-code) {
+  --_syntax-red: var(--syntax-red, var(--colors-red-600));
+  --_syntax-orange: var(--syntax-orange, var(--colors-yellow-600));
+  --_syntax-green: var(--syntax-green, var(--colors-green-600));
+  --_syntax-blue: var(--syntax-blue, var(--colors-blue-600));
+  --_syntax-purple: var(--syntax-purple, var(--colors-tertiary-lavendar-500));
+  --_syntax-cyan: var(--syntax-cyan);
+  --_syntax-yellow: var(--syntax-yellow, var(--colors-yellow-600));
+  --_syntax-gray: var(--syntax-gray, var(--colors-neutral-500));
+  --_syntax-gray-dark: var(--syntax-gray-dark, var(--colors-neutral-600));
+}
+
+/* ========================================
+   SYNTAX HIGHLIGHTING - Light Theme
+   ======================================== */
+
+:is(.syntax-tag, .syntax-selector) {
+  color: var(--_syntax-red);
+  font-weight: 600;
+}
+
+:is(.syntax-attr, .syntax-number) {
+  color: var(--_syntax-orange);
+}
+
+:is(.syntax-value, .syntax-string, .syntax-template) {
+  color: var(--_syntax-green);
+}
+
+:is(.syntax-property, .syntax-function, .syntax-method) {
+  color: var(--_syntax-blue);
+}
+
+:is(.syntax-keyword, .syntax-regex) {
+  color: var(--_syntax-purple);
+  font-weight: 600;
+}
+
+:is(.syntax-literal, .syntax-operator) {
+  color: var(--_syntax-cyan);
+}
+
+:is(.syntax-builtin, .syntax-class) {
+  color: var(--_syntax-yellow);
+  font-weight: 600;
+}
+
+.syntax-comment {
+  color: var(--_syntax-gray);
+  font-style: italic;
+}
+
+.syntax-parameter {
+  color: var(--_syntax-gray-dark);
+}
+
+
+/* ========================================
+   RESPONSIVE
+   ======================================== */
+
+@include mobile {
+  .nds-code code {
+    font-size: var(--typo-text-xs-FS);
+  }
+}
+
+@include tablet {
+  .nds-code code {
+    font-size: var(--typo-text-sm-FS);
+  }
+}

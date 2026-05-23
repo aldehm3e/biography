@@ -1,0 +1,239 @@
+/**
+ * NDS Progress Components - SCSS Version
+ * Standalone progress indicators including circular and linear progress bars
+ * Supports multiple variants, sizes, and states
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// PROGRESS CIRCLE COMPONENT
+// ==============================================
+
+.nds-progress-circle {
+  --_progress-size: var(--progress-size, 64px);
+  --_progress-value: var(--progress-value, 0);
+  --_progress-circumference: var(--progress-circumference, 62.83); // 2πr where r=10
+
+  @include progress-circle-base(var(--_progress-size), -90deg);
+  @include progress-circle-text(var(--_progress-size));
+
+  @include dark {
+    --_progress-track-color: var(--progress-track-color, var(--alpha-white-10));
+  }
+
+  // CSS counter for automatic number display (clamped to 100)
+  counter-reset: progress-counter min(var(--_progress-value), 100);
+
+  // Dynamic progress using CSS custom property
+  svg circle.nds-progress-track {
+    stroke-dasharray: var(--_progress-circumference) !important;
+    stroke-dashoffset: calc(var(--_progress-circumference) - (var(--_progress-circumference) * min(var(--_progress-value), 100) / 100));
+    transition: stroke-dashoffset 0.3s ease !important;
+  }
+
+  // Auto-update progress number from CSS counter
+  .nds-progress-percentage .nds-progress-number {
+
+    &::before {
+      content: counter(progress-counter);
+      line-height: normal;
+      letter-spacing: clamp(0rem, calc(var(--_progress-size) * -0.0006), -0.12rem);
+    }
+  }
+
+  // "Out of" display (e.g. 3.75/5)
+  .nds-progress-out-of {
+    align-items: baseline !important;
+
+    .nds-progress-of {
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+  }
+
+  // Size variants (default 64px via fallback)
+  &.nds-md {
+    --progress-size: 80px;
+  }
+
+  &.nds-lg {
+    --progress-size: 120px;
+  }
+
+  &.nds-xl {
+    --progress-size: 160px;
+  }
+
+  &.nds-2xl {
+    --progress-size: 200px;
+  }
+
+  // Style variants
+  &.nds-neutral {
+    --progress-color: var(--colors-neutral-700);
+
+    @include dark {
+      --progress-color: var(--colors-neutral-200);
+    }
+  }
+
+  &[data-status="success"] {
+    --progress-color: var(--background-success);
+    --progress-value: 100 !important;
+  }
+
+  &[data-status="error"] {
+    --progress-color: var(--background-error);
+  }
+
+
+  // Status feedback icon inside circle
+  :is(.nds-feedback, .nds-feedback-icon) {
+    display: none;
+    justify-content: center;
+  }
+
+
+  &[data-status] {
+    .nds-progress-percentage {
+      display: none;
+    }
+
+    .nds-feedback {
+      display: flex;
+    }
+
+    .nds-feedback-icon {
+      display: inline-flex;
+      width: clamp(16px, calc(var(--_progress-size) * 0.3), 72px);
+      height: clamp(16px, calc(var(--_progress-size) * 0.3), 72px);
+      font-size: clamp(16px, calc(var(--_progress-size) * 0.3), 72px);
+    }
+  }
+
+}
+
+// ==============================================
+// PROGRESS BAR COMPONENT
+// ==============================================
+
+// Wrapper: label + bar + feedback (like form fields)
+.nds-progress-bar {
+  --_progress-height: var(--progress-height, 8px);
+  --_progress-value: var(--progress-value, 0);
+  --_progress-color: var(--progress-color, var(--background-primary));
+
+  counter-reset: progress-counter min(var(--_progress-value), 100);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+  width: 100%;
+
+  // ─── Label ───
+  .nds-progress-label {
+    font-size: var(--typo-text-sm-FS);
+    line-height: var(--typo-text-sm-LH);
+    font-weight: 500;
+    color: var(--text-default);
+  }
+
+  // ─── Bar track ───
+  .nds-progress-track {
+    width: 100%;
+    height: var(--_progress-height);
+    background-color: var(--colors-neutral-100);
+    border-radius: var(--radius-full);
+    position: relative;
+    display: flex;
+    align-items: center;
+    overflow: hidden;
+
+    @include dark {
+      background-color: var(--alpha-white-10);
+    }
+  }
+
+  // ─── Fill ───
+  .nds-progress-fill {
+    height: 100%;
+    background-color: var(--_progress-color);
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+    width: calc(min(var(--_progress-value), 100) * 1%);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-inline-end: var(--spacing-xs);
+    color: var(--text-oncolor-primary);
+    font-size: var(--typo-text-xs-FS);
+    font-weight: 600;
+    white-space: nowrap;
+
+    &::after {
+      content: counter(progress-counter) '%';
+      padding-inline: var(--spacing-xs);
+    }
+  }
+
+  // ─── Feedback (uses .nds-feedback component) ───
+  // Always visible inside progress, defaults to info icon
+  .nds-feedback {
+    display: flex;
+  }
+
+  &:not([data-status]) .nds-feedback .nds-icon {
+    --nds-icon: var(--nds-icon-information-circle);
+  }
+
+  // ─── Size variants ───
+  &.nds-sm {
+    --progress-height: 4px;
+
+    .nds-progress-fill::after {
+      content: none;
+    }
+  }
+
+  &.nds-md,
+  & {
+    --progress-height: 8px;
+
+    .nds-progress-fill::after {
+      content: none;
+    }
+  }
+
+  &.nds-lg {
+    --progress-height: 16px;
+
+    .nds-progress-fill::after {
+      content: counter(progress-counter) '%';
+    }
+  }
+
+  // ─── Color variants (classes) ───
+  &.nds-neutral {
+    --progress-color: var(--colors-neutral-700);
+
+    @include dark {
+      --progress-color: var(--colors-neutral-200);
+
+      .nds-progress-fill {
+        color: var(--colors-neutral-700);
+      }
+    }
+  }
+
+  // ─── Status variants (data-status overrides color) ───
+  &[data-status="success"] {
+    --progress-color: var(--background-success);
+    --progress-value: 100 !important;
+  }
+
+  &[data-status="error"] {
+    --progress-color: var(--background-error);
+  }
+
+
+}

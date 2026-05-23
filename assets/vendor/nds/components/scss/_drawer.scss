@@ -1,0 +1,434 @@
+/**
+ * NDS Drawer Component
+ * A 2-level nested navigation drawer with grid-based animations
+ * Uses --_ prefix pattern for internal custom properties
+ * Uses CSS :has() for submenu detection - no .has-sub class needed
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// BASE DRAWER STYLES
+// ==============================================
+
+.nds-drawer {
+    // Internal custom properties with external fallbacks
+    --_gap: var(--drawer-gap, 0px);
+    --_indent: var(--drawer-indent, calc(var(--_btn-padding, var(--spacing-xl))));
+    --_lined-block: var(--drawer-lined-block, 0px);
+    --_divider: var(--drawer-divider, var(--divider-color));
+    --_indicator-width: var(--drawer-indicator-width, 5px);
+    --_lined-width: var(--drawer-lined-width, 1px);
+    --_indicator: var(--drawer-indicator, transparent);
+    --_indicator-active: var(--drawer-indicator-active, var(--background-primary));
+    --_indicator-hover: var(--drawer-indicator-hover, var(--colors-neutral-400));
+    --truncate: var(--drawer-truncate, 1);
+    --_transition: var(--drawer-transition, var(--nds-transition));
+    --_max-height: var(--drawer-max-height, 400px);
+
+    &:not([hidden]) {
+        display: flex;
+        flex-direction: column;
+    }
+
+    width: 100%;
+
+    /* Scrollbar Hiding */
+    ::-webkit-scrollbar {
+        display: none;
+    }
+
+    * {
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+    }
+
+    &.nds-oncolor {
+        --drawer-divider: var(--alpha-white-10);
+    }
+
+    &.nds-card{
+        --card-width: 100%;
+    }
+
+}
+
+// ==============================================
+// DRAWER LIST
+// ==============================================
+
+.nds-drawer-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--_gap);
+    list-style: none;
+    margin: 0;
+    padding: 0;
+
+    // Reset nested lists
+    ul {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+    }
+}
+
+// ==============================================
+// DRAWER ITEMS
+// ==============================================
+
+.nds-drawer-list li {
+    display: flex;
+    flex-direction: column;
+
+    // Button/link styling within drawer
+    >.nds-btn {
+        --btn-size: 32px;
+        --btn-height: var(--drawer-btn-height, fit-content);
+        --btn-height-min: 36px;
+        --btn-width: 100%;
+        --btn-gap: var(--drawer-btn-gap, var(--spacing-md));
+        padding-block: calc(var(--_btn-padding)/2);
+        justify-content: flex-start;
+        
+
+        // Label takes available space
+        .nds-label {
+            flex: 1;
+            white-space: normal;
+        }
+
+        &:is(:hover,[data-state~="active"]) .nds-featured-icon {
+            --icon-bg-color: var(--featuredicons-background-default-light);
+            --icon-color: var(--featuredicons-icon-neutral);
+            --dark-bg-color: var(--featuredicons-icon-default);
+        }
+    }
+}
+
+// ==============================================
+// INDICATOR STYLES
+// ==============================================
+
+.nds-drawer .nds-btn.nds-indicator {
+    --btn-indicator-size: var(--_indicator-width);
+    @include btn-indicator('v');
+}
+
+// ==============================================
+// ALWAYS OPEN STATE
+// ==============================================
+
+.nds-drawer[data-state~="always-open"] {
+
+    // Hide arrow icons in always-open mode
+    .nds-drawer-list>li>.nds-btn {
+        // Hide pseudo-element arrows (for menu buttons)
+        &.nds-menu-btn::after {
+            display: none;
+        }
+
+        &.nds-menu-btn::before {
+            background-color: transparent;
+        }
+
+        // Make button non-interactive visually
+        pointer-events: none;
+        cursor: default;
+    }
+}
+
+// ==============================================
+// ACTIVE STATE
+// ==============================================
+
+.nds-drawer-list .nds-btn {
+
+    &.nds-menu-btn {
+        --btn-bg: var(--button-background-transparent-default);
+        --btn-indicator-selected: var(--background-primary);
+        --btn-bg-selected: var(--button-background-transparent-default);
+
+        .nds-label{
+            font-weight: 600;
+        }
+    }
+
+    // :where() keeps the match logic but contributes 0 specificity, so
+    // variant overrides (e.g. .nds-toc .nds-drawer) can win without needing
+    // to replicate the whole :not/:is chain.
+    &:where(:not(.nds-menu-btn, :active, .nds-oncolor)):where([data-state~="active"], [data-state~="selected"]) {
+        :where(:root:not([data-theme="dark"])) & {
+            --btn-color: var(--background-primary);
+            --btn-indicator-color: var(--background-primary);
+            --btn-indicator-selected: var(--background-primary);
+        }
+    }
+}
+
+// ==============================================
+// RICH LIST ITEM — title + description + optional accessory
+// Button adopts a 2-row layout when it contains an
+// `.nds-drawer-item` wrapper. Accessory (tag, badge, etc.) stays
+// inline with the title on row 1; `.nds-description` spans the
+// full button width on row 2.
+// ==============================================
+
+.nds-drawer-list > li > .nds-btn:has(> .nds-drawer-item) {
+    height: auto;
+    min-height: 0;
+    align-items: flex-start;
+    padding-block: var(--spacing-md);
+}
+
+.nds-drawer-list .nds-drawer-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    flex: 1;
+    min-width: 0;
+    align-items: flex-start;
+    width: 100%;
+}
+
+.nds-drawer-list .nds-drawer-item-head {
+    width: 100%;
+
+    >.nds-label:not(.nds-truncate) {
+        display: block;
+        font-size: var(--typo-text-md-FS);
+        line-height: var(--typo-text-md-LH);
+    }
+
+    .nds-tag {
+        float: inline-end;
+    }
+    .nds-description {
+        width: 100%;
+    }
+}
+
+
+// ==============================================
+// SUBMENU - CSS :has() DETECTION
+// Descendant combinator so any nesting depth gets the same treatment.
+// ==============================================
+
+// Detect items with nested menus using :has()
+.nds-drawer-list li:has(> ul) {
+    >.nds-btn {
+        // Ensure proper cursor
+        cursor: pointer;
+    }
+}
+
+// ==============================================
+// SUBMENU - HEIGHT ANIMATION
+// ==============================================
+
+.nds-drawer-list li>ul {
+    display: none;
+    height: 0;
+    transition: height var(--_transition);
+    margin-inline-start: var(--_indent);
+
+    // Submenu items with list markers (like sidemenu)
+    >li {
+        display: list-item;
+        color: var(--colors-neutral-400);
+        position: relative;
+
+        &:first-child {
+            padding-block-start: var(--spacing-md);
+        }
+
+        &:last-child {
+            padding-block-end: var(--spacing-md);
+        }
+
+        // Increased specificity to avoid !important
+        .nds-btn {
+            font-weight: 400;
+
+            &.nds-indicator:not(:hover, :active, [data-state~="active"], [data-state~="selected"]) {
+                &::before {
+                    --btn-indicator-size: var(--_indicator-width);
+                    height: var(--btn-indicator-size);
+                    display: block;
+                    background-color: var(--_indicator);
+                }
+            }
+        }
+    }
+}
+
+// ==============================================
+// DIVIDED SUB-LIST
+// ul.nds-divided inside a drawer adds dividers between its li children.
+// ==============================================
+
+.nds-drawer-list li > ul.nds-divided > li {
+    border-block-end: 1px solid var(--_divider);
+
+    &:last-child {
+        border-block-end: none;
+    }
+}
+
+// ==============================================
+// GROUP HEADER (3-level drawer)
+// A collapsible group within a section submenu.
+// Overrides the muted list-item styling applied to all ul > li.
+// ==============================================
+
+.nds-drawer-list li > ul > li {
+    display: flex;
+    color: inherit;
+
+    > .nds-btn {
+        font-weight: 600;
+    }
+
+    > ul {
+        margin-inline-start: calc(var(--_indent));
+    }
+}
+
+// Animation states - height set by JS during opening/closing
+.nds-drawer-list li>ul:is([data-state~="opening"], [data-state~="open"], [data-state~="closing"]) {
+    display: unset;
+}
+
+.nds-drawer-list li>ul:is([data-state~="opening"], [data-state~="closing"]) {
+    overflow-y: clip;
+}
+
+.nds-drawer-list li>ul[data-state~="open"] {
+    height: auto;
+}
+
+
+// ==============================================
+// SUB-LIST SIDE LINE (opt-in)
+// Add .nds-lined to .nds-drawer to enable the TOC-style vertical rail.
+// ==============================================
+
+.nds-drawer.nds-lined {
+    .nds-drawer-list li>ul {
+        position: relative;
+
+        &::before {
+            content: '';
+            position: absolute;
+            inset-inline-start: 0;
+            inset-block: var(--_lined-block);
+            width: var(--_lined-width);
+            background-color: var(--_divider);
+        }
+
+        >li .nds-btn::before {
+            inset-inline-start: calc((var(--_indicator-width)/2) * -1);
+        }
+    }
+}
+
+// ==============================================
+// SIZE VARIANTS
+// ==============================================
+
+.nds-drawer.nds-sm {
+    --drawer-indent: var(--spacing-lg);
+    --drawer-indicator-width: 2px;
+
+    .nds-btn { --btn-size: 32px; }
+}
+
+.nds-drawer.nds-lg {
+    --drawer-indent: var(--spacing-2xl);
+    --drawer-indicator-width: 4px;
+
+    .nds-btn { --btn-size: 48px; }
+}
+
+// ==============================================
+// CONSTRAINED MODE
+// Auto-enabled when a .nds-scroll-more wrapper is present
+// ==============================================
+
+.nds-drawer:has(> .nds-scroll-more) {
+    position: relative;
+    max-height: var(--_max-height);
+}
+
+// Map drawer tokens to scroll-more tokens so drawer authors can keep
+// using --drawer-max-height. Scroll-more owns the actual overflow/mask layout.
+.nds-drawer > .nds-scroll-more {
+    --scroll-max-height: var(--drawer-max-height, 400px);
+    --scroll-divider: var(--_divider);
+    --scroll-fade: 48px;
+
+    // Drawer is a flex column; let the scroll wrapper fill it so fit mode
+    // (height: 100%) and max-height constraints resolve correctly.
+    flex: 1;
+    min-height: 0;
+}
+
+// ==============================================
+// MORE BUTTON (drawer-specific theming only)
+// Layout/visibility/icon-rotation come from .nds-scroll-more > .nds-show-more
+// ==============================================
+
+.nds-drawer .nds-show-more {
+    --btn-height: var(--drawer-btn-height);
+}
+
+// ==============================================
+// DIVIDER VARIANT
+// ==============================================
+
+.nds-drawer.nds-divided {
+    .nds-drawer-list>li {
+        border-block-end: 1px solid var(--_divider);
+        padding-bottom: var(--_gap);
+
+        &:last-child {
+            border-block-end: none;
+            padding-bottom: 0;
+        }
+    }
+
+    // When always open, move border to button instead of li
+    &[data-state~="always-open"] {
+        .nds-drawer-list>li {
+            border-block-end: none;
+
+            >.nds-btn {
+                border-block-end: 1px solid var(--_divider);
+                border-radius: 0;
+            }
+
+            // Remove border only if it's the only child (no siblings)
+            &:only-child>.nds-btn {
+                border-block-end: none;
+            }
+        }
+    }
+}
+
+
+// ==============================================
+// FIT MODE
+// ==============================================
+
+.nds-grid .nds-drawer.nds-fit {
+    --drawer-btn-height: 100%;
+    height: 100%;
+
+    .nds-drawer-list {
+        height: 100%;
+
+        >li {
+             flex: 1;
+        }
+    }
+}

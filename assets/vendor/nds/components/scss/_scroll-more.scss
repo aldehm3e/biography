@@ -1,0 +1,196 @@
+@use '../mixins' as *;
+
+// ==============================================
+// SCROLL MORE
+// General-purpose overflow wrapper with edge mask-fade
+// and a full-width / full-height show-more button.
+// Axis (vertical/horizontal) is auto-detected by JS.
+// State (data-axis + data-state) lives on the wrapper,
+// so all rules target children via attribute + combinator.
+// ==============================================
+
+.nds-scroll-more:not([hidden]) {
+    // Reset public tokens so nested wrappers don't inherit from a parent.
+    --scroll-fade: initial;
+    --scroll-max-height: initial;
+    --scroll-max-width: initial;
+    --scroll-gap: initial;
+    --scroll-divider: initial;
+
+    // Internal tokens with external fallbacks
+    --_scroll-fade:       var(--scroll-fade, 48px);
+    --_scroll-max-height: var(--scroll-max-height, none);
+    --_scroll-max-width:  var(--scroll-max-width, none);
+    --_scroll-gap:        var(--scroll-gap, 0);
+    --_scroll-divider:    var(--scroll-divider, var(--divider-color));
+
+    // Mask tokens (consumed by .nds-scroll-more-content's mask-image).
+    --_fade-start: var(--_scroll-fade);
+    --_fade-end:   var(--_scroll-fade);
+    --_dir-start:  left;   // RTL default: inline-start = right → "to left" fades right edge
+    --_dir-end:    right;
+
+    @include ltr {
+        --_dir-start: right;
+        --_dir-end:   left;
+    }
+
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    min-height: 0;
+    gap: var(--_scroll-gap);
+    max-block-size: var(--_scroll-max-height);
+    max-inline-size: var(--_scroll-max-width);
+
+    &[data-axis="horizontal"] {
+        flex-direction: row;
+    }
+}
+
+.nds-scroll-more-content {
+    // Bridge to the name used by the mask gradients below.
+    --mask-fade-distance: var(--_scroll-fade);
+
+    overflow: auto;
+    flex: 1;
+    min-width: 0;
+    min-height: 0;
+
+    // No default padding declaration: authors set --scroll-padding on the wrapper
+    // (or apply padding inline on this element) when they need breathing room.
+    // Leaving it off preserves the project's own resets for <ul>, <ol>, etc.
+
+    &::-webkit-scrollbar { display: none; }
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    // Direct children must keep their natural width in flex contexts —
+    // otherwise items like buttons (with their own min-width) shrink to fit
+    // the container, scrollWidth never exceeds clientWidth, and the JS
+    // axis-detection sees no overflow. No effect in block/grid contexts.
+    > * { flex-shrink: 0; }
+}
+
+// Opt-in: snap each child's leading edge to the scroll container.
+// Makes button clicks and free-scroll land on item boundaries (useful for cards).
+.nds-scroll-more.nds-snap[data-axis="vertical"] > .nds-scroll-more-content {
+    scroll-snap-type: y mandatory;
+}
+
+.nds-scroll-more.nds-snap[data-axis="horizontal"] > .nds-scroll-more-content {
+    scroll-snap-type: x mandatory;
+}
+
+.nds-scroll-more.nds-snap > .nds-scroll-more-content > * {
+    scroll-snap-align: start;
+}
+
+// Snap mode: items are always flush with the start edge, so the start-edge
+// fade would clip them. Collapse it while there's still content to scroll into.
+.nds-scroll-more.nds-snap { --_fade-start: 0px; }
+
+// …except at the end, where the start-edge fade returns as a "scroll back" cue.
+.nds-scroll-more.nds-snap[data-state~="at-end"] { --_fade-start: var(--_scroll-fade); }
+
+// ==============================================
+// MASK (both axes) — driven by --_fade-start / --_fade-end / --_dir-*.
+// State zeroes the appropriate edge distance; gradient direction flips via vars.
+// ==============================================
+
+// Vertical: single gradient, 4 stops, edges collapse at 0.
+.nds-scroll-more[data-axis="vertical"][data-state~="has-more"] > .nds-scroll-more-content {
+    mask-image: linear-gradient(to bottom,
+        transparent 0%,
+        black var(--_fade-start),
+        black calc(100% - var(--_fade-end)),
+        transparent 100%);
+}
+
+// Horizontal: two gradients intersected; direction vars handle RTL/LTR in one rule.
+.nds-scroll-more[data-axis="horizontal"][data-state~="has-more"] > .nds-scroll-more-content {
+    mask-composite: intersect;
+    -webkit-mask-composite: source-in;
+    mask-image:
+        linear-gradient(to var(--_dir-start), transparent 0%, black var(--_fade-start)),
+        linear-gradient(to var(--_dir-end),   transparent 0%, black var(--_fade-end));
+}
+
+// Collapse the relevant edge at scroll boundaries.
+.nds-scroll-more[data-state~="at-start"] { --_fade-start: 0px; }
+.nds-scroll-more[data-state~="at-end"]   { --_fade-end:   0px; }
+
+// ==============================================
+// SHOW-MORE BUTTON
+// Visuals come from .nds-btn (.nds-subtle.nds-md).
+// This class adds layout-only rules so it reserves space.
+// ==============================================
+
+.nds-scroll-more > .nds-show-more {
+    display: none;
+    flex-shrink: 0;
+    justify-content: center;
+    align-items: center;
+
+    i {
+        transition: transform var(--nds-transition);
+        transform: rotate(var(--_icon-rotate, 0deg));
+        width: calc(var(--_btn-icon-size) - 4px);
+        height: calc(var(--_btn-icon-size) - 4px);
+    }
+}
+
+.nds-scroll-more[data-state~="has-more"] > .nds-show-more {
+    display: inline-flex;
+}
+
+// Vertical: button spans full width below content
+.nds-scroll-more[data-axis="vertical"] > .nds-show-more {
+    width: 100% !important;
+}
+
+// Optional .nds-divider child (auto-injected by the JS) — shown only when the
+// wrapper opts in via .nds-divided AND overflow is actually present.
+.nds-scroll-more > .nds-divider {
+    display: none;
+    border-block-start-color: var(--_scroll-divider);
+}
+
+.nds-scroll-more.nds-divided[data-state~="has-more"] > .nds-divider {
+    display: block;
+}
+
+// Horizontal: flip the divider to a vertical rule via writing-mode.
+.nds-scroll-more[data-axis="horizontal"] > .nds-divider {
+    writing-mode: vertical-rl;
+}
+
+// Icon rotation per axis + state. The <i> reads --_icon-rotate (set above),
+// so each rule only redefines that one variable — no stacked transforms.
+.nds-scroll-more[data-axis="vertical"][data-state~="at-end"] > .nds-show-more {
+    --_icon-rotate: 180deg;
+}
+
+// Horizontal: rotate the entire button so icon + label read vertically.
+.nds-scroll-more[data-axis="horizontal"] > .nds-show-more {
+    align-self: stretch;
+    height: auto !important;
+    writing-mode: vertical-rl;
+    text-orientation: sideways;
+    --_icon-rotate: 90deg;
+
+    @include ltr {
+        writing-mode: vertical-lr;
+        --_icon-rotate: -90deg;
+    }
+}
+
+.nds-scroll-more[data-axis="horizontal"][data-state~="at-end"] > .nds-show-more {
+    --_icon-rotate: -90deg;
+
+    @include ltr {
+        --_icon-rotate: 90deg;
+    }
+}
+

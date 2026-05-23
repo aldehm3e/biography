@@ -1,0 +1,360 @@
+/**
+ * NDS Tabs Component
+ * Interactive tab navigation with horizontal and vertical layouts
+ *
+ * Structure:
+ *   .nds-tabs
+ *     .nds-tab-list-container.nds-scroll-more         (co-classed on one element)
+ *       .nds-tab-list.nds-scroll-more-content           (co-classed on the nav)
+ *         .nds-tab[role="tab"]
+ *       .nds-show-more
+ *     .nds-tab-content
+ *       .nds-tab-panel[role="tabpanel"]
+ *
+ * The co-classed wrapper has two roles:
+ *   - .nds-tab-list-container supplies `isolation: isolate` so the .nds-divided
+ *     3px rail (rendered via ::after with z-index: -1) stays behind the tabs.
+ *   - .nds-scroll-more supplies overflow detection, edge mask, show-more button.
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// TAB CONTAINER
+// ==============================================
+
+.nds-tabs {
+  --btn-indicator-size: 3px;
+
+  &:not([hidden]) {
+    display: flex;
+    flex-direction: column;
+  }
+
+  // ---- Divider ----
+  // Base rail for horizontal tabs. `.nds-vertical.nds-divided` below overrides
+  // the geometry (inset-inline-end / height / width) to render a full-height
+  // rail at the inline-end edge instead of a 3px bar at the bottom.
+  &.nds-divided {
+    .nds-tab-list-container::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      width: 100%;
+      height: var(--btn-indicator-size);
+      background-color: var(--divider-color);
+      border-radius: var(--radius-full);
+      z-index: -1;
+    }
+
+    .nds-tab {
+      margin-bottom: var(--btn-indicator-size);
+      border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+
+      &::before {
+        margin-bottom: calc(var(--btn-indicator-size) * -1);
+      }
+    }
+  }
+
+  // ---- Vertical layout ----
+  &.nds-vertical {
+    flex-direction: row;
+
+    .nds-tab-list {
+      flex-direction: column;
+      flex-wrap: nowrap;
+      min-width: fit-content;
+      padding-inline-end: var(--btn-indicator-size);
+      position: sticky;
+      z-index: 2;
+      top: var(--nds-nav-height);
+    }
+
+    .nds-show-more {
+      display: none !important;
+    }
+
+    .nds-tab {
+      border-radius: var(--radius-sm);
+      width: 100%;
+      justify-content: start;
+      @include btn-indicator('v');
+    }
+
+    &.nds-divided {
+      .nds-tab {
+        flex-direction: row-reverse;
+        margin-bottom: unset;
+        border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+        justify-content: end;
+
+        @include ltr {
+          border-radius: var(--radius-sm) 0 0 var(--radius-sm);
+        }
+
+        .nds-label {
+          text-align: end;
+        }
+
+        &::before {
+          margin-inline-end: calc(var(--btn-indicator-size) * -1);
+          inset-inline-end: 0;
+          inset-inline-start: unset;
+          margin-bottom: unset;
+        }
+      }
+
+      .nds-tab-list-container::after {
+        inset-inline-end: 0;
+        height: 100%;
+        width: var(--btn-indicator-size);
+      }
+    }
+  }
+
+  // ---- Center alignment ----
+  // `:is(.nds-center, .center)` covers both the prefixed class and the legacy
+  // unprefixed one. `margin-inline: auto` horizontally centers the fit-content
+  // strip without touching block margins (owned by surrounding layout).
+  .nds-tab-list:is(.nds-center, .center) {
+    justify-content: center;
+    width: fit-content;
+    margin-inline: auto;
+  }
+}
+
+// ==============================================
+// TAB LIST CONTAINER
+// Co-classed with .nds-scroll-more on the same element: scroll-more supplies
+// position:relative and display:flex, this adds the stacking context that
+// confines the .nds-divided rail (::after { z-index: -1 }).
+// ==============================================
+
+.nds-tab-list-container {
+  isolation: isolate;
+}
+
+// ==============================================
+// TAB LIST
+// ==============================================
+
+.nds-tab-list {
+  display: flex;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  white-space: nowrap;
+  position: relative;
+}
+
+// ==============================================
+// TAB BUTTON
+// ==============================================
+
+.nds-tab {
+  gap: var(--tab-button-gap);
+  padding: var(--tab-horizontal-tab-md-button-v-padding) var(--tab-horizontal-tab-md-button-h-padding);
+  color: var(--text-primary-paragraph);
+  border: 0;
+  white-space: nowrap;
+  min-width: fit-content;
+  position: relative;
+  z-index: 2;
+
+  @include btn-indicator('b');
+
+  .nds-lg & {
+    --btn-size: 48px;
+  }
+
+  &[aria-selected="true"] .nds-label {
+    color: var(--text-default);
+    filter: drop-shadow(0 0 .02em currentColor);
+  }
+
+  &:is(:hover, :active)::before {
+    background-color: var(--_btn-indicator-color);
+  }
+
+  &[aria-selected="true"]::before {
+    background-color: var(--border-primary);
+  }
+
+  &.nds-show-more {
+    min-width: var(--btn-size);
+    aspect-ratio: 1 / 1;
+  }
+
+  &:disabled {
+    color: var(--text-default-disabled);
+  }
+}
+
+// ==============================================
+// HORIZONTAL LAYOUT
+// Layout rules for the tab strip. Overflow/mask/show-more
+// is delegated to nds-scroll-more (see bottom of file).
+// ==============================================
+
+.nds-tabs:not(.nds-vertical) {
+  .nds-tab-list {
+    flex-wrap: nowrap !important;
+    max-width: 100%;
+    scroll-behavior: smooth;
+
+    >* {
+      width: fit-content;
+
+      @include mobile {
+        max-width: 85%;
+      }
+    }
+  }
+}
+
+// ==============================================
+// TAB CONTENT & PANELS
+// ==============================================
+
+.nds-tab-content {
+  min-height: var(--btn-size);
+  width: 100%;
+  flex: 1;
+  min-width: 0;
+}
+
+.nds-tab-panel {
+  padding: var(--spacing-2xl);
+
+  &:focus {
+    outline: none;
+  }
+}
+
+// ==============================================
+// ACCESSIBILITY
+// ==============================================
+
+@include high-contrast {
+  .nds-tab {
+    border: 1px solid transparent;
+
+    &:focus {
+      border-color: currentColor;
+    }
+
+    &[aria-selected="true"] {
+      border: 1px solid var(--border-primary);
+      border-bottom: 2px solid var(--border-primary);
+    }
+  }
+}
+
+@include reduced-motion {
+  :is(.nds-tab, .nds-tab-panel) {
+    transition: none;
+    animation: none;
+  }
+}
+
+// ==============================================
+// CARD VARIANT
+// ==============================================
+
+// Card on entire .nds-tabs container
+.nds-tabs.nds-card {
+  --card-width: 100%;
+
+  &:not(.nds-stroke) {
+    border: 0;
+  }
+
+  .nds-tab-content {
+    padding-inline: var(--_card-padding);
+    padding-block: var(--spacing-2xl);
+
+    .nds-tab-panel {
+      padding: 0;
+    }
+  }
+
+  &:not(.nds-vertical) {
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+
+    .nds-tab {
+      --btn-height: calc(var(--btn-size) * 1.25);
+    }
+  }
+
+  &.nds-vertical .nds-tab-content {
+    padding-inline-end: 0;
+    padding-block: 0;
+  }
+}
+
+// Card on .nds-tab-content or .nds-tab-panel only
+:is(.nds-tab-content, .nds-tab-panel).nds-card {
+  --card-width: 100%;
+  margin-block-start: var(--spacing-xl);
+
+  .nds-vertical>& {
+    margin-block-start: 0;
+    margin-inline-start: var(--spacing-xl);
+  }
+}
+
+.nds-tab-content.nds-card {
+  padding-inline: var(--_card-padding);
+  padding-block: var(--spacing-2xl);
+
+  .nds-tab-panel {
+    padding: 0;
+  }
+}
+
+// ==============================================
+// FULL-WIDTH RESPONSIVE OVERRIDES
+// ==============================================
+
+.nds-content-layout.nds-cardView .nds-ghost,
+section>.nds-max-width {
+  .nds-tabs:not(.nds-card) {
+    @include tablet(max) {
+      .nds-tab-content:not(.nds-card, :has(.nds-max-width)) {
+        padding-inline: var(--nds-viewport-padding);
+      }
+
+      .nds-tab-list {
+        padding-inline: var(--nds-viewport-padding);
+      }
+    }
+  }
+}
+
+// ==============================================
+// SCROLL-MORE TOKEN MAPPING
+// .nds-tab-list-container.nds-scroll-more is one element: container supplies
+// the divider stacking context, scroll-more supplies overflow/mask/show-more.
+// flex-direction:row is set here (in addition to scroll-more's data-axis rule)
+// so the tab strip lays out horizontally before scroll-more JS initializes.
+// ==============================================
+
+.nds-tabs:not(.nds-vertical) .nds-tab-list-container {
+  --scroll-fade: 48px;
+  --scroll-divider: var(--divider-color);
+  width: 100%;
+  flex-direction: row;
+}
+
+// Override scroll-more's horizontal stretch rule (`align-self: stretch` +
+// `height: auto !important` in _scroll-more.scss) so the show-more button stays
+// at tab height instead of matching the full flex-row height (tabs + 3px rail).
+// Specificity bumped via :not(.nds-vertical) to beat scroll-more's selector,
+// since tabs loads before scroll-more in the bundle.
+.nds-tabs:not(.nds-vertical) .nds-tab.nds-show-more {
+  align-self: center;
+  height: var(--btn-size) !important;
+}

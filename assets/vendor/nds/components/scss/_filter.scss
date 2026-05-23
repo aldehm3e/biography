@@ -1,0 +1,93 @@
+/**
+ * NDS Filter Component - SCSS
+ * Filtration system styles for filtering card items
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// FILTER CONTAINER IN DROPMENU
+// ==============================================
+
+.nds-auto-fill:not([hidden]) {
+    display: flex;
+    gap: var(--spacing-md);
+    flex-direction: column;
+
+    >.nds-label {
+        font-size: var(--typo-text-clamp-lg-FS);
+        line-height: var(--typo-text-clamp-lg-LH);
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+}
+
+.nds-filter {
+    --dropmenu-min-width: 250px;
+}
+
+// Result-count line (e.g. "0 Result(s) found") — pairs with [data-filter-count]
+.nds-results-count {
+    color: var(--text-secondary-paragraph);
+}
+
+
+// ==============================================
+// APPLIED FILTERS (standalone)
+// ==============================================
+
+.nds-filter-applied:not([hidden]) {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-md);
+    min-width: 0;
+    align-items: center;
+    flex: 1 1 100%;
+    min-width: 0;
+
+    >.nds-label {
+        font-size: var(--typo-text-clamp-lg-FS);
+        font-weight: 500;
+    }
+}
+
+// ==============================================
+// FORM SUBMISSION MODE
+// States are set on .nds-filter (the anchor) by nds-filter.js during submission
+// ==============================================
+
+.nds-filter {
+
+    // Submitting state
+    &[data-state~="submitting"] {
+        opacity: 0.7;
+        pointer-events: none;
+        cursor: wait;
+
+        .nds-btn {
+            pointer-events: none;
+        }
+    }
+
+    // Success state
+    &[data-status="success"] {
+
+        :is(.nds-search-input, .nds-form-control input) {
+            border-color: var(--border-success);
+        }
+    }
+
+    // Error state
+    &[data-status="error"] {
+
+        :is(.nds-search-input, .nds-form-control input) {
+            border-color: var(--border-error);
+        }
+    }
+}
+
+// Hidden inputs container lives inside the submission form; always invisible
+.nds-filter-hidden-inputs {
+    display: none !important;
+    visibility: hidden !important;
+}

@@ -1,0 +1,216 @@
+/**
+* NDS Definition List
+* Component for displaying term-description pairs with icons
+* Works with semantic dl/dt/dd or any element using .nds-item-title / .nds-item-desc classes
+*/
+
+@use '../mixins' as *;
+
+// ==============================================
+// LAYOUT MIXINS
+// ==============================================
+
+@mixin dl-tableView {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    height: 100%;
+
+    :is(dd, .nds-item-desc) {
+        display: flex;
+        align-items: center;
+    }
+
+    .nds-definition-item {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: subgrid;
+        row-gap: var(--_dl-gap);
+        column-gap: var(--col-gap, var(--gap, var(--spacing-xl)));
+    }
+
+    // Reset stacked icon indent in tableView mode
+    .nds-definition-item:has(> :is(dt, .nds-item-title) :is(.nds-icon, i)) :is(dd, .nds-item-desc) {
+        padding-inline-start: 0;
+    }
+}
+
+// rowView puts dt and dd on the same line per item with wrap fallback —
+// looser than tableView (no shared columns across items), so values flow
+// naturally beside their label and only break to a new line when space runs
+// out. Use for compact card meta where each row is independent.
+@mixin dl-rowView {
+    .nds-definition-item {
+        flex-direction: row;
+        flex-wrap: wrap;
+        column-gap: var(--col-gap, var(--gap, var(--spacing-sm)));
+    }
+
+    // Reset stacked icon indent in rowView mode
+    .nds-definition-item:has(> :is(dt, .nds-item-title) :is(.nds-icon, i)) :is(dd, .nds-item-desc) {
+        padding-inline-start: 0;
+    }
+}
+
+@mixin dl-divided-stacked {
+    .nds-definition-item {
+        padding-bottom: var(--_dl-gap);
+        border-bottom: 1px solid var(--divider-color);
+
+        &:last-child,
+        &.nds-last-row {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+    }
+}
+
+@mixin dl-stacked-icon-indent {
+    .nds-definition-item:has(> :is(dt, .nds-item-title) :is(.nds-icon, i)) :is(dd, .nds-item-desc) {
+        padding-inline-start: calc(max(18px, var(--_dl-icon-size)) + var(--_dl-icon-gap) + 2px);
+    }
+}
+
+@mixin dl-divided-tableView {
+    gap: 0;
+
+    .nds-definition-item {
+        padding: var(--spacing-md) 0;
+        border-bottom: 1px solid var(--divider-color);
+
+        &:last-child,
+        &.nds-last-row {
+            border-bottom: none;
+        }
+    }
+}
+
+// ==============================================
+// BASE DEFINITION LIST STYLES
+// ==============================================
+
+.nds-definition-list {
+    // Default is lg — nds-lg class is a no-op, provided so an ancestor-set
+    // smaller size can be overridden back to the default on a specific list.
+    --_dl-icon-size: var(--dl-icon-size, 20px);
+    --_dl-icon-gap: var(--dl-icon-gap, calc(var(--_dl-icon-size)/2));
+    --_dl-title-FS: var(--dl-title-FS, var(--typo-text-lg-FS));
+    --_dl-desc-FS: var(--dl-desc-FS, var(--typo-text-md-FS));
+    --_dl-gap: var(--row-gap, var(--gap, var(--spacing-lg)));
+    display: flex;
+    flex-direction: column;
+    row-gap: var(--_dl-gap);
+
+    &.nds-md {
+        --dl-icon-size: 18px;
+        --dl-title-FS: var(--typo-text-clamp-md-FS);
+        --row-gap: var(--spacing-md);
+    }
+
+    &.nds-sm {
+        --dl-icon-size: 18px;
+        --dl-title-FS: var(--typo-text-clamp-sm-FS);
+        --dl-desc-FS: var(--typo-text-sm-FS);
+        --row-gap: var(--spacing-sm);
+    }
+
+    // Always-on tableView
+    &.nds-tableView:not([class*="nds-tableView-"]) {
+        @include dl-tableView;
+    }
+
+    // Responsive variants
+    &.nds-tableView-sm {
+        @include mobile { @include dl-tableView; }
+    }
+    &.nds-tableView-md {
+        @include tablet { @include dl-tableView; }
+    }
+    &.nds-tableView-lg {
+        @include desktop('min') { @include dl-tableView; }
+    }
+
+    &.nds-rowView {
+        @include dl-rowView;
+    }
+}
+
+// ==============================================
+// DEFINITION ITEM
+// ==============================================
+
+.nds-definition-item {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+    text-align: start;
+    width: 100%;
+}
+
+// ==============================================
+// DEFINITION TERM (dt or .nds-item-title)
+// ==============================================
+
+.nds-definition-list :is(dt, .nds-item-title) {
+    display: flex;
+    align-items: center;
+    gap: var(--_dl-icon-gap);
+    font-size: var(--_dl-title-FS);
+    color: var(--text-primary-paragraph);
+    margin: 0;
+
+    :is(.nds-icon, i) {
+        color: var(--text-primary);
+        min-width: 18px;
+        width: max(18px, var(--_dl-icon-size));
+        height: max(18px, var(--_dl-icon-size));
+        font-size: max(18px, var(--_dl-icon-size));
+    }
+
+    .nds-label {
+        flex: 1;
+        font-weight: 600;
+        line-height: normal;
+    }
+}
+
+// ==============================================
+// DEFINITION DESCRIPTION (dd or .nds-item-desc)
+// ==============================================
+
+.nds-definition-list :is(dd, .nds-item-desc) {
+    color: var(--text-secondary-paragraph);
+    font-size: var(--_dl-desc-FS);
+}
+
+// Icon indent: always on by default, reset when tableView activates
+.nds-definition-list {
+    @include dl-stacked-icon-indent;
+}
+
+// ==============================================
+// DIVIDED VARIANT
+// ==============================================
+
+.nds-definition-list.nds-divided {
+
+    // Stacked divided (default for all)
+    @include dl-divided-stacked;
+
+    // TableView divided overrides
+    &.nds-tableView:not([class*="nds-tableView-"]) {
+        @include dl-divided-tableView;
+    }
+    &.nds-tableView-sm {
+        @include mobile { @include dl-divided-tableView; }
+    }
+    &.nds-tableView-md {
+        @include tablet { @include dl-divided-tableView; }
+    }
+    &.nds-tableView-lg {
+        @include desktop('min') { @include dl-divided-tableView; }
+    }
+}
+
+// ==============================================
+// RESPONSIVE BEHAVIOR
+// ==============================================

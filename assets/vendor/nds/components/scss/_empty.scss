@@ -1,0 +1,54 @@
+@use '../mixins' as *;
+
+// Centering: flex-center the placeholder inside generic containers (ul/ol/div).
+// Tables use native table layout + vertical-align:middle on the cell instead.
+.nds-empty:has(> [data-nds-empty-placeholder]):not(table):not(tbody) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+// Layout for the two placeholder forms. A <td> can't be display:flex or colspan
+// breaks, so the cell variant keeps display:table-cell and stacks with block
+// children + text-align:center.
+.nds-empty-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-4xl) var(--spacing-xl);
+  text-align: center;
+}
+
+li.nds-empty-placeholder {
+  list-style: none;
+}
+
+tr[data-nds-empty-placeholder] > td {
+  padding: var(--spacing-4xl) var(--spacing-xl);
+  text-align: center;
+  vertical-align: middle;
+
+  > i {
+    display: block;
+    margin-inline: auto;
+    margin-block-end: var(--spacing-md);
+  }
+}
+
+// Shared child styling for both placeholder forms. Target <i> by position so
+// author overrides via data-empty-icon (e.g. "hgi hgi-stroke hgi-NAME") still
+// pick up color + size even when they omit the .nds-icon class.
+:is(.nds-empty-placeholder, tr[data-nds-empty-placeholder] > td) {
+  > i {
+    color: var(--text-primary-paragraph);
+    font-size: var(--typo-display-md-FS);
+  }
+
+  .nds-empty-message {
+    color: var(--text-secondary-paragraph);
+    font-size: var(--typo-text-clamp-md-FS);
+    line-height: var(--typo-text-clamp-md-LH);
+  }
+}

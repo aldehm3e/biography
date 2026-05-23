@@ -1,0 +1,167 @@
+/**
+ * NDS Accordion Component
+ * Collapsible accordion component with NDS design tokens
+ *
+ * Structure:
+ * - Base accordion container (.nds-accordion)
+ * - Accordion items (.nds-accordion-item)
+ * - Interactive buttons (.nds-accordion-btn)
+ * - Collapsible content (.nds-accordion-collapse)
+ */
+
+@use '../mixins' as *;
+
+.nds-accordion {
+    --_accordion-header-height: var(--accordion-header-height, 56px);
+    --_accordion-header-padding: var(--accordion-header-padding, var(--accordion-lg-header-padding, 16px));
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    gap: 0;
+
+    &.nds-lg {
+        --accordion-header-height: 56px;
+        --accordion-header-padding: 16px;
+    }
+
+    &.nds-md {
+        --accordion-header-height: 48px;
+        --accordion-header-padding: 12px;
+    }
+
+    &.nds-sm {
+        --accordion-header-height: 40px;
+        --accordion-header-padding: 8px;
+    }
+
+
+    /* Accordion Items */
+    .nds-accordion-item {
+        position: relative;
+        border: none;
+        border-top: 1px solid var(--divider-color);
+        border-radius: 0;
+    }
+
+    /* Accordion Headers */
+    .nds-accordion-header {
+        margin: 0;
+        padding: 0;
+        font: inherit;
+    }
+
+    /* Accordion Buttons */
+    .nds-accordion-btn {
+        --btn-bg: var(--button-background-transparent-default);
+        --btn-bg-hover: var(--button-background-neutral-default);
+        --btn-bg-active: var(--button-background-neutral-pressed);
+        --btn-bg-selected: var(--button-background-transparent-default) !important;
+        --btn-height: var(--_accordion-header-height);
+        --nds-button-icon-size: 20px !important;
+        justify-content: space-between;
+        width: 100%;
+        border-radius: 0 !important;
+        padding: var(--_accordion-header-padding) var(--accordion-lg-header-padding);
+        font-size: var(--typo-text-md-FS);
+        line-height: var(--typo-text-md-LH);
+        white-space: normal;
+
+        .nds-accordion-title {
+            display: block;
+            width: 100%;
+            text-align: start;
+            font-weight: 600;
+        }
+    }
+
+    /* Accordion Collapse */
+    .nds-accordion-collapse {
+        display: grid;
+        grid-template-rows: 0fr;
+        overflow: clip;
+        transition: grid-template-rows var(--nds-transition);
+
+        .nds-accordion-content {
+            grid-row: 1 / span 2;
+            overflow: hidden;
+        }
+
+        &[data-state~="open"],
+        &[data-state~="opening"] {
+            grid-template-rows: 1fr;
+        }
+
+        &:not([data-state]) .nds-accordion-content {
+            display: none;
+        }
+
+    }
+
+    /* Accordion Body */
+    .nds-accordion-body {
+        padding: var(--spacing-xl) var(--spacing-xl);
+        color: var(--text-default);
+    }
+
+    /* Card View Styling */
+    &.nds-card {
+        --card-gap: 0;
+        --card-width: 100%;
+        padding: 0;
+        overflow: hidden;
+
+        &:not(.nds-stroke) {
+            border: 0;
+        }
+
+        .nds-accordion-item:first-child {
+            border-top: 0;
+        }
+    }
+}
+
+
+
+
+// ==============================================
+// RESPONSIVE DESIGN & ACCESSIBILITY
+// ==============================================
+
+/* Accessibility Support */
+@include high-contrast {
+    .nds-accordion {
+        .nds-accordion-item {
+            border-color: var(--text-primary);
+        }
+
+        .nds-accordion-btn:focus {
+            outline-width: 3px;
+        }
+    }
+}
+
+@include reduced-motion {
+    .nds-accordion {
+        .nds-accordion-collapse {
+            transition: none;
+        }
+    }
+}
+
+@include print-media {
+    .nds-accordion {
+        .nds-accordion-collapse {
+            display: block !important;
+            height: auto !important;
+        }
+
+        .nds-accordion-content {
+            display: block !important;
+            overflow: visible !important;
+        }
+
+        .nds-accordion-btn {
+            background-color: transparent !important;
+        }
+    }
+}

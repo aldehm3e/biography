@@ -1,0 +1,159 @@
+/**
+ * NDS Dropmenu Component
+ * Dropdown menu with direction-aware positioning, boundary detection,
+ * and smooth directional animations
+ */
+
+@use '../mixins' as *;
+
+// ==============================================
+// 1. CONFIGURATION
+// ==============================================
+
+.nds-dropmenu {
+  position: relative;
+  display: inline-flex;
+
+  &-scroll {
+    overflow: hidden;
+    overflow-y: auto;
+    max-height: 400px;
+    // Stop scroll momentum from chaining to the page when the inner
+    // scroll hits its end — otherwise the page-scroll listener closes
+    // the menu as soon as the user hits top or bottom.
+    overscroll-behavior: contain;
+  }
+
+  // ==============================================
+  // 3. MENU ITEMS
+  // ==============================================
+
+  &-item {
+    // Items are block-level flex so they stack vertically regardless of the
+    // parent's `white-space`. Without this, a dropmenu rendered inside an
+    // `.nds-form-action.nds-prefix` (which sets `white-space: nowrap`)
+    // would lay the inline-flex `.nds-btn` items out on a single row and
+    // the scroll's overflow-x would clip everything past the first one.
+    display: flex;
+    justify-content: flex-start;
+    text-decoration: none;
+    width: 100%;
+
+    &:is(:link, :visited) {
+      text-decoration: none;
+    }
+  }
+
+  // ==============================================
+  // 5. INNER COMPONENTS — sticky action footer
+  // ==============================================
+
+  &-action {
+    --gap: var(--spacing-lg);
+
+    .nds-btn {
+      width: 100%;
+
+      .nds-label {
+        width: 100%;
+        text-align: center;
+      }
+    }
+  }
+}
+
+// ==============================================
+// 2. MENU CONTAINER
+// ==============================================
+// The menu lives at body level while open (portal), so its variables and
+// state-driven rules must apply via the menu's own data-state — we can't
+// rely on the wrapper as an ancestor selector.
+
+.nds-dropmenu-menu {
+  // Variables — defined on the menu itself so portaling to body doesn't
+  // break the cascade. Consumers still set `--menu-padding` etc. on a
+  // dropmenu wrapper; JS snapshots the inherited values onto the menu
+  // before portaling.
+  --_menu-padding: var(--menu-padding, var(--spacing-md, 8px));
+  --_dropmenu-offset: var(--spacing-xs, 4px);
+  --_dropmenu-slide: calc(var(--dropmenu-slide, 8px) * -1);
+  --_dropmenu-width: var(--dropmenu-width, fit-content);
+  --_dropmenu-min-width: var(--dropmenu-min-width, max-content);
+  --_dropmenu-max-width: var(--dropmenu-max-width, calc(100vw - 16px));
+  --divider: var(--_menu-padding);
+
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  width: var(--_dropmenu-width);
+  min-width: var(--_dropmenu-min-width);
+  max-width: var(--_dropmenu-max-width);
+  padding: var(--_menu-padding);
+  list-style: none;
+  background-color: var(--background-menu);
+  border: 1px solid var(--border-neutral-secondary);
+  border-radius: var(--radius-md, 8px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+  // Animation base
+  transition: opacity var(--nds-transition),
+    transform var(--nds-transition);
+  opacity: 1;
+  transform: translateY(0);
+
+  .nds-dropmenu-group,
+  .nds-dropmenu-item:not(.nds-btn) {
+    margin-top: var(--spacing-2xl);
+    margin-bottom: var(--spacing-2xl);
+    padding-inline: var(--spacing-md);
+
+    &:first-child {
+      margin-top: var(--spacing-md);
+    }
+
+    &:last-child {
+      margin-bottom: var(--spacing-lg);
+    }
+  }
+
+  .nds-dropmenu-group>.nds-label {
+    font-size: var(--typo-text-xs-FS);
+    font-weight: 700;
+    line-height: var(--typo-text-xs-LH);
+    color: var(--text-display);
+  }
+
+  .nds-form-control {
+    min-width: unset;
+    width: 100%;
+  }
+
+  // ── States & animations (applied directly on the menu) ─────────
+  &[data-state~="open"] {
+    display: block;
+  }
+
+  &[data-position-vertical="top"] {
+    --_dropmenu-slide: var(--dropmenu-slide, 8px);
+  }
+
+  &[data-state~="opening"],
+  &[data-state~="closing"] {
+    opacity: 0;
+    transform: translateY(var(--_dropmenu-slide));
+  }
+
+  @include mobile {
+    max-width: calc(100vw - var(--nds-viewport-padding) * 4);
+  }
+}
+
+// ==============================================
+// 7. ACCESSIBILITY
+// ==============================================
+
+@media (prefers-reduced-motion: reduce) {
+  .nds-dropmenu-menu {
+    transition: none;
+  }
+}
