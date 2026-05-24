@@ -33,6 +33,7 @@ What changed:
 - Updated public rendering and admin editing to wait for async database content while keeping vanilla HTML/CSS/JS and the existing NDS design.
 - Added authenticated media uploads to `uploads/images/`, `uploads/video/`, `uploads/logos/`, and `uploads/icons/`.
 - Added old localStorage migration support in the admin tools panel.
+- Added `README_INSTALL_BEGINNER.md` for first-time installers.
 - Added `README_DATABASE.md` for detailed Laragon, XAMPP, Hostinger, backup, restore, and admin usage instructions.
 
 Core endpoints:
@@ -57,7 +58,7 @@ Quick Laragon install:
 6. Create the first admin account in the installer.
 7. Open `http://localhost/Biography/admin.html`, log in, save a small brand/settings change, refresh, and confirm it remains.
 
-For full installation and deployment notes, read `README_DATABASE.md`.
+For first-time installation, read `README_INSTALL_BEGINNER.md`. For detailed database and deployment notes, read `README_DATABASE.md`.
 
 ## 2026-05-24 NDS Header, Persona, Dark Mode, and QA Sanity
 
@@ -218,6 +219,7 @@ Root pages:
 - `pages.html`: Dedicated added-pages listing page.
 - `admin.html`: Database CMS admin interface for all editable content.
 - `README.md`: Project guide and future handoff notes.
+- `README_INSTALL_BEGINNER.md`: Step-by-step installation guide for beginners and customers.
 - `README_DATABASE.md`: Installation, deployment, backup, restore, and admin operation guide.
 
 Styles:

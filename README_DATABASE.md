@@ -2,6 +2,8 @@
 
 This site is now backed by PHP 8+ and MySQL/MariaDB. The frontend stays vanilla HTML/CSS/JS and keeps the current NDS design, while the database is the main source of truth for editable content.
 
+For a simpler customer-facing walkthrough, read `README_INSTALL_BEGINNER.md`.
+
 ## What Changed
 
 - Public pages load content from `api/content/get-site.php`.
