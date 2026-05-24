@@ -42,6 +42,9 @@
 
   window.CONTACT_ICON_OPTIONS = [
     { value: "linkedin", label: "LinkedIn" },
+    { value: "facebook", label: "Facebook" },
+    { value: "instagram", label: "Instagram" },
+    { value: "youtube", label: "YouTube" },
     { value: "github", label: "GitHub" },
     { value: "x", label: "X / Twitter" },
     { value: "email", label: "Email" },

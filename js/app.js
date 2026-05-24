@@ -2,6 +2,7 @@
   "use strict";
 
   var HERO_SLIDE_DURATION = 8500;
+  var SITE_DATA_KEY = "websiteDemo:siteData";
   var NOTIFICATIONS_KEY = "websiteDemo:notifications";
 
   var appState = {
@@ -82,18 +83,76 @@
   }
 
   function siteTitle(data) {
-    return data.settings.siteName || data.home.ownerName || "السيرة الذاتية";
+    data = data || {};
+    data.settings = data.settings || {};
+    data.home = data.home || {};
+    return data.settings.siteName || data.home.ownerName || document.title || "Biography";
+  }
+
+  function readCachedSiteData() {
+    try {
+      var raw = localStorage.getItem(SITE_DATA_KEY);
+      var data = raw ? JSON.parse(raw) : null;
+      return data && typeof data === "object" ? data : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function fallbackNavigationLabel(key, fallback) {
+    var defaults = window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.navigation;
+    return (defaults && defaults[key]) || fallback;
+  }
+
+  function navigationLabel(data, key, fallback) {
+    data = data || {};
+    data.navigation = data.navigation || {};
+    return data.navigation[key] || fallbackNavigationLabel(key, fallback);
+  }
+
+  function brandTitle(data) {
+    data = data || {};
+    data.settings = data.settings || {};
+    return data.settings.brandName || siteTitle(data);
+  }
+
+  function updateDocumentTitle(data, detailTitle) {
+    var baseTitle = brandTitle(data);
+    var page = document.body ? document.body.dataset.page : "home";
+    var title = detailTitle || baseTitle;
+    if (!detailTitle) {
+      if (page === "projects") title = navigationLabel(data, "projectsLabel", "مشاريعنا") + " | " + baseTitle;
+      if (page === "pages") title = navigationLabel(data, "pagesLabel", "الصفحات") + " | " + baseTitle;
+      if (page === "admin") title = navigationLabel(data, "adminLabel", "الإدارة") + " | " + baseTitle;
+      if (page === "notifications") title = "الإشعارات | " + baseTitle;
+    } else if (detailTitle !== baseTitle) {
+      title = detailTitle + " | " + baseTitle;
+    }
+    document.title = title;
+  }
+
+  function applyShellText(data) {
+    data = data || {};
+    data.settings = data.settings || {};
+    data.home = data.home || {};
+    data.navigation = data.navigation || {};
+    var title = brandTitle(data);
+    setText("[data-site-title]", title);
+    setText(".nds-brand-slogan", data.settings.brandSlogan || "");
+    setText("[data-current-year]", String(new Date().getFullYear()));
+    setText("[data-home-page-label]", navigationLabel(data, "homeLabel", "الرئيسية"));
+    setText("[data-projects-page-label]", navigationLabel(data, "projectsLabel", "مشاريعنا"));
+    setText("[data-pages-page-label]", navigationLabel(data, "pagesLabel", "الصفحات"));
+    qsa(".brand-logo, .nds-footer-logos img").forEach(function (image) {
+      image.src = data.settings.brandLogo || "assets/vendor/nds/images/palm_swords.svg";
+    });
+    updateDocumentTitle(data);
   }
 
   function renderShared(data) {
     applyDocumentSettings(data);
-    setText("[data-site-title]", data.settings.brandName || siteTitle(data));
-    setText(".nds-brand-slogan", data.settings.brandSlogan || "موقع شخصي");
-    qsa(".brand-logo, .nds-footer-logos img").forEach(function (image) {
-      image.src = data.settings.brandLogo || "assets/vendor/nds/images/palm_swords.svg";
-    });
+    applyShellText(data);
     renderAccountMenu(data);
-    setText("[data-current-year]", String(new Date().getFullYear()));
     renderNavigation(data);
     renderNotifications();
     renderFooter(data);
@@ -260,19 +319,30 @@
     }
     var portalLabel = "الإدارة";
     var isAuthenticated = isAdminAuthenticated();
+    var accountName = accountDisplayName(data);
+    var accountRole = data && data.home ? data.home.title || "Administrator" : "Administrator";
+    var accountConfig = currentAuthConfig();
     if (!isAuthenticated) portalLabel = "تسجيل الدخول";
     adminItem.className = isAuthenticated ? "nds-nav-item nds-dropdown mobile-admin-shortcut mobile-account-dropdown" : "nds-nav-item mobile-admin-shortcut";
     if (toggler) minimal.insertBefore(adminItem, toggler);
     adminItem.innerHTML = isAuthenticated ? [
       '<button class="nds-nav-link nds-btn nds-subtle nds-indicator account-persona-trigger mobile-account-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-label="' + escapeHtml(portalLabel) + '" title="' + escapeHtml(portalLabel) + '">',
-      personaAvatarMarkup(data, accountDisplayName(data), true),
+      personaAvatarMarkup(data, accountName, true),
       '<span class="nds-label">' + escapeHtml(portalLabel) + '</span>',
       '</button>',
       '<div class="nds-dropdown-menu nds-fit">',
       '<div class="nds-dropdown-content">',
       '<div class="nds-column">',
+      '<div class="nds-persona nds-sm mobile-account-persona">',
+      '<div class="nds-persona-info">',
+      '<span class="nds-persona-name">' + escapeHtml(accountName) + '</span>',
+      '<span class="nds-persona-role nds-truncate">' + escapeHtml(accountRole) + '</span>',
+      '<span class="nds-persona-desc">' + escapeHtml(accountConfig.email) + '</span>',
+      '</div>',
+      '<hr class="nds-divider">',
       '<div class="nds-persona-action mobile-account-actions mobile-header-account-actions">',
       accountActionsMarkup(portalLabel),
+      '</div>',
       '</div>',
       '</div>',
       '</div>',
@@ -617,6 +687,31 @@
       '</span>',
       '</div>',
       '</div>',
+      '<div class="nds-form-container login-captcha-field" id="login-captcha-field" data-required>',
+      '<div class="nds-form-header">',
+      '<label for="login-captcha-answer">',
+      '<span class="nds-label">&#1575;&#1604;&#1578;&#1581;&#1602;&#1602; &#1575;&#1604;&#1571;&#1605;&#1606;&#1610;</span>',
+      '</label>',
+      '</div>',
+      '<div class="login-captcha-row">',
+      '<div class="login-captcha-question" data-login-captcha-question aria-live="polite">&#1580;&#1575;&#1585;&#1610; &#1578;&#1581;&#1605;&#1610;&#1604; &#1575;&#1604;&#1578;&#1581;&#1602;&#1602;...</div>',
+      '<button class="nds-btn nds-subtle login-captcha-refresh" type="button" data-login-captcha-refresh aria-label="&#1578;&#1581;&#1583;&#1610;&#1579; &#1575;&#1604;&#1578;&#1581;&#1602;&#1602;" title="&#1578;&#1581;&#1583;&#1610;&#1579; &#1575;&#1604;&#1578;&#1581;&#1602;&#1602;">',
+      '<i class="nds-icon nds-hgi-refresh" aria-hidden="true"></i>',
+      '</button>',
+      '</div>',
+      '<div class="nds-form-control">',
+      '<i class="nds-icon nds-hgi-help-circle" aria-hidden="true"></i>',
+      '<input type="text" id="login-captcha-answer" class="nds-input" inputmode="numeric" pattern="[0-9]*" placeholder="&#1575;&#1603;&#1578;&#1576; &#1575;&#1604;&#1606;&#1575;&#1578;&#1580;" autocomplete="off" required aria-required="true" dir="ltr">',
+      '</div>',
+      '<div class="nds-form-footer" data-feedback-target>',
+      '<span class="nds-feedback nds-outline nds-sm" data-status="neutral" data-permanent>',
+      '<span class="nds-feedback-icon">',
+      '<i class="nds-icon" aria-hidden="true"></i>',
+      '</span>',
+      '<span class="nds-feedback-message">&#1571;&#1583;&#1582;&#1604; &#1606;&#1575;&#1578;&#1580; &#1575;&#1604;&#1593;&#1605;&#1604;&#1610;&#1577;</span>',
+      '</span>',
+      '</div>',
+      '</div>',
       '</div>',
       '<div class="nds-card-actions">',
       '<button type="submit" class="nds-btn nds-primary nds-full" id="loginSubmitBtn">',
@@ -667,6 +762,7 @@
       modal.setAttribute("aria-hidden", "false");
       modal.dataset.state = "open";
     }
+    loadLoginCaptcha();
     var emailInput = qs("#login-email", modal);
     if (emailInput) emailInput.focus();
   }
@@ -690,6 +786,52 @@
       modal.setAttribute("aria-hidden", "true");
       modal.dataset.state = "closed";
     }
+  }
+
+  function resetLoginCaptchaField(modal) {
+    var field = qs("#login-captcha-field", modal);
+    if (!field) return;
+    if (window.NDS && window.NDS.Forms && window.NDS.Forms.clearStatus) {
+      window.NDS.Forms.clearStatus(field);
+    } else {
+      field.removeAttribute("data-status");
+      field.removeAttribute("data-message");
+      qsa(".nds-feedback:not([data-permanent])", field).forEach(function (feedback) { feedback.remove(); });
+      qsa(".nds-feedback[data-permanent]", field).forEach(function (feedback) { feedback.hidden = false; });
+    }
+    var input = qs("input", field);
+    if (input) input.removeAttribute("aria-invalid");
+  }
+
+  function loadLoginCaptcha() {
+    var modal = qs("#login-modal");
+    if (!modal || !window.SiteStore || !window.SiteStore.captcha) return Promise.resolve(null);
+    var question = qs("[data-login-captcha-question]", modal);
+    var input = qs("#login-captcha-answer", modal);
+    var refresh = qs("[data-login-captcha-refresh]", modal);
+    if (question) {
+      question.textContent = "\u062c\u0627\u0631\u064a \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u062a\u062d\u0642\u0642...";
+      question.dataset.state = "loading";
+    }
+    if (refresh) refresh.dataset.state = "loading";
+    return window.SiteStore.captcha().then(function (captcha) {
+      if (question) {
+        question.textContent = captcha && captcha.question ? captcha.question : "";
+        question.removeAttribute("data-state");
+      }
+      if (input) input.value = "";
+      resetLoginCaptchaField(modal);
+      return captcha;
+    }).catch(function () {
+      if (question) {
+        question.textContent = "\u062a\u0639\u0630\u0631 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0623\u0645\u0646\u064a";
+        question.dataset.state = "error";
+      }
+      showToast("\u062a\u0639\u0630\u0631 \u062a\u062d\u0645\u064a\u0644 \u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0623\u0645\u0646\u064a", "error");
+      return null;
+    }).finally(function () {
+      if (refresh) refresh.removeAttribute("data-state");
+    });
   }
 
   function accountModalShell(id, title, bodyHtml) {
@@ -851,7 +993,7 @@
   }
 
   function clearLoginFeedback() {
-    ["#login-email-field", "#login-password-field"].forEach(function (selector) {
+    ["#login-email-field", "#login-password-field", "#login-captcha-field"].forEach(function (selector) {
       var field = qs(selector);
       if (!field) return;
       if (window.NDS && window.NDS.Forms && window.NDS.Forms.clearStatus) {
@@ -942,6 +1084,13 @@
         return;
       }
 
+      var captchaRefresh = event.target.closest("[data-login-captcha-refresh]");
+      if (captchaRefresh) {
+        event.preventDefault();
+        loadLoginCaptcha();
+        return;
+      }
+
       var accountAction = event.target.closest("[data-account-action]");
       if (accountAction && accountAction.dataset.accountAction !== "portal") {
         event.preventDefault();
@@ -985,11 +1134,18 @@
 
       var emailInput = qs("#login-email");
       var passInput = qs("#login-password");
+      var captchaInput = qs("#login-captcha-answer");
       var loginBtn = qs("#loginSubmitBtn");
       var email = emailInput ? emailInput.value.trim().toLowerCase() : "";
       var pass = passInput ? passInput.value : "";
+      var captchaAnswer = captchaInput ? captchaInput.value.trim() : "";
+      if (!captchaAnswer) {
+        clearLoginFeedback();
+        setLoginFieldFeedback("#login-captcha-field", "\u0623\u062f\u062e\u0644 \u0646\u0627\u062a\u062c \u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0623\u0645\u0646\u064a.");
+        return;
+      }
       if (loginBtn) loginBtn.dataset.state = "loading";
-      window.SiteStore.login(email, pass).then(function () {
+      window.SiteStore.login(email, pass, captchaAnswer).then(function () {
         if (loginBtn) loginBtn.removeAttribute("data-state");
         renderAccountMenu(appState.data || window.SiteStore.current());
         closeLoginModal();
@@ -1001,11 +1157,16 @@
         } else {
           window.dispatchEvent(new CustomEvent("site:admin-login-success"));
         }
-      }).catch(function () {
+      }).catch(function (error) {
         if (loginBtn) loginBtn.removeAttribute("data-state");
         clearLoginFeedback();
-        setLoginFieldFeedback("#login-email-field", "تحقق من بريد المدير.");
-        setLoginFieldFeedback("#login-password-field", "تحقق من كلمة المرور.");
+        if (error && error.payload && error.payload.code === "captcha_invalid") {
+          setLoginFieldFeedback("#login-captcha-field", "\u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0623\u0645\u0646\u064a \u063a\u064a\u0631 \u0635\u062d\u064a\u062d.");
+        } else {
+          setLoginFieldFeedback("#login-email-field", "تحقق من بريد المدير.");
+          setLoginFieldFeedback("#login-password-field", "تحقق من كلمة المرور.");
+        }
+        loadLoginCaptcha();
         showToast("\u062a\u0639\u0630\u0631 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", "error");
       });
     });
@@ -1165,6 +1326,36 @@
     if (trigger) trigger.click();
   }
 
+  function dismissNdsHeaderOverlays() {
+    if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.dismissOverlays) {
+      window.NDS.Mainnav.dismissOverlays();
+      return true;
+    }
+    return false;
+  }
+
+  function hasVisibleManagedOverlay() {
+    return Boolean(
+      qs(".nds-modal:not([hidden])[aria-hidden='false']")
+      || qs(".nds-dropdown[data-state~='open'], .nds-dropdown[data-state~='opening']")
+      || qs("[data-nav-panel][data-state~='open'], [data-nav-panel][data-state~='opening']")
+    );
+  }
+
+  function resetBackdropWhenIdle() {
+    window.setTimeout(function () {
+      if (hasVisibleManagedOverlay()) return;
+      if (window.NDS && window.NDS.Modal && window.NDS.Modal.isOpen && window.NDS.Modal.isOpen()) return;
+      if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.isActive && window.NDS.Backdrop.isActive()) {
+        if (window.NDS.Backdrop.reset) {
+          window.NDS.Backdrop.reset();
+        } else {
+          window.NDS.Backdrop.hide();
+        }
+      }
+    }, 140);
+  }
+
   function setupNotifications() {
     document.addEventListener("click", function (event) {
       if (event.target.closest("[data-mobile-admin-shortcut], .mobile-account-trigger")) {
@@ -1281,7 +1472,8 @@
     }, duration + 40);
   }
 
-  function closeNotificationDropdown() {
+  function closeNotificationDropdown(options) {
+    if (!(options && options.localOnly)) dismissNdsHeaderOverlays();
     qsa("[data-notifications-root], [data-mobile-notifications-root]").forEach(function (root) {
       root.dataset.state = "";
       root.removeAttribute("data-state");
@@ -1292,9 +1484,11 @@
         trigger.setAttribute("aria-expanded", "false");
       }
     });
+    resetBackdropWhenIdle();
   }
 
-  function closeMobileAccountDropdown() {
+  function closeMobileAccountDropdown(options) {
+    if (!(options && options.localOnly)) dismissNdsHeaderOverlays();
     qsa("[data-mobile-admin-shortcut]").forEach(function (root) {
       root.dataset.state = "";
       root.removeAttribute("data-state");
@@ -1305,6 +1499,7 @@
         trigger.setAttribute("aria-expanded", "false");
       }
     });
+    resetBackdropWhenIdle();
   }
 
   function closeNavPanel(options) {
@@ -1627,7 +1822,7 @@
     nodes.forEach(function (node) {
       node.dateTime = now.toISOString();
       node.innerHTML = [
-        '<span class="site-datetime-item"><i class="hgi hgi-stroke hgi-calendar-01" aria-hidden="true"></i><span>' + dateLabel + '</span></span>',
+        '<span class="site-datetime-item"><i class="nds-icon nds-hgi-calendar-03" aria-hidden="true"></i><span>' + dateLabel + '</span></span>',
         '<span class="site-datetime-item"><i class="nds-icon nds-hgi-clock-01" aria-hidden="true"></i><span>' + timeLabel + '</span></span>'
       ].join("");
     });
@@ -1664,7 +1859,7 @@
       node.dateTime = now.toISOString();
       node.title = dateLabel + " - " + timeLabel;
       node.innerHTML = [
-        '<span class="site-datetime-item"><i class="hgi hgi-stroke hgi-calendar-01" aria-hidden="true"></i><span>' + displayDate + '</span></span>',
+        '<span class="site-datetime-item"><i class="nds-icon nds-hgi-calendar-03" aria-hidden="true"></i><span>' + displayDate + '</span></span>',
         '<span class="site-datetime-item"><i class="nds-icon nds-hgi-clock-01" aria-hidden="true"></i><span>' + timeLabel + '</span></span>'
       ].join("");
     });
@@ -1754,6 +1949,9 @@
   function heroSlidesSignature(slides) {
     return JSON.stringify(slides.map(function (slide) {
       return {
+        title: slide.title || "",
+        subtitle: slide.subtitle || "",
+        intro: slide.intro || "",
         image: slide.image || "",
         mobileImage: slide.mobileImage || "",
         video: slide.video || "",
@@ -1789,6 +1987,7 @@
       desktopVideo.type = videoMimeType(slide.video || slide.mobileVideo);
       video.append(desktopVideo);
       article.append(video);
+      appendHeroSlideCopy(article, slide);
       return article;
     }
 
@@ -1810,7 +2009,28 @@
       article.append(picture);
     }
 
+    appendHeroSlideCopy(article, slide);
     return article;
+  }
+
+  function appendHeroSlideCopy(article, slide) {
+    if (![slide.title, slide.subtitle, slide.intro].some(hasText)) return;
+    var copy = el("div", "hero-slide-copy site-container");
+    var inner = el("div", "hero-slide-copy-inner");
+    if (hasText(slide.subtitle)) {
+      var subtitle = el("p", "hero-slide-subtitle", slide.subtitle);
+      inner.append(subtitle);
+    }
+    if (hasText(slide.title)) {
+      var title = el("h2", "hero-slide-title", slide.title);
+      inner.append(title);
+    }
+    if (hasText(slide.intro)) {
+      var intro = el("p", "hero-slide-description", slide.intro);
+      inner.append(intro);
+    }
+    copy.append(inner);
+    article.append(copy);
   }
 
   function renderHeroDots(dots, count) {
@@ -1894,11 +2114,13 @@
     body.innerHTML = "";
     if (!page) {
       titleNodes.forEach(function (node) { node.textContent = "الصفحة غير موجودة"; });
+      updateDocumentTitle(data, "الصفحة غير موجودة");
       body.append(emptyState("لم يتم العثور على الصفحة المطلوبة", "يمكنك العودة إلى الصفحة الرئيسية أو إنشاء الصفحة من لوحة الإدارة."));
       return;
     }
 
     titleNodes.forEach(function (node) { node.textContent = page.title || ""; });
+    updateDocumentTitle(data, page.title || navigationLabel(data, "pagesLabel", "الصفحات"));
     if (!hasText(page.content)) {
       body.append(emptyState("لم تتم إضافة محتوى لهذه الصفحة بعد", "يمكن تعديل هذه الصفحة من لوحة الإدارة."));
       return;
@@ -1921,6 +2143,8 @@
 
   function renderHtmlPageContent(root, html) {
     var wrapper = el("div", "rich-html-content");
+    wrapper.lang = document.documentElement.lang || "ar";
+    wrapper.dir = document.documentElement.dir || "rtl";
     var prepared = prepareTrustedHtml(html);
     /* Trusted local-admin HTML only. Do not use this as public-user input without server-side sanitization. */
     wrapper.innerHTML = prepared.html;
@@ -2081,6 +2305,9 @@
   function contactIconClass(type) {
     var icons = {
       linkedin: "nds-hgi-linkedin-02",
+      facebook: "nds-hgi-facebook-02",
+      instagram: "hgi hgi-stroke hgi-instagram",
+      youtube: "nds-hgi-youtube",
       github: "hgi hgi-stroke hgi-github",
       x: "nds-hgi-new-twitter",
       email: "nds-hgi-mail-01",
@@ -2181,11 +2408,13 @@
 
     if (!project) {
       titleNodes.forEach(function (node) { node.textContent = "المشروع غير موجود"; });
+      updateDocumentTitle(data, "المشروع غير موجود");
       body.append(emptyState("لم يتم العثور على المشروع المطلوب", "يمكنك العودة إلى صفحة مشاريعنا واختيار مشروع آخر."));
       return;
     }
 
     titleNodes.forEach(function (node) { node.textContent = project.title || "تفاصيل المشروع"; });
+    updateDocumentTitle(data, project.title || "تفاصيل المشروع");
     var detail = el("article", "project-detail nds-card nds-stroke");
     var content = el("div", "nds-card-content project-detail-content");
     if (hasText(project.image)) {
@@ -2434,6 +2663,8 @@
   function initApp() {
     if (appInitialized) return;
     appInitialized = true;
+    var cachedData = readCachedSiteData();
+    if (cachedData) applyShellText(cachedData);
     setupNavToggle();
     setupDropmenus();
     setupThemeToggle();

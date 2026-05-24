@@ -9,6 +9,7 @@ For a simpler customer-facing walkthrough, read `README_INSTALL_BEGINNER.md`.
 - Public pages load content from `api/content/get-site.php`.
 - Admin saves content through `api/content/save-site.php`.
 - Admin login uses PHP sessions and hashed passwords.
+- Admin login also requires a server-generated math CAPTCHA tied to the PHP session.
 - Brand settings, home content, hero slides, projects, pages, experience, achievements, skills, contacts, navigation labels, and media paths are stored in normalized database tables.
 - Media uploads go through `api/upload/upload-media.php`.
 - Old `localStorage` content can be imported from the admin tools panel, but it is no longer primary storage.
@@ -210,6 +211,7 @@ PHP with Laragon PHP:
 ```powershell
 C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/config.example.php
 C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/db.php
+C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/auth/captcha.php
 C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/auth/login.php
 C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/auth/logout.php
 C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/auth/me.php

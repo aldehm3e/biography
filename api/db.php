@@ -125,6 +125,47 @@ function cms_require_admin(PDO $pdo = null): array
     return $user;
 }
 
+function cms_create_login_captcha(): array
+{
+    cms_start_session();
+
+    $left = random_int(2, 9);
+    $right = random_int(1, 9);
+    $_SESSION['login_captcha'] = [
+        'answer' => (string) ($left + $right),
+        'created' => time(),
+    ];
+
+    return [
+        'question' => $left . ' + ' . $right . ' =',
+        'expires_in' => 600,
+    ];
+}
+
+function cms_verify_login_captcha(mixed $answer): bool
+{
+    cms_start_session();
+
+    $captcha = $_SESSION['login_captcha'] ?? null;
+    unset($_SESSION['login_captcha']);
+
+    $submitted = trim((string) ($answer ?? ''));
+    if (!is_array($captcha) || $submitted === '') {
+        return false;
+    }
+
+    $created = (int) ($captcha['created'] ?? 0);
+    if ($created <= 0 || time() - $created > 600) {
+        return false;
+    }
+
+    if (!preg_match('/^\d+$/', $submitted)) {
+        return false;
+    }
+
+    return hash_equals((string) ($captcha['answer'] ?? ''), $submitted);
+}
+
 function cms_public_path(string $relativePath): string
 {
     $clean = str_replace(['\\', "\0"], ['/', ''], $relativePath);

@@ -15,8 +15,11 @@ This README is the project memory for future work. Read it before changing the s
 - MySQL/MariaDB is the source of truth for website content.
 - `localStorage` is only a temporary fallback/cache and a migration source for old browser-local data.
 - Admin login uses PHP sessions, `password_hash()`, and `password_verify()`.
+- Admin login includes a server-generated math CAPTCHA stored in the PHP session.
 - Database credentials live only in `api/config.php`, which is ignored by Git.
 - Admin editor items are collapsed by default so long editor lists stay clean.
+- Admin media uploads show an NDS-style progress bar with status feedback while the file is uploading.
+- Hero slides can display their own overlay title, subtitle, and description on top of each image/video.
 - Hero media and extra pages can be reordered by drag-and-drop in the admin editor.
 - New hero media and new extra pages are inserted at the top of their editor lists.
 
@@ -41,6 +44,7 @@ Core endpoints:
 - `GET api/content/get-site.php`: returns the whole website model.
 - `POST api/content/save-site.php`: saves the whole website model, admin only.
 - `POST api/auth/login.php`: logs in with email/password.
+- `GET api/auth/captcha.php`: creates the login CAPTCHA challenge.
 - `POST api/auth/logout.php`: destroys the PHP session.
 - `GET api/auth/me.php`: returns the current admin user.
 - `POST api/auth/change-password.php`: changes password, admin only.
@@ -319,6 +323,9 @@ Hero slide item shape:
 
 ```js
 {
+  title: "",
+  subtitle: "",
+  intro: "",
   image: "",
   mobileImage: "",
   video: "",
@@ -331,6 +338,9 @@ Hero slide item shape:
 Built-in contact icon/logo options:
 
 - LinkedIn
+- Facebook
+- Instagram
+- YouTube
 - GitHub
 - X / Twitter
 - Email
@@ -519,7 +529,7 @@ Before future handoff or deployment, test:
 - Saved home content appears on home page.
 - Data remains after refresh and in another browser.
 - Brand name, slogan, logo upload, hero image upload, hero video upload, project image upload, and contact icon upload work.
-- Contact/social logo options exist for LinkedIn, GitHub, X/Twitter, Email, Website, and Phone.
+- Contact/social logo options exist for LinkedIn, Facebook, Instagram, YouTube, GitHub, X/Twitter, Email, Website, and Phone.
 - Contact/social items render only when visible.
 - Admin adds a project.
 - Project appears on projects page.

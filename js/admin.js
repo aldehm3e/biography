@@ -215,6 +215,21 @@
     ].join("");
   }
 
+  function uploadProgressHtml() {
+    return [
+      '<div class="nds-progress-bar nds-lg admin-upload-progress" data-value="0" data-upload-progress hidden>',
+      '<span class="nds-progress-label" data-upload-progress-label></span>',
+      '<div class="nds-progress-track">',
+      '<div class="nds-progress-fill"></div>',
+      '</div>',
+      '<span class="nds-feedback nds-sm" data-status="info">',
+      '<span class="nds-feedback-icon"><i class="nds-icon" aria-hidden="true"></i></span>',
+      '<span class="nds-feedback-message" data-upload-progress-message></span>',
+      '</span>',
+      '</div>'
+    ].join("");
+  }
+
   function uploadControlHtml(targetField, type) {
     return [
       '<div class="nds-form-container upload-inline-control">',
@@ -225,7 +240,16 @@
   }
 
   function uploadableInputHtml(key, label, value, type, info) {
-    return inputHtml(key, label, value, info) + uploadControlHtml(key, type);
+    return [
+      '<div class="nds-form-container uploadable-field">',
+      '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span>' + (info ? '<span class="nds-info">' + safeText(info) + '</span>' : '') + '</label></div>',
+      '<div class="uploadable-control-row">',
+      '<div class="nds-form-control upload-path-control"><input class="nds-input" data-field="' + safeText(key) + '" type="text" value="' + safeText(value) + '"></div>',
+      '<div class="nds-form-control upload-file-control"><input class="nds-input file-input" type="file" data-media-upload="' + safeText(type || "image") + '" data-upload-target-field="' + safeText(key) + '"></div>',
+      '</div>',
+      uploadProgressHtml(),
+      '</div>'
+    ].join("");
   }
 
   function textareaHtml(key, label, value, rows, info) {
@@ -377,6 +401,7 @@
     root.innerHTML = data.home[key].map(function (item, index) {
       return contentRowTemplate(key, item, index);
     }).join("");
+    applySimpleEditorAccordions(root, key);
     if (!data.home[key].length) {
       root.append(window.SiteApp.emptyState("لا توجد عناصر", "استخدم زر الإضافة لإنشاء عنصر جديد."));
     }
@@ -392,6 +417,46 @@
       };
     }).filter(function (row) {
       return row.title || row.meta || row.description;
+    });
+  }
+
+  function applySimpleEditorAccordions(root, prefix) {
+    if (!root) return;
+    qsa(".compact-editor-item", root).forEach(function (item, index) {
+      if (qs("[data-editor-toggle]", item)) return;
+      var card = qs(".compact-card-content", item);
+      var head = card ? qs(".editor-item-head", card) : null;
+      var title = head ? qs(".nds-card-title", head) : null;
+      if (!card || !head || !title) return;
+      var panelId = prefix + "-panel-" + index;
+      var body = document.createElement("div");
+      var content = document.createElement("div");
+      var inner = document.createElement("div");
+      var button = document.createElement("button");
+      var icon = document.createElement("i");
+      body.className = "editor-accordion-collapse";
+      body.id = panelId;
+      content.className = "editor-accordion-content";
+      inner.className = "compact-editor-body";
+      while (head.nextSibling) inner.appendChild(head.nextSibling);
+      content.appendChild(inner);
+      body.appendChild(content);
+      card.appendChild(body);
+      button.className = "editor-accordion-btn nds-btn nds-subtle";
+      button.type = "button";
+      button.dataset.editorToggle = "";
+      button.setAttribute("aria-expanded", "false");
+      button.setAttribute("aria-controls", panelId);
+      button.appendChild(title);
+      icon.className = "nds-icon nds-hgi-arrow-down-01 editor-accordion-arrow";
+      icon.setAttribute("aria-hidden", "true");
+      button.appendChild(icon);
+      var deleteButton = qs("[data-delete-content-row], [data-delete-skill]", head);
+      if (deleteButton) {
+        head.insertBefore(button, deleteButton);
+      } else {
+        head.appendChild(button);
+      }
     });
   }
 
@@ -419,6 +484,7 @@
     data.home.skills = data.home.skills || [];
     root.dataset.sortableList = "skills";
     root.innerHTML = data.home.skills.map(skillTemplate).join("");
+    applySimpleEditorAccordions(root, "skills");
     if (!data.home.skills.length) {
       root.append(window.SiteApp.emptyState("لا توجد مهارات", "استخدم زر الإضافة لإضافة مهارة."));
     }
@@ -613,6 +679,9 @@
   function adminContactIcon(type) {
     var icons = {
       linkedin: "nds-hgi-linkedin-02",
+      facebook: "nds-hgi-facebook-02",
+      instagram: "hgi hgi-stroke hgi-instagram",
+      youtube: "nds-hgi-youtube",
       github: "hgi hgi-stroke hgi-github",
       x: "nds-hgi-new-twitter",
       email: "nds-hgi-mail-01",
@@ -878,6 +947,68 @@
     return null;
   }
 
+  function createUploadProgress() {
+    var progress = document.createElement("div");
+    progress.className = "nds-progress-bar nds-lg admin-upload-progress";
+    progress.dataset.value = "0";
+    progress.dataset.uploadProgress = "";
+    progress.hidden = true;
+    progress.innerHTML = [
+      '<span class="nds-progress-label" data-upload-progress-label></span>',
+      '<div class="nds-progress-track">',
+      '<div class="nds-progress-fill"></div>',
+      '</div>',
+      '<span class="nds-feedback nds-sm" data-status="info">',
+      '<span class="nds-feedback-icon"><i class="nds-icon" aria-hidden="true"></i></span>',
+      '<span class="nds-feedback-message" data-upload-progress-message></span>',
+      '</span>'
+    ].join("");
+    return progress;
+  }
+
+  function ensureUploadProgress(input) {
+    var root = input.closest(".uploadable-field, .nds-form-container, .editor-item, form") || input.parentElement;
+    var progress = root ? qs("[data-upload-progress]", root) : null;
+    if (!progress) {
+      progress = createUploadProgress();
+      if (root) root.appendChild(progress);
+    }
+    return progress;
+  }
+
+  function setUploadProgress(progress, value, status, label, message) {
+    if (!progress) return;
+    var nextValue = Math.max(0, Math.min(100, Math.round(Number(value) || 0)));
+    var feedback = qs(".nds-feedback", progress);
+    progress.hidden = false;
+    progress.dataset.value = String(nextValue);
+    progress.style.setProperty("--progress-value", String(nextValue));
+    if (status) {
+      progress.dataset.status = status;
+      if (feedback) feedback.dataset.status = status;
+    } else {
+      progress.removeAttribute("data-status");
+      if (feedback) feedback.dataset.status = "info";
+    }
+    var labelNode = qs("[data-upload-progress-label]", progress);
+    var messageNode = qs("[data-upload-progress-message]", progress);
+    if (labelNode) labelNode.textContent = label || "";
+    if (messageNode) messageNode.textContent = message || "";
+    if (window.NDS && window.NDS.Progress && window.NDS.Progress.setValue) {
+      window.NDS.Progress.setValue(progress, nextValue);
+    }
+  }
+
+  function hideUploadProgress(progress) {
+    if (!progress) return;
+    window.setTimeout(function () {
+      progress.hidden = true;
+      progress.dataset.value = "0";
+      progress.style.setProperty("--progress-value", "0");
+      progress.removeAttribute("data-status");
+    }, 1400);
+  }
+
   function setupUploadEvents() {
     document.addEventListener("change", function (event) {
       var input = event.target.closest("[data-media-upload]");
@@ -889,12 +1020,20 @@
         toast("تعذر تحديد حقل مسار الملف", "error");
         return;
       }
+      var progress = ensureUploadProgress(input);
+      var uploadLabel = "جاري رفع " + file.name;
       input.disabled = true;
-      window.SiteStore.uploadMedia(file, input.dataset.mediaUpload).then(function (result) {
+      setUploadProgress(progress, 0, "info", uploadLabel, "جاري تجهيز الملف...");
+      window.SiteStore.uploadMedia(file, input.dataset.mediaUpload, function (percent) {
+        setUploadProgress(progress, percent, "info", uploadLabel, percent >= 100 ? "جاري معالجة الملف..." : "جاري رفع الملف...");
+      }).then(function (result) {
+        setUploadProgress(progress, 100, "success", "تم رفع " + file.name, "تم تحديث مسار الملف.");
         target.value = result.path || "";
         target.dispatchEvent(new Event("input", { bubbles: true }));
+        hideUploadProgress(progress);
         toast("تم رفع الملف");
       }).catch(function (error) {
+        setUploadProgress(progress, 100, "error", "تعذر رفع " + file.name, error.message || "تعذر رفع الملف");
         toast(error.message || "تعذر رفع الملف", "error");
       }).finally(function () {
         input.disabled = false;
@@ -913,7 +1052,7 @@
 
     qs("[data-add-hero-slide]").addEventListener("click", function () {
       data.home.heroSlides = collectHeroSlides();
-      data.home.heroSlides.unshift({ image: "", mobileImage: "", video: "", mobileVideo: "", alt: "", visible: true });
+      data.home.heroSlides.unshift({ title: "", subtitle: "", intro: "", image: "", mobileImage: "", video: "", mobileVideo: "", alt: "", visible: true });
       pendingOpenEditor.hero = 0;
       renderHeroSlidesEditor();
     });

@@ -5,6 +5,7 @@
   var API = {
     getSite: "api/content/get-site.php",
     saveSite: "api/content/save-site.php",
+    captcha: "api/auth/captcha.php",
     login: "api/auth/login.php",
     logout: "api/auth/logout.php",
     me: "api/auth/me.php",
@@ -110,6 +111,41 @@
     });
   }
 
+  function uploadJson(url, formData, onProgress) {
+    return new Promise(function (resolve, reject) {
+      var xhr = new XMLHttpRequest();
+      xhr.open("POST", url, true);
+      xhr.setRequestHeader("Accept", "application/json");
+      xhr.withCredentials = true;
+      if (xhr.upload && typeof onProgress === "function") {
+        xhr.upload.addEventListener("progress", function (event) {
+          if (!event.lengthComputable) return;
+          onProgress(Math.round((event.loaded / event.total) * 100));
+        });
+      }
+      xhr.onload = function () {
+        var payload;
+        try {
+          payload = JSON.parse(xhr.responseText || "{}");
+        } catch (error) {
+          payload = { success: false, message: "Invalid JSON response." };
+        }
+        if (xhr.status < 200 || xhr.status >= 300 || !payload.success) {
+          var requestError = new Error(payload.message || "Request failed.");
+          requestError.status = xhr.status;
+          requestError.payload = payload;
+          reject(requestError);
+          return;
+        }
+        resolve(payload);
+      };
+      xhr.onerror = function () {
+        reject(new Error("Request failed."));
+      };
+      xhr.send(formData);
+    });
+  }
+
   function setCurrent(data, shouldNotify) {
     currentData = normalize(data);
     writeLocal(currentData);
@@ -192,10 +228,16 @@
       return currentUser ? clone(currentUser) : null;
     },
 
-    login: function (email, password) {
+    captcha: function () {
+      return requestJson(API.captcha).then(function (payload) {
+        return payload.captcha || null;
+      });
+    },
+
+    login: function (email, password, captchaAnswer) {
       return requestJson(API.login, {
         method: "POST",
-        body: JSON.stringify({ email: email, password: password })
+        body: JSON.stringify({ email: email, password: password, captchaAnswer: captchaAnswer })
       }).then(function (payload) {
         currentUser = payload.user || null;
         window.dispatchEvent(new CustomEvent("site:authchange", { detail: { user: currentUser } }));
@@ -246,15 +288,11 @@
       });
     },
 
-    uploadMedia: function (file, type) {
+    uploadMedia: function (file, type, onProgress) {
       var formData = new FormData();
       formData.append("file", file);
       formData.append("type", type || "image");
-      return requestJson(API.uploadMedia, {
-        method: "POST",
-        body: formData,
-        headers: { "Accept": "application/json" }
-      });
+      return uploadJson(API.uploadMedia, formData, onProgress);
     },
 
     clone: clone
