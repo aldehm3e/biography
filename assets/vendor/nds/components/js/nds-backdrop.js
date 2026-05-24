@@ -104,17 +104,16 @@
     // Mark active synchronously so hide() can always clean up body state
     isActive = true;
 
-    // Show backdrop — delay active state and scroll lock after component transition
+    // Show the backdrop on the next frame so it is visible before it can capture clicks.
     backdropElement.style.display = 'block';
-    const speed = NDS.transitionSpeed();
-    setTimeout(() => {
+    requestAnimationFrame(() => {
       if (!isActive) return;
       NDS.State.set(backdropElement, 'active');
       if (currentConfig.preventScroll) {
         NDS.scrollLock.lock();
       }
       NDS.State.set(document.body, 'backdrop');
-    }, speed);
+    });
 
     // Attach event listeners
     if (currentConfig.clickToClose) {
@@ -171,6 +170,25 @@
   }
 
   /**
+   * Force-clear every backdrop owner before switching overlay contexts.
+   */
+  function reset() {
+    if (!backdropElement) return;
+
+    backdropElement.removeEventListener('click', handleClick);
+    document.removeEventListener('keydown', handleEscape);
+
+    isActive = false;
+    activeCount = 0;
+    currentConfig = null;
+
+    NDS.State.clear(backdropElement);
+    NDS.State.clear(document.body);
+    NDS.scrollLock.unlock();
+    backdropElement.style.display = '';
+  }
+
+  /**
    * Toggle backdrop
    */
   function toggle(config) {
@@ -202,6 +220,7 @@
   NDS.Backdrop = {
     show,
     hide,
+    reset,
     toggle,
     isActive: getIsActive,
     getElement

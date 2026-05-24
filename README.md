@@ -19,6 +19,65 @@ This README is the project memory for future work. Read it before changing the s
 - Hero media and extra pages can be reordered by drag-and-drop in the admin editor.
 - New hero media and new extra pages are inserted at the top of their editor lists.
 
+## 2026-05-24 NDS Header, Persona, Dark Mode, and QA Sanity
+
+This section is the current source of truth for the header/account behavior and supersedes older historical notes below when they conflict.
+
+- Desktop header account trigger is icon-only. The account name and dropdown arrow are not visible in the closed header.
+- Desktop persona dropdown stays compact at about `215px` wide with a max height around `286px`, aligned under the account icon.
+- Persona dropdown actions are Arabic, one-line, icon-aligned actions: `الإدارة`, `تغيير كلمة المرور`, `تغيير البريد الإلكتروني`, `تغيير رقم الجوال`, and `تسجيل الخروج`.
+- Logged-out account action uses `تسجيل الدخول`.
+- Dark mode is restored as an icon button in both desktop and mobile headers. It toggles the theme, updates the icon, and persists through the existing local theme storage.
+- Mobile header icon order is: admin, dark mode, notification, hamburger.
+- Mobile header icons are icon-only. The admin label is not shown as wide text in the mobile header.
+- Logged-out header admin/login uses the NDS avatar icon (`nds-icon nds-icon-avatar`) on desktop and mobile; after login it shows the saved personal image when one exists.
+- Biography avatar (`data-owner-avatar`) and logged-in admin/persona avatar both resolve from the same `home.avatar` path.
+- Logged-out mobile drawer does not render a separate `تسجيل الدخول` account row; login is handled by the mobile header icon.
+- Logged-in mobile header avatar opens the account dropdown from the header; the hamburger drawer does not render a separate `.nds-persona.nds-sm` account block.
+- Footer/contact social links render with NDS icon classes such as `nds-icon nds-hgi-new-twitter` instead of custom inline SVG social icons.
+- Date/time is inside the hamburger drawer through the existing header-actions drawer area, not in the visible header.
+- The hamburger drawer keeps navigation, date/time, and the mobile account/persona section. Dark mode is not duplicated inside the drawer.
+- Toasts use `NDS.Alert.create({ display: "toast" })`; browser `alert()` is not used.
+- Logout clears the local session, immediately renders the logged-out UI, shows `تم تسجيل الخروج بنجاح`, and does not leave green/success styling on the header or account controls.
+- Account settings modals are NDS-style, RTL, Arabic-labeled, validated, and still use the existing local auth/settings storage.
+- `nds-hgi-smart-phone-01` is the active phone icon class and is present in `css/nds-icons-full.css`.
+
+QA performed for this update:
+
+```powershell
+node --check js\default-data.js
+node --check js\store.js
+node --check js\app.js
+node --check js\admin.js
+node --check js\nds-local-components.js
+node --check assets\vendor\nds\components\js\nds-core.js
+node --check assets\vendor\nds\components\js\nds-backdrop.js
+node --check assets\vendor\nds\components\js\nds-mainnav.js
+node --check assets\vendor\nds\components\js\nds-modal.js
+node --check assets\vendor\nds\components\js\nds-feedback.js
+node --check assets\vendor\nds\components\js\nds-forms.js
+node --check assets\vendor\nds\components\js\nds-alert.js
+```
+
+Browser QA was run in headless Chrome at `1440`, `1200`, `1024`, `768`, `430`, `390`, and `360` widths.
+
+Verified in browser QA:
+
+- No horizontal scrolling at tested widths.
+- No console errors.
+- Desktop account name hidden and dropdown arrow absent.
+- Desktop dropdown opens at `215px` wide, max `286px` high, with about `1px` gap after the email line before actions.
+- Desktop and mobile dark mode toggles work and persist.
+- Mobile icon order is `admin, theme, notification, hamburger`.
+- Mobile notification opens.
+- Mobile notification and mobile admin dropdowns are mutually exclusive: after opening notifications, tapping the mobile admin/avatar icon closes notifications and opens the admin menu.
+- Mobile hamburger navigation links do not show persistent current/touch highlight; their background stays neutral and only changes on real hover-capable pointers.
+- Hamburger opens and date/time appears in the drawer.
+- Drawer dark mode duplicate is hidden.
+- Phone icon renders; no `nds-hgi-call-02` remains.
+- Login failure toast, login success, logout success toast, change password modal, change email modal, change phone modal, and phone save path work.
+- Logout green-state leak was not detected.
+
 ## Design Reference Rules
 
 The NDS vanilla folder is a read-only design authority.
@@ -85,6 +144,8 @@ Common local component files now available:
 - Buttons: `assets/vendor/nds/components/scss/_buttons.scss`
 - Forms and inputs: `assets/vendor/nds/components/scss/_forms.scss`, `assets/vendor/nds/components/js/nds-forms.js`
 - Navigation: `assets/vendor/nds/components/scss/_mainnav.scss`, `assets/vendor/nds/components/js/nds-mainnav.js`
+- Persona: `assets/vendor/nds/components/scss/_persona.scss`
+- Alert/toast: `assets/vendor/nds/components/scss/_alert.scss`, `assets/vendor/nds/components/js/nds-alert.js`
 
 ## Privacy and Content Rules
 
@@ -421,6 +482,10 @@ Before future handoff or deployment, test:
 - Reset content works.
 - Header content aligns with main content.
 - Footer content aligns with main content.
+- Header admin persona dropdown shows labeled actions on desktop and mobile.
+- Admin logout is handled through the header persona dropdown, not a separate dashboard button.
+- After logout, the admin trigger returns to the standard admin/avatar icon unless the user is authenticated and has a saved avatar.
+- NDS alert/toast messages render with status icons and Arabic text.
 - Desktop, tablet, and mobile layouts work.
 - RTL layout remains correct.
 - Browser console has no errors.
@@ -432,18 +497,49 @@ node --check js\default-data.js
 node --check js\store.js
 node --check js\app.js
 node --check js\admin.js
+node --check js\nds-local-components.js
+node --check assets\vendor\nds\components\js\nds-alert.js
+```
+
+## 2026-05-24 NDS Persona, Alerts, and Biography Layout QA
+
+- Header brand and footer brand marks use `assets/vendor/nds/images/palm_swords.svg`.
+- The brand slogan is `موقع شخصي`.
+- The admin action follows the NDS persona/dropdown pattern from `C:\Users\Fluent\Desktop\Projects\NDS-vanilla\_includes\mainnav-user.html`.
+- On mobile, the admin persona action is a `.nds-PAB` and is moved by the NDS mainnav runtime into `.nds-nav-minimal`, where it opens as a full-width dropdown panel like the NDS demo.
+- Mobile label hiding must be scoped only to the header trigger labels. Do not hide all `.nds-label` descendants inside `.header-actions` or `.nds-nav-minimal`, because that hides the persona dropdown actions.
+- Persona dropdown actions are vertical labeled rows:
+  - `لوحة الادارة`
+  - `تسجيل خروج`
+- Logout is owned by the header persona dropdown. The old admin dashboard `[data-logout]` button was removed.
+- After logout, `renderAdminPersona()` returns the admin trigger to the standard admin icon. If logout happens on `admin.html`, the admin dashboard is hidden and the user is sent back to `index.html`.
+- `NDS.Alert.create({ display: "toast" })` is the toast source of truth. It creates `.nds-alert.nds-card.nds-toast` at runtime.
+- Toast copy is Arabic, and alert close labels are Arabic on Arabic pages.
+- Alert icons must inherit status from `.nds-alert[data-status]`; do not depend only on `.nds-feedback[data-status]`.
+- The biography card keeps `.nds-card-content.bio-layout`, with a large centered image column and the biography text column beside it on desktop. On mobile it stacks cleanly.
+
+Sanity checks for this update:
+
+```powershell
+node --check js\default-data.js
+node --check js\store.js
+node --check js\app.js
+node --check js\admin.js
+node --check js\nds-local-components.js
+node --check assets\vendor\nds\components\js\nds-alert.js
+rg -n "data-logout" admin.html js
+rg -n "admin-trigger-avatar|nds-persona-action|nds-alert\\[data-status|bio-card \\.bio-layout" index.html css js
 ```
 
 ## 2026-05-24 Mobile Header Notification Fix
 
 - Current mobile header target behavior: the closed header should show the website brand/title/slogan, the notification bell, and the hamburger menu button.
-- Admin and dark/light mode stay inside the opened hamburger drawer on mobile.
+- The admin persona and notification bell are persistent action buttons. Both move through NDS `managePABPlacement()` on mobile.
+- Dark/light mode stays inside the opened hamburger drawer on mobile.
 - Date/time must not appear in the mobile header or mobile drawer.
-- The notification bell is the only current `.nds-PAB` item in the root page headers.
 - The local NDS reference behavior was restored in `assets/vendor/nds/components/js/nds-mainnav.js`: `managePABPlacement()` moves `.nds-PAB` items from `.nds-nav-actions` into `.nds-nav-minimal` on mobile and returns them to their placeholders on desktop.
 - This matches the NDS vanilla reference pattern from `C:\Users\Fluent\Desktop\Projects\NDS-vanilla\_js\nds-mainnav.js`.
-- Because only the notification item has `.nds-PAB`, the mobile header gets the notification bell without moving admin/theme into the header.
-- The repeated root page header markup keeps `.header-actions.nds-nav-actions` inside `.nds-collapse > .nds-collapse-content`; the notification placeholder starts there and is moved by the NDS runtime.
+- The repeated root page header markup keeps `.header-actions.nds-nav-actions` inside `.nds-collapse > .nds-collapse-content`; persistent action placeholders start there and are moved by the NDS runtime.
 - `css/custom.css` now makes mobile notification dropdowns use the same guttered panel width as the hamburger drawer.
 - `css/custom.css` defines `--radius-lg: 16px` so both hamburger and notification panels get rounded bottom corners.
 - Mobile notification dropdowns are viewport-safe, scrollable when content exceeds the available height, and keep the slide-down/slide-up motion.

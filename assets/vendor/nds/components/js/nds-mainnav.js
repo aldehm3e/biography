@@ -771,6 +771,16 @@
         }
     }
 
+    function dismissOverlays() {
+        cancelToggleAction();
+        dropdown.closeAll();
+        if (DOM.collapse && hasState(DOM.collapse, 'open')) {
+            navbar.toggle(false);
+        }
+        hideNavBackdrop('dropdown');
+        hideNavBackdrop('navbar');
+    }
+
     function toggleDGA() {
         const collapseContent = DOM.collapseContent;
         const duration = state.getDuration(collapseContent || DOM.collapse);
@@ -1178,5 +1188,5 @@
             ?.addEventListener('change', (e) => { state.reducedMotion = !!e.matches; });
     } catch { }
 
-    NDS.Mainnav = { init, toggleNavbar, toggleDropdown, toggleDGA };
+    NDS.Mainnav = { init, toggleNavbar, toggleDropdown, toggleDGA, dismissOverlays };
 })();

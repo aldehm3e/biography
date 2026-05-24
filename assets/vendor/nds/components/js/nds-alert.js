@@ -109,8 +109,9 @@
                     </div>
                 ` : '';
 
+                const closeLabel = NDS.isArabic ? 'إغلاق' : 'Close';
                 html += `
-                    <button class="nds-btn nds-subtle nds-icon-only nds-md nds-alert-close${progressClass}" aria-label="Close"${progressStyle}>
+                    <button class="nds-btn nds-subtle nds-icon-only nds-md nds-alert-close${progressClass}" aria-label="${closeLabel}"${progressStyle}>
                         <i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i>
                         ${progressSVG}
                     </button>

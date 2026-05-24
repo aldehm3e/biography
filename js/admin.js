@@ -12,7 +12,15 @@
   function field(name) { return qs('[name="' + name + '"]'); }
   function value(name) { var input = field(name); return input ? input.value.trim() : ""; }
   function setValue(name, text) { var input = field(name); if (input) input.value = text || ""; }
-  function toast(message) { if (window.SiteApp) window.SiteApp.toast(message); }
+  function toast(message, type) {
+    if (!window.SiteApp) return;
+    var variant = type || (/غير صالح|أولا|فشل|خطأ/.test(message || "") ? "error" : "success");
+    if (window.SiteApp.showToast) {
+      window.SiteApp.showToast(message, variant);
+    } else {
+      window.SiteApp.toast(message);
+    }
+  }
 
   function refreshPublicShell() {
     window.dispatchEvent(new CustomEvent("site:datachange"));
@@ -411,14 +419,16 @@
 
   function adminContactIcon(type) {
     var icons = {
-      linkedin: '<path d="M6.9 8.8H3.7v10.5h3.2V8.8ZM5.3 4.1a1.9 1.9 0 1 0 0 3.8 1.9 1.9 0 0 0 0-3.8Zm13 9.3c0-3.1-1.7-4.8-4.1-4.8-1.8 0-2.7 1-3.1 1.7V8.8H8v10.5h3.2v-5.7c0-1.5.8-2.4 2-2.4s2 .9 2 2.5v5.6h3.2v-5.9Z"/>',
-      github: '<path d="M12 2.8a9.3 9.3 0 0 0-2.9 18.1c.5.1.7-.2.7-.5v-1.8c-2.9.6-3.5-1.2-3.5-1.2-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.6 1.1 1.6 1.1.9 1.5 2.4 1.1 2.9.8.1-.7.4-1.1.7-1.4-2.3-.3-4.7-1.2-4.7-5.2 0-1.1.4-2.1 1.1-2.8-.1-.3-.5-1.4.1-2.8 0 0 .9-.3 2.9 1.1.8-.2 1.7-.3 2.6-.3s1.8.1 2.6.3c2-1.4 2.9-1.1 2.9-1.1.6 1.4.2 2.5.1 2.8.7.8 1.1 1.7 1.1 2.8 0 4-2.4 4.9-4.7 5.2.4.3.7 1 .7 2v2.9c0 .3.2.6.7.5A9.3 9.3 0 0 0 12 2.8Z"/>',
-      x: '<path d="M15 10.8 21 4h-1.4l-5.2 5.9L10.2 4H5.4l6.3 8.9L5.4 20h1.4l5.5-6.2 4.4 6.2h4.8L15 10.8Zm-1.9 2.1-.6-.9-5.1-6.9h2.1l4.1 5.5.6.9 5.3 7.3h-2.1l-4.3-5.9Z"/>',
-      email: '<path d="M4.8 6h14.4c1 0 1.8.8 1.8 1.8v8.4c0 1-.8 1.8-1.8 1.8H4.8c-1 0-1.8-.8-1.8-1.8V7.8C3 6.8 3.8 6 4.8 6Zm7.2 6.4 7-4.7H5l7 4.7Zm-7.2 3.8h14.4V9.5l-7.2 4.8-7.2-4.8v6.7Z"/>',
-      website: '<path d="M12 3a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm6.6 8h-3.1a14 14 0 0 0-1.2-5 7.1 7.1 0 0 1 4.3 5ZM12 5.1c.8 1.1 1.4 3.1 1.6 5.9h-3.2c.2-2.8.8-4.8 1.6-5.9ZM5.1 13h3.3c.1 2 .5 3.8 1.2 5.1A7.1 7.1 0 0 1 5.1 13Zm3.3-2H5.1a7.1 7.1 0 0 1 4.5-5c-.7 1.3-1.1 3-1.2 5Zm3.6 7.9c-.8-1.1-1.4-3.1-1.6-5.9h3.2c-.2 2.8-.8 4.8-1.6 5.9Zm2.3-.8c.7-1.3 1.1-3.1 1.2-5.1h3.4a7.1 7.1 0 0 1-4.6 5.1Zm1.2-7.1c-.1-2-.5-3.7-1.2-5a7.1 7.1 0 0 1 4.5 5h-3.3Z"/>',
-      phone: '<path d="M7.2 4h3l1.4 4.2-2 1.2c.9 1.8 2.3 3.2 4.1 4.1l1.2-2 4.2 1.4v3c0 1.2-1 2.1-2.2 2.1A12.9 12.9 0 0 1 5 6.2C5 5 6 4 7.2 4Z"/>'
+      linkedin: "nds-hgi-linkedin-02",
+      github: "hgi hgi-stroke hgi-github",
+      x: "nds-hgi-new-twitter",
+      email: "nds-hgi-mail-01",
+      website: "nds-hgi-globe",
+      phone: "nds-hgi-smart-phone-01"
     };
-    return '<span class="contact-icon contact-icon-' + safeText(type || "website") + '" aria-hidden="true"><svg viewBox="0 0 24 24" focusable="false">' + (icons[type] || icons.website) + '</svg></span>';
+    var iconClass = icons[type] || icons.website;
+    if (iconClass.indexOf("hgi ") !== 0) iconClass = "nds-icon " + iconClass;
+    return '<i class="contact-icon contact-icon-' + safeText(type || "website") + ' ' + safeText(iconClass) + '" aria-hidden="true"></i>';
   }
 
   function contactDeleteButton(index) {
@@ -878,16 +888,6 @@
   }
 
   function setupAuth() {
-    var logout = qs("[data-logout]");
-    if (logout) {
-      logout.addEventListener("click", function () {
-        sessionStorage.removeItem(window.ADMIN_AUTH_CONFIG.sessionKey);
-        showDashboard(false);
-        toast("تم تسجيل الخروج");
-        window.location.href = "index.html";
-      });
-    }
-
     if (isLoggedIn()) {
       showDashboard(true);
       initDashboard();
@@ -902,6 +902,10 @@
       showDashboard(true);
       initDashboard();
       headToDashboard();
+    });
+    window.addEventListener("site:admin-logout", function () {
+      showDashboard(false);
+      window.location.href = "index.html";
     });
   }
 

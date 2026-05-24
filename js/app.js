@@ -3,6 +3,7 @@
 
   var HERO_SLIDE_DURATION = 8500;
   var NOTIFICATIONS_KEY = "websiteDemo:notifications";
+  var ACCOUNT_SETTINGS_KEY = "websiteDemo:accountSettings";
 
   var appState = {
     data: null,
@@ -74,11 +75,302 @@
   function renderShared(data) {
     applyDocumentSettings(data);
     setText("[data-site-title]", siteTitle(data));
+    renderAccountMenu(data);
     setText("[data-current-year]", String(new Date().getFullYear()));
     renderNavigation(data);
     renderNotifications();
     renderFooter(data);
     updateClock();
+  }
+
+  function oldRenderAdminPersona(data) {
+    var config = window.ADMIN_AUTH_CONFIG || {};
+    var name = data.home.ownerName || siteTitle(data);
+    var role = data.home.title || "Administrator";
+    var email = config.email || "admin@gmail.com";
+    var isAuthenticated = isAdminAuthenticated();
+    setText("[data-admin-persona-name]", name);
+    setText("[data-admin-persona-role]", role);
+    setText("[data-admin-persona-desc]", email);
+    setText("[data-admin-trigger-label]", isAuthenticated ? name : (data.navigation.adminLabel || "الإدارة"));
+    var avatarSrc = ownerAvatarSrc(data);
+    qsa("[data-admin-trigger-avatar]").forEach(function (image) {
+      if (isAuthenticated && hasText(avatarSrc)) {
+        image.src = avatarSrc;
+        image.hidden = false;
+      } else {
+        image.removeAttribute("src");
+        image.hidden = true;
+      }
+    });
+    qsa("[data-admin-trigger-icon]").forEach(function (icon) {
+      icon.hidden = isAuthenticated && hasText(avatarSrc);
+    });
+  }
+
+  function loadAccountSettings() {
+    try {
+      return JSON.parse(localStorage.getItem(ACCOUNT_SETTINGS_KEY) || "{}") || {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function saveAccountSettings(settings) {
+    localStorage.setItem(ACCOUNT_SETTINGS_KEY, JSON.stringify(settings || {}));
+  }
+
+  function currentAuthConfig() {
+    var base = window.ADMIN_AUTH_CONFIG || {};
+    var saved = loadAccountSettings();
+    return {
+      email: saved.email || base.email || "admin@gmail.com",
+      passcode: saved.passcode || base.passcode || "1234",
+      sessionKey: base.sessionKey || "websiteDemo:adminSession",
+      phone: saved.phone || ""
+    };
+  }
+
+  function accountDisplayName(data) {
+    return data.home.ownerName || siteTitle(data) || "Administrator";
+  }
+
+  function accountInitials(name) {
+    var parts = String(name || "A").trim().split(/\s+/).filter(Boolean);
+    return parts.slice(0, 2).map(function (part) { return part.charAt(0).toUpperCase(); }).join("") || "A";
+  }
+
+  function ownerAvatarSrc(data) {
+    return data && data.home && hasText(data.home.avatar) ? data.home.avatar : "";
+  }
+
+  function personaAvatarMarkup(data, name, compact) {
+    var avatarSrc = ownerAvatarSrc(data);
+    if (hasText(avatarSrc)) {
+      return '<span class="nds-avatar ' + (compact ? "nds-sm" : "nds-md") + ' admin-trigger-avatar" aria-hidden="true"><img src="' + escapeHtml(avatarSrc) + '" alt=""></span>';
+    }
+    return '<span class="nds-avatar ' + (compact ? "nds-sm" : "nds-md") + ' admin-trigger-avatar account-initials-avatar" aria-hidden="true">' + escapeHtml(accountInitials(name)) + '</span>';
+  }
+
+  function accountActionsMarkup(label) {
+    var portalLabel = escapeHtml(label || "الإدارة");
+    return [
+      '<a href="admin.html" class="nds-btn nds-subtle nds-dropdown-item" data-account-action="portal">',
+      '<i class="nds-icon nds-hgi-identity-card" aria-hidden="true"></i>',
+      '<span class="nds-label">' + portalLabel + '</span>',
+      '</a>',
+      '<button type="button" class="nds-btn nds-subtle nds-dropdown-item" data-account-action="password">',
+      '<i class="nds-icon nds-hgi-lock-password" aria-hidden="true"></i>',
+      '<span class="nds-label">تغيير كلمة المرور</span>',
+      '</button>',
+      '<button type="button" class="nds-btn nds-subtle nds-dropdown-item" data-account-action="email">',
+      '<i class="nds-icon nds-hgi-mail-01" aria-hidden="true"></i>',
+      '<span class="nds-label">تغيير البريد الإلكتروني</span>',
+      '</button>',
+      '<button type="button" class="nds-btn nds-subtle nds-dropdown-item" data-account-action="phone">',
+      '<i class="nds-icon nds-hgi-smart-phone-01" aria-hidden="true"></i>',
+      '<span class="nds-label">تغيير رقم الجوال</span>',
+      '</button>',
+      '<button type="button" class="nds-btn nds-subtle nds-destructive nds-dropdown-item" data-account-action="logout" data-admin-persona-logout>',
+      '<i class="nds-icon nds-hgi-door-01" aria-hidden="true"></i>',
+      '<span class="nds-label">تسجيل الخروج</span>',
+      '</button>'
+    ].join("");
+  }
+
+  function renderAccountMenu(data) {
+    renderDesktopAccountMenu(data);
+    renderMobileAccountMenu(data);
+    updateHeaderActions(data);
+  }
+
+  function renderDesktopAccountMenu(data) {
+    var item = qs(".admin-persona-dropdown");
+    if (!item) return;
+    var config = currentAuthConfig();
+    var isAuthenticated = isAdminAuthenticated();
+    var name = accountDisplayName(data);
+    var role = data.home.title || "Administrator";
+    var portalLabel = "الإدارة";
+    item.className = "nds-nav-item nds-dropdown admin-persona-dropdown account-menu-item";
+    item.dataset.accountMenu = "desktop";
+
+    if (!isAuthenticated) {
+      item.innerHTML = [
+        '<button class="nds-nav-link nds-btn nds-subtle account-login-trigger" type="button" data-login-trigger aria-label="تسجيل الدخول" title="تسجيل الدخول">',
+        '<i class="nds-icon nds-icon-avatar" aria-hidden="true"></i>',
+        '<span class="nds-label">تسجيل الدخول</span>',
+        '</button>'
+      ].join("");
+      return;
+    }
+
+    item.innerHTML = [
+      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator header-admin-link account-persona-trigger" type="button" aria-haspopup="true" aria-expanded="false">',
+      personaAvatarMarkup(data, name, true),
+      '</button>',
+      '<div class="nds-dropdown-menu nds-fit">',
+      '<div class="nds-dropdown-content">',
+      '<div class="nds-column">',
+      '<div class="nds-persona nds-sm">',
+      '<div class="nds-persona-info">',
+      '<span class="nds-persona-name">' + escapeHtml(name) + '</span>',
+      '<span class="nds-persona-role nds-truncate">' + escapeHtml(role) + '</span>',
+      '<span class="nds-persona-desc">' + escapeHtml(config.email) + '</span>',
+      '</div>',
+      '<hr class="nds-divider">',
+      '<div class="nds-persona-action">',
+      accountActionsMarkup(portalLabel),
+      '</div>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</div>'
+    ].join("");
+  }
+
+  function renderMobileAccountMenu(data) {
+    var actions = qs(".header-actions");
+    if (!actions) return;
+    var section = qs("[data-mobile-account-section]", actions);
+    if (section) section.remove();
+  }
+
+  function updateHeaderActions(data) {
+    var minimal = qs(".nds-nav-minimal");
+    if (!minimal) return;
+    var toggler = qs(".nds-mainNav-toggler", minimal);
+    dedupeHeaderActions();
+    Array.prototype.slice.call(minimal.children).forEach(function (item) {
+      if (item === toggler || item.dataset.mobileAdminShortcut || item.dataset.mobileThemeShortcut || item.dataset.mobileNotificationsRoot) return;
+      item.remove();
+    });
+    qsa("[data-mobile-header-date]", minimal).forEach(function (item) { item.remove(); });
+    var adminItem = qs("[data-mobile-admin-shortcut]", minimal);
+    if (!adminItem) {
+      adminItem = document.createElement("li");
+      adminItem.dataset.mobileAdminShortcut = "true";
+      if (toggler) {
+        minimal.insertBefore(adminItem, toggler);
+      } else {
+        minimal.append(adminItem);
+      }
+    }
+    var portalLabel = "الإدارة";
+    var isAuthenticated = isAdminAuthenticated();
+    if (!isAuthenticated) portalLabel = "تسجيل الدخول";
+    adminItem.className = isAuthenticated ? "nds-nav-item nds-dropdown mobile-admin-shortcut mobile-account-dropdown" : "nds-nav-item mobile-admin-shortcut";
+    if (toggler) minimal.insertBefore(adminItem, toggler);
+    adminItem.innerHTML = isAuthenticated ? [
+      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator account-persona-trigger mobile-account-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-label="' + escapeHtml(portalLabel) + '" title="' + escapeHtml(portalLabel) + '">',
+      personaAvatarMarkup(data, accountDisplayName(data), true),
+      '<span class="nds-label">' + escapeHtml(portalLabel) + '</span>',
+      '</button>',
+      '<div class="nds-dropdown-menu nds-fit">',
+      '<div class="nds-dropdown-content">',
+      '<div class="nds-column">',
+      '<div class="nds-persona-action mobile-account-actions mobile-header-account-actions">',
+      accountActionsMarkup(portalLabel),
+      '</div>',
+      '</div>',
+      '</div>',
+      '</div>'
+    ].join("") : [
+      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator" type="button" data-login-trigger aria-label="' + escapeHtml(portalLabel) + '" title="' + escapeHtml(portalLabel) + '">',
+      '<i class="nds-icon nds-icon-avatar" aria-hidden="true"></i>',
+      '<span class="nds-label">' + escapeHtml(portalLabel) + '</span>',
+      '</button>'
+    ].join("");
+
+    var themeItem = qs("[data-mobile-theme-shortcut]", minimal);
+    if (!themeItem) {
+      themeItem = document.createElement("li");
+      themeItem.dataset.mobileThemeShortcut = "true";
+      if (toggler) {
+        minimal.insertBefore(themeItem, toggler);
+      } else {
+        minimal.append(themeItem);
+      }
+    }
+    themeItem.className = "nds-nav-item mobile-theme-shortcut";
+    if (toggler) minimal.insertBefore(themeItem, toggler);
+    themeItem.innerHTML = [
+      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator theme-toggle" type="button" data-theme-toggle>',
+      '<i class="nds-icon nds-hgi-moon-02" aria-hidden="true"></i>',
+      '<span class="nds-label">تبديل الوضع الليلي</span>',
+      '</button>'
+    ].join("");
+
+    var notificationItem = qs("[data-mobile-notifications-root]", minimal);
+    if (!notificationItem) {
+      notificationItem = document.createElement("li");
+      notificationItem.dataset.mobileNotificationsRoot = "true";
+      if (toggler) {
+        minimal.insertBefore(notificationItem, toggler);
+      } else {
+        minimal.append(notificationItem);
+      }
+    }
+    notificationItem.className = "nds-nav-item nds-dropdown nds-icon-only notification-dropdown mobile-notifications-shortcut";
+    if (toggler) minimal.insertBefore(notificationItem, toggler);
+    var items = loadNotifications();
+    var unreadCount = items.filter(function (item) { return !item.read; }).length;
+    var isOpen = (notificationItem.dataset.state || "").indexOf("open") !== -1;
+    notificationItem.innerHTML = [
+      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator notification-trigger" type="button" title="الإشعارات" data-state="' + (isOpen ? "active" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" data-notifications-trigger>',
+      '<i class="nds-icon nds-hgi-notification-02 nav-notification-icon" aria-hidden="true">' + (unreadCount ? '<span class="nds-badge">' + Math.min(unreadCount, 99) + '</span>' : '') + '</i>',
+      '<span class="nds-label">الإشعارات</span>',
+      '</button>',
+      '<div class="nds-dropdown-menu nds-fit" data-notifications-menu>',
+      '<div class="nds-dropdown-content">',
+      '<div class="nds-column">',
+      '<nav class="nds-drawer" style="--drawer-max-height: 40svh; min-width: 280px; max-width: 100%;">',
+      '<div class="nds-scroll-more nds-divided" data-axis="vertical" data-state="' + (items.length > 4 ? "has-more at-end" : "") + '">',
+      '<ul class="nds-drawer-list nds-scroll-more-content">',
+      (items.length ? items.map(notificationMarkup).join("") : emptyNotificationsMarkup()),
+      '</ul>',
+      '</div>',
+      '</nav>',
+      '<hr class="nds-divider">',
+      '<a href="notifications.html" class="nds-btn nds-subtle nds-full">',
+      '<i class="nds-icon nds-hgi-notification-02" aria-hidden="true"></i>',
+      '<span class="nds-label">عرض كل الإشعارات</span>',
+      '</a>',
+      '</div>',
+      '</div>',
+      '</div>'
+    ].join("");
+    updateHeaderDateTime();
+    updateThemeIcon(document.documentElement.dataset.theme || localStorage.getItem("websiteDemo:theme") || "light");
+  }
+
+  function dedupeHeaderActions() {
+    [
+      "[data-mobile-admin-shortcut]",
+      "[data-mobile-theme-shortcut]",
+      "[data-mobile-notifications-root]",
+      "[data-notifications-root]",
+      ".admin-persona-dropdown"
+    ].forEach(function (selector) {
+      var seen = false;
+      qsa(selector).forEach(function (item) {
+        if (!seen) {
+          seen = true;
+          return;
+        }
+        item.remove();
+      });
+    });
+  }
+
+  function renderAdminPersona(data) {
+    renderAccountMenu(data);
+  }
+
+  function revealHeaderShell() {
+    var navPanel = qs("[data-nav-panel]");
+    if (!navPanel || window.matchMedia("(max-width: 960px)").matches) return;
+    navPanel.hidden = false;
   }
 
   function baseNavigationItems(data) {
@@ -250,7 +542,7 @@
   }
 
   function isAdminAuthenticated() {
-    var config = window.ADMIN_AUTH_CONFIG || {};
+    var config = currentAuthConfig();
     return sessionStorage.getItem(config.sessionKey || "websiteDemo:adminSession") === "true";
   }
 
@@ -259,8 +551,8 @@
     var modal = document.createElement("div");
     modal.className = "nds-modal nds-card nds-stroke nds-sm";
     modal.id = "login-modal";
-    modal.lang = "en";
-    modal.dir = "ltr";
+    modal.lang = "ar";
+    modal.dir = "rtl";
     modal.setAttribute("role", "dialog");
     modal.setAttribute("aria-labelledby", "login-modal-title");
     modal.setAttribute("aria-hidden", "true");
@@ -269,18 +561,18 @@
       '<form id="loginForm" class="nds-form" novalidate>',
       '<div class="nds-card-content">',
       '<div class="nds-card-text">',
-      '<h3 class="nds-card-title" id="login-modal-title">Login</h3>',
-      '<p class="nds-card-description">Sign in to access your account</p>',
+      '<h3 class="nds-card-title" id="login-modal-title">تسجيل الدخول</h3>',
+      '<p class="nds-card-description">سجل الدخول للوصول إلى حسابك</p>',
       '</div>',
       '<div class="nds-form-container" id="login-email-field" data-required>',
       '<div class="nds-form-header">',
       '<label for="login-email">',
-      '<span class="nds-label">Email</span>',
+      '<span class="nds-label">البريد الإلكتروني</span>',
       '</label>',
       '</div>',
       '<div class="nds-form-control">',
       '<i class="nds-icon nds-hgi-mail-01" aria-hidden="true"></i>',
-      '<input type="email" id="login-email" class="nds-input" placeholder="name@example.gov.sa" autocomplete="username" required aria-required="true">',
+      '<input type="email" id="login-email" class="nds-input" placeholder="name@example.gov.sa" autocomplete="username" required aria-required="true" dir="ltr">',
       '<div class="nds-form-action">',
       '<button class="nds-btn nds-subtle nds-clear" type="button" aria-label="Clear email" hidden>',
       '<i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i>',
@@ -292,14 +584,14 @@
       '<span class="nds-feedback-icon">',
       '<i class="nds-icon" aria-hidden="true"></i>',
       '</span>',
-      '<span class="nds-feedback-message">Use admin@gmail.com</span>',
+      '<span class="nds-feedback-message">استخدم admin@gmail.com</span>',
       '</span>',
       '</div>',
       '</div>',
       '<div class="nds-form-container" id="login-password-field" data-required>',
       '<div class="nds-form-header">',
       '<label for="login-password">',
-      '<span class="nds-label">Password</span>',
+      '<span class="nds-label">كلمة المرور</span>',
       '</label>',
       '</div>',
       '<div class="nds-form-control">',
@@ -308,7 +600,7 @@
       '<i class="nds-icon nds-hgi-view-off" aria-hidden="true"></i>',
       '</button>',
       '</div>',
-      '<input type="password" id="login-password" class="nds-input" placeholder="Enter your password" autocomplete="current-password" data-type="password" required aria-required="true">',
+      '<input type="password" id="login-password" class="nds-input" placeholder="Enter your password" autocomplete="current-password" data-type="password" required aria-required="true" dir="ltr">',
       '<div class="nds-form-action">',
       '<button class="nds-btn nds-subtle nds-clear" type="button" aria-label="Clear password" hidden>',
       '<i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i>',
@@ -320,17 +612,17 @@
       '<span class="nds-feedback-icon">',
       '<i class="nds-icon" aria-hidden="true"></i>',
       '</span>',
-      '<span class="nds-feedback-message">Use 1234</span>',
+      '<span class="nds-feedback-message">استخدم 1234</span>',
       '</span>',
       '</div>',
       '</div>',
       '</div>',
       '<div class="nds-card-actions">',
       '<button type="submit" class="nds-btn nds-primary nds-full" id="loginSubmitBtn">',
-      '<span class="nds-label">Login</span>',
+      '<span class="nds-label">تسجيل الدخول</span>',
       '</button>',
       '<button type="button" class="nds-btn nds-subtle nds-full nds-modal-close">',
-      '<span class="nds-label">Cancel</span>',
+      '<span class="nds-label">إلغاء</span>',
       '</button>',
       '</div>',
       '</form>'
@@ -342,6 +634,18 @@
     if (!window.NDS) return;
     if (window.NDS.Forms && window.NDS.Forms.init) window.NDS.Forms.init();
     if (window.NDS.Modal && window.NDS.Modal.init) window.NDS.Modal.init();
+  }
+
+  function prepareOverlayForLoginModal() {
+    if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.dismissOverlays) {
+      window.NDS.Mainnav.dismissOverlays();
+    } else {
+      closeNotificationDropdown();
+      closeNavPanel({ instant: true });
+    }
+    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.reset) {
+      window.NDS.Backdrop.reset();
+    }
   }
 
   function openLoginModal(options) {
@@ -387,17 +691,280 @@
     }
   }
 
+  function accountModalShell(id, title, bodyHtml) {
+    var modal = qs("#" + id);
+    if (!modal) {
+      modal = document.createElement("div");
+      modal.className = "nds-modal nds-card nds-stroke nds-sm account-settings-modal";
+      modal.id = id;
+      modal.lang = "ar";
+      modal.dir = "rtl";
+      modal.setAttribute("role", "dialog");
+      modal.setAttribute("aria-labelledby", id + "-title");
+      modal.setAttribute("aria-hidden", "true");
+      modal.hidden = true;
+      document.body.append(modal);
+    }
+    modal.innerHTML = [
+      '<form class="nds-form" data-account-form="' + id + '" novalidate>',
+      '<div class="nds-card-content">',
+      '<div class="nds-card-text">',
+      '<h3 class="nds-card-title" id="' + id + '-title">' + title + '</h3>',
+      '</div>',
+      bodyHtml,
+      '<div class="account-modal-feedback" data-account-modal-feedback role="alert" aria-live="assertive"></div>',
+      '</div>',
+      '<div class="nds-card-actions">',
+      '<button type="submit" class="nds-btn nds-primary nds-full"><span class="nds-label">حفظ</span></button>',
+      '<button type="button" class="nds-btn nds-subtle nds-full nds-modal-close"><span class="nds-label">إلغاء</span></button>',
+      '</div>',
+      '</form>'
+    ].join("");
+    initializeNdsLoginPackages();
+    return modal;
+  }
+
+  function accountFieldHtml(id, label, type, autocomplete) {
+    return [
+      '<div class="nds-form-container" data-required>',
+      '<div class="nds-form-header"><label for="' + id + '"><span class="nds-label">' + label + '</span></label></div>',
+      '<div class="nds-form-control">',
+      '<input id="' + id + '" class="nds-input" type="' + type + '" autocomplete="' + (autocomplete || "off") + '" required aria-required="true">',
+      '</div>',
+      '</div>'
+    ].join("");
+  }
+
+  function showAccountModal(id) {
+    prepareOverlayForLoginModal();
+    initializeNdsLoginPackages();
+    if (window.NDS && window.NDS.Modal && window.NDS.Modal.open) {
+      window.NDS.Modal.open(id);
+    } else {
+      var modal = qs("#" + id);
+      if (modal) {
+        modal.hidden = false;
+        modal.setAttribute("aria-hidden", "false");
+        modal.dataset.state = "open";
+      }
+    }
+    var first = qs("#" + id + " .nds-input");
+    if (first) first.focus();
+  }
+
+  function accountModalMessage(modal, message) {
+    var feedback = qs("[data-account-modal-feedback]", modal);
+    if (feedback) feedback.textContent = message || "";
+    if (message) showToast(message, "error");
+  }
+
+  function openChangePasswordModal() {
+    var modal = accountModalShell("change-password-modal", "تغيير كلمة المرور", [
+      accountFieldHtml("current-password", "كلمة المرور الحالية", "password", "current-password"),
+      accountFieldHtml("new-password", "كلمة المرور الجديدة", "password", "new-password"),
+      accountFieldHtml("confirm-password", "تأكيد كلمة المرور الجديدة", "password", "new-password")
+    ].join(""));
+    showAccountModal("change-password-modal");
+    var form = qs("form", modal);
+    form.onsubmit = function (event) {
+      event.preventDefault();
+      var config = currentAuthConfig();
+      var current = qs("#current-password", modal).value;
+      var next = qs("#new-password", modal).value;
+      var confirm = qs("#confirm-password", modal).value;
+      if (!current || !next || !confirm) { accountModalMessage(modal, "جميع الحقول مطلوبة."); return; }
+      if (current !== String(config.passcode || "")) { accountModalMessage(modal, "كلمة المرور الحالية غير صحيحة."); return; }
+      if (next !== confirm) { accountModalMessage(modal, "كلمة المرور الجديدة وتأكيدها غير متطابقين."); return; }
+      var saved = loadAccountSettings();
+      saved.passcode = next;
+      saveAccountSettings(saved);
+      closeLoginModal();
+      showToast("تم تغيير كلمة المرور بنجاح", "success");
+    };
+  }
+
+  function openChangeEmailModal() {
+    var modal = accountModalShell("change-email-modal", "تغيير البريد الإلكتروني", [
+      accountFieldHtml("new-email", "البريد الإلكتروني الجديد", "email", "email"),
+      accountFieldHtml("email-password", "تأكيد كلمة المرور الحالية", "password", "current-password")
+    ].join(""));
+    showAccountModal("change-email-modal");
+    var form = qs("form", modal);
+    form.onsubmit = function (event) {
+      event.preventDefault();
+      var config = currentAuthConfig();
+      var email = qs("#new-email", modal).value.trim();
+      var password = qs("#email-password", modal).value;
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { accountModalMessage(modal, "أدخل بريدًا إلكترونيًا صحيحًا."); return; }
+      if (password !== String(config.passcode || "")) { accountModalMessage(modal, "كلمة المرور الحالية غير صحيحة."); return; }
+      var saved = loadAccountSettings();
+      saved.email = email;
+      saveAccountSettings(saved);
+      renderAccountMenu(appState.data || window.SiteStore.load());
+      closeLoginModal();
+      showToast("تم تغيير البريد الإلكتروني بنجاح", "success");
+    };
+  }
+
+  function openChangePhoneModal() {
+    var modal = accountModalShell("change-phone-modal", "تغيير رقم الجوال", [
+      accountFieldHtml("new-phone", "رقم الجوال", "tel", "tel"),
+      accountFieldHtml("phone-password", "تأكيد كلمة المرور الحالية", "password", "current-password")
+    ].join(""));
+    showAccountModal("change-phone-modal");
+    var form = qs("form", modal);
+    form.onsubmit = function (event) {
+      event.preventDefault();
+      var config = currentAuthConfig();
+      var phone = qs("#new-phone", modal).value.trim();
+      var password = qs("#phone-password", modal).value;
+      if (!phone) { accountModalMessage(modal, "رقم الجوال مطلوب."); return; }
+      if (password !== String(config.passcode || "")) { accountModalMessage(modal, "كلمة المرور الحالية غير صحيحة."); return; }
+      var saved = loadAccountSettings();
+      saved.phone = phone;
+      saveAccountSettings(saved);
+      var data = appState.data || window.SiteStore.load();
+      data.settings.phoneNumber = phone;
+      appState.data = window.SiteStore.save(data);
+      closeLoginModal();
+      renderAccountMenu(appState.data);
+      showToast("تم تغيير رقم الجوال بنجاح", "success");
+    };
+  }
+
+  function logoutUser() {
+    var config = currentAuthConfig();
+    sessionStorage.removeItem(config.sessionKey || "websiteDemo:adminSession");
+    prepareOverlayForLoginModal();
+    qsa("[data-account-action='logout'], .account-persona-trigger, .account-menu-item, .mobile-account-section").forEach(function (node) {
+      node.removeAttribute("data-status");
+      node.removeAttribute("data-state");
+      node.classList.remove("nds-success", "success", "active", "selected", "is-active");
+    });
+    renderAccountMenu(appState.data || window.SiteStore.load());
+    window.dispatchEvent(new CustomEvent("site:admin-logout"));
+    showToast("تم تسجيل الخروج بنجاح", "success");
+  }
+
+  function clearLoginFeedback() {
+    ["#login-email-field", "#login-password-field"].forEach(function (selector) {
+      var field = qs(selector);
+      if (!field) return;
+      if (window.NDS && window.NDS.Forms && window.NDS.Forms.clearStatus) {
+        window.NDS.Forms.clearStatus(field);
+      } else {
+        field.removeAttribute("data-status");
+        field.removeAttribute("data-message");
+        qsa(".nds-feedback:not([data-permanent])", field).forEach(function (feedback) { feedback.remove(); });
+        qsa(".nds-feedback[data-permanent]", field).forEach(function (feedback) { feedback.hidden = false; });
+      }
+      var input = qs("input", field);
+      if (input) input.removeAttribute("aria-invalid");
+    });
+  }
+
+  function setLoginFieldFeedback(fieldSelector, message) {
+    var field = qs(fieldSelector);
+    if (!field) return;
+    if (window.NDS && window.NDS.Forms && window.NDS.Forms.setStatus) {
+      window.NDS.Forms.setStatus({
+        element: field,
+        status: "error",
+        message: message,
+        position: "append",
+        size: "sm",
+        style: "outline"
+      });
+      return;
+    }
+    field.setAttribute("data-status", "error");
+    field.setAttribute("data-message", message);
+    var target = qs("[data-feedback-target]", field) || field;
+    qsa(".nds-feedback:not([data-permanent])", target).forEach(function (feedback) { feedback.remove(); });
+    qsa(".nds-feedback[data-permanent]", target).forEach(function (feedback) { feedback.hidden = true; });
+    var feedback = document.createElement("span");
+    feedback.className = "nds-feedback nds-outline nds-sm";
+    feedback.setAttribute("data-status", "error");
+    feedback.setAttribute("role", "alert");
+    feedback.setAttribute("aria-live", "assertive");
+    feedback.innerHTML = '<span class="nds-feedback-icon"><i class="nds-icon" aria-hidden="true"></i></span><span class="nds-feedback-message"></span>';
+    qs(".nds-feedback-message", feedback).textContent = message;
+    target.append(feedback);
+    var input = qs("input", field);
+    if (input) input.setAttribute("aria-invalid", "true");
+  }
+
+  function showToastAlert(variant, title, description) {
+    if (!(window.NDS && window.NDS.Alert && window.NDS.Alert.create)) return false;
+    window.NDS.Alert.create({
+      variant: variant,
+      title: title,
+      description: description || "",
+      display: "toast",
+      position: "top",
+      duration: 3000
+    });
+    return true;
+  }
+
+  function showToast(message, type) {
+    var variant = type || "info";
+    if (variant === "danger") variant = "error";
+    if (showToastAlert(variant, message, "")) return true;
+    var toastElement = qs("[data-toast]");
+    if (!toastElement) return false;
+    toastElement.textContent = message;
+    toastElement.dataset.status = variant;
+    toastElement.hidden = false;
+    clearTimeout(toastElement._timer);
+    toastElement._timer = setTimeout(function () {
+      toastElement.hidden = true;
+    }, 2600);
+    return true;
+  }
+
   function setupLoginModal() {
     ensureLoginModal();
     initializeNdsLoginPackages();
 
     document.addEventListener("click", function (event) {
+      var loginTrigger = event.target.closest("[data-login-trigger]");
+      if (loginTrigger) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        prepareOverlayForLoginModal();
+        openLoginModal({ redirectToAdmin: false });
+        return;
+      }
+
+      var accountAction = event.target.closest("[data-account-action]");
+      if (accountAction && accountAction.dataset.accountAction !== "portal") {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        if (accountAction.dataset.accountAction === "password") openChangePasswordModal();
+        if (accountAction.dataset.accountAction === "email") openChangeEmailModal();
+        if (accountAction.dataset.accountAction === "phone") openChangePhoneModal();
+        if (accountAction.dataset.accountAction === "logout") logoutUser();
+        return;
+      }
+
+      var logoutButton = event.target.closest("[data-admin-persona-logout], #logoutBtn");
+      if (logoutButton) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        logoutUser();
+        return;
+      }
+
       var adminLink = event.target.closest('a[href="admin.html"], a[href$="/admin.html"]');
       if (!adminLink || isAdminAuthenticated()) return;
       event.preventDefault();
       event.stopPropagation();
-      closeNotificationDropdown();
-      closeNavPanel({ instant: true });
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+      prepareOverlayForLoginModal();
       openLoginModal({ redirectToAdmin: document.body.dataset.page !== "admin" });
     });
 
@@ -406,7 +973,7 @@
     loginForm.dataset.loginReady = "true";
     loginForm.addEventListener("submit", function (event) {
       event.preventDefault();
-      var config = window.ADMIN_AUTH_CONFIG || {};
+      var config = currentAuthConfig();
       var validation = window.NDS && window.NDS.Forms && window.NDS.Forms.validateForm
         ? window.NDS.Forms.validateForm(loginForm)
         : { valid: true };
@@ -420,11 +987,16 @@
       var expectedEmail = String(config.email || "admin@gmail.com").toLowerCase();
       var expectedPass = String(config.passcode || "1234");
       if (email !== expectedEmail || pass !== expectedPass) {
-        if (window.NDS && window.NDS.Alert && window.NDS.Alert.create) {
-          window.NDS.Alert.create({ variant: "error", title: "Login failed", description: "Use admin@gmail.com and 1234.", display: "toast", position: "top", duration: 3000 });
-        } else {
-          toast("Use admin@gmail.com and 1234.");
+        clearLoginFeedback();
+        if (email !== expectedEmail) {
+          setLoginFieldFeedback("#login-email-field", "\u0623\u062f\u062e\u0644 \u0628\u0631\u064a\u062f \u0627\u0644\u0645\u062f\u064a\u0631: " + expectedEmail);
+          if (emailInput) emailInput.focus();
         }
+        if (pass !== expectedPass) {
+          setLoginFieldFeedback("#login-password-field", "\u0623\u062f\u062e\u0644 \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u0627\u0644\u0645\u062f\u064a\u0631: " + expectedPass);
+          if (email === expectedEmail && passInput) passInput.focus();
+        }
+        showToast("\u062a\u0639\u0630\u0631 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", "error");
         return;
       }
 
@@ -432,13 +1004,11 @@
       window.setTimeout(function () {
         if (loginBtn) loginBtn.removeAttribute("data-state");
         sessionStorage.setItem(config.sessionKey || "websiteDemo:adminSession", "true");
+        renderAccountMenu(appState.data || window.SiteStore.load());
         closeLoginModal();
         loginForm.reset();
-        if (window.NDS && window.NDS.Alert && window.NDS.Alert.create) {
-          window.NDS.Alert.create({ variant: "success", title: "Welcome back!", description: "You have successfully logged in.", display: "toast", position: "top", duration: 3000 });
-        } else {
-          toast("تم تسجيل الدخول");
-        }
+        clearLoginFeedback();
+        showToast("\u062a\u0645 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", "success");
         if (qs("#login-modal") && qs("#login-modal").dataset.redirectToAdmin !== "false") {
           window.location.href = "admin.html";
         } else {
@@ -557,6 +1127,7 @@
   function renderNotifications() {
     var actions = qs(".header-actions");
     if (!actions) return;
+    if (appState.data) updateHeaderActions(appState.data);
 
     var existing = qs("[data-notifications-root]");
     if (!existing || existing.tagName !== "LI") {
@@ -566,7 +1137,7 @@
       existing.dataset.notificationsRoot = "true";
       if (!existing.parentElement) actions.insertBefore(existing, actions.firstChild);
     }
-    existing.className = "nds-nav-item nds-dropdown nds-icon-only nds-PAB notification-dropdown";
+    existing.className = "nds-nav-item nds-dropdown nds-icon-only notification-dropdown";
 
     var items = loadNotifications();
     var unreadCount = items.filter(function (item) { return !item.read; }).length;
@@ -596,17 +1167,55 @@
     ].join("");
   }
 
+  function openNotifications() {
+    var trigger = qs(".mobile-notifications-shortcut [data-notifications-trigger]") || qs("[data-notifications-root] [data-notifications-trigger]");
+    if (trigger) trigger.click();
+  }
+
   function setupNotifications() {
     document.addEventListener("click", function (event) {
+      if (event.target.closest("[data-mobile-admin-shortcut], .mobile-account-trigger")) {
+        closeNotificationDropdown();
+      }
+
+      if (event.target.closest("[data-mobile-theme-shortcut], .nds-mainNav-toggler")) {
+        closeNotificationDropdown();
+        closeMobileAccountDropdown();
+      }
+
+      if (event.target.closest("[data-mobile-notifications-root] [data-notifications-trigger]")) {
+        closeMobileAccountDropdown();
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        var mobileRoot = event.target.closest("[data-mobile-notifications-root]");
+        var mobileTrigger = qs("[data-notifications-trigger]", mobileRoot);
+        var willOpen = mobileRoot && (mobileRoot.dataset.state || "").indexOf("open") === -1;
+        if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.toggleDropdown) {
+          window.NDS.Mainnav.toggleDropdown(event);
+        } else {
+          if (mobileRoot) mobileRoot.dataset.state = willOpen ? "open opened" : "";
+          if (mobileTrigger) mobileTrigger.setAttribute("aria-expanded", String(willOpen));
+        }
+        window.setTimeout(function () {
+          if (!mobileRoot) return;
+          var currentOpen = (mobileRoot.dataset.state || "").indexOf("open") !== -1;
+          if (willOpen && !currentOpen) mobileRoot.dataset.state = "open opened";
+          if (!willOpen) mobileRoot.dataset.state = "";
+          if (mobileTrigger) mobileTrigger.setAttribute("aria-expanded", String(willOpen));
+        }, 120);
+        return;
+      }
+
       if (event.target.closest("[data-notifications-trigger]")) {
         closeNavPanel();
       }
 
-      if (event.target.closest(".header-admin-link, .nds-mainNav-toggler")) {
+      if (event.target.closest(".header-admin-link, .mobile-account-trigger, [data-mobile-admin-shortcut], .nds-mainNav-toggler")) {
         closeNotificationDropdown();
       }
 
-      var root = event.target.closest("[data-notifications-root]");
+      var root = event.target.closest("[data-notifications-root], [data-mobile-notifications-root]");
       var item = event.target.closest("[data-notification-id]");
       if (event.target.closest("[data-notification-toggle]") && item) {
         event.preventDefault();
@@ -680,10 +1289,23 @@
   }
 
   function closeNotificationDropdown() {
-    qsa("[data-notifications-root]").forEach(function (root) {
+    qsa("[data-notifications-root], [data-mobile-notifications-root]").forEach(function (root) {
       root.dataset.state = "";
       root.removeAttribute("data-state");
       var trigger = qs("[data-notifications-trigger]", root);
+      if (trigger) {
+        trigger.dataset.state = "";
+        trigger.removeAttribute("data-state");
+        trigger.setAttribute("aria-expanded", "false");
+      }
+    });
+  }
+
+  function closeMobileAccountDropdown() {
+    qsa("[data-mobile-admin-shortcut]").forEach(function (root) {
+      root.dataset.state = "";
+      root.removeAttribute("data-state");
+      var trigger = qs(".mobile-account-trigger", root);
       if (trigger) {
         trigger.dataset.state = "";
         trigger.removeAttribute("data-state");
@@ -822,14 +1444,18 @@
     document.addEventListener("click", function (event) {
       var button = event.target.closest("[data-theme-toggle]");
       if (!button) return;
-      var data = appState.data || window.SiteStore.load();
-      var current = data.settings.theme || localStorage.getItem("websiteDemo:theme") || "light";
-      var next = current === "dark" ? "light" : "dark";
-      data.settings.theme = next;
-      appState.data = data;
-      applyTheme(next, true, button);
-      appState.data = window.SiteStore.save(data);
+      toggleTheme(button);
     });
+  }
+
+  function toggleTheme(origin) {
+    var data = appState.data || window.SiteStore.load();
+    var current = data.settings.theme || localStorage.getItem("websiteDemo:theme") || "light";
+    var next = current === "dark" ? "light" : "dark";
+    data.settings.theme = next;
+    appState.data = data;
+    applyTheme(next, true, origin);
+    appState.data = window.SiteStore.save(data);
   }
 
   function applyTheme(theme, announce, origin) {
@@ -848,6 +1474,10 @@
   function commitTheme(next) {
     document.documentElement.dataset.theme = next;
     localStorage.setItem("websiteDemo:theme", next);
+    updateThemeIcon(next);
+  }
+
+  function updateThemeIcon(next) {
     qsa("[data-theme-toggle]").forEach(function (button) {
       button.setAttribute("aria-label", next === "dark" ? "تفعيل الوضع النهاري" : "تفعيل الوضع الليلي");
       button.setAttribute("aria-pressed", String(next === "dark"));
@@ -958,6 +1588,10 @@
   }
 
   function updateClock() {
+    updateHeaderDateTime();
+  }
+
+  function oldUpdateClock() {
     var nodes = qsa("[data-date-time]");
     if (!nodes.length) return;
     var now = new Date();
@@ -1002,6 +1636,43 @@
     });
   }
 
+  function updateHeaderDateTime() {
+    var nodes = qsa("[data-date-time]");
+    if (!nodes.length) return;
+    var now = new Date();
+    var dateLabel = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", {
+      timeZone: "Asia/Riyadh",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      era: "short",
+      numberingSystem: "arab"
+    }).format(now);
+    var compactDateLabel = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", {
+      timeZone: "Asia/Riyadh",
+      month: "numeric",
+      day: "numeric",
+      numberingSystem: "arab"
+    }).format(now);
+    var timeLabel = new Intl.DateTimeFormat("ar-SA", {
+      timeZone: "Asia/Riyadh",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      numberingSystem: "arab"
+    }).format(now);
+    nodes.forEach(function (node) {
+      var compact = node.hasAttribute("data-compact-date-time");
+      var displayDate = compact ? compactDateLabel : dateLabel;
+      node.dateTime = now.toISOString();
+      node.title = dateLabel + " - " + timeLabel;
+      node.innerHTML = [
+        '<span class="site-datetime-item"><i class="hgi hgi-stroke hgi-calendar-01" aria-hidden="true"></i><span>' + displayDate + '</span></span>',
+        '<span class="site-datetime-item"><i class="nds-icon nds-hgi-clock-01" aria-hidden="true"></i><span>' + timeLabel + '</span></span>'
+      ].join("");
+    });
+  }
+
   function getPageSlug() {
     var match = location.hash.match(/^#\/page\/([^/]+)$/);
     return match ? decodeURIComponent(match[1]) : "";
@@ -1034,7 +1705,8 @@
     if (hero) hero.hidden = !hasHero;
     if (empty) empty.hidden = hasContent;
     if (content) content.hidden = !hasBody;
-    if (bioSection) bioSection.hidden = ![home.ownerName, home.title, home.intro, home.biography, home.avatar].some(hasText);
+    var avatarSrc = ownerAvatarSrc(data);
+    if (bioSection) bioSection.hidden = ![home.ownerName, home.title, home.intro, home.biography, avatarSrc].some(hasText);
 
     setText("[data-owner-name]", home.ownerName);
     setText("[data-owner-title]", home.title);
@@ -1043,8 +1715,12 @@
 
     var avatar = qs("[data-owner-avatar]");
     if (avatar) {
-      avatar.hidden = !hasText(home.avatar);
-      if (hasText(home.avatar)) avatar.src = home.avatar;
+      avatar.hidden = !hasText(avatarSrc);
+      if (hasText(avatarSrc)) {
+        avatar.src = avatarSrc;
+      } else {
+        avatar.removeAttribute("src");
+      }
     }
 
     renderHeroSlides(home);
@@ -1387,10 +2063,10 @@
       return image;
     }
 
-    var span = el("span", "contact-icon contact-icon-" + (item.iconType || "website"));
-    span.setAttribute("aria-hidden", "true");
-    span.innerHTML = contactIconSvg(item.iconType);
-    return span;
+    var icon = document.createElement("i");
+    icon.className = "contact-icon contact-icon-" + (item.iconType || "website") + " " + contactIconClass(item.iconType);
+    icon.setAttribute("aria-hidden", "true");
+    return icon;
   }
 
   function contactLabel(item) {
@@ -1399,6 +2075,19 @@
       return option.value === item.iconType;
     });
     return match ? match.label : "وسيلة تواصل";
+  }
+
+  function contactIconClass(type) {
+    var icons = {
+      linkedin: "nds-hgi-linkedin-02",
+      github: "hgi hgi-stroke hgi-github",
+      x: "nds-hgi-new-twitter",
+      email: "nds-hgi-mail-01",
+      website: "nds-hgi-globe",
+      phone: "nds-hgi-smart-phone-01"
+    };
+    var iconClass = icons[type] || icons.website;
+    return iconClass.indexOf("hgi ") === 0 ? iconClass : "nds-icon " + iconClass;
   }
 
   function contactIconSvg(type) {
@@ -1688,14 +2377,31 @@
   }
 
   function toast(message) {
-    var toastElement = qs("[data-toast]");
-    if (!toastElement) return;
-    toastElement.textContent = message;
-    toastElement.hidden = false;
-    clearTimeout(toastElement._timer);
-    toastElement._timer = setTimeout(function () {
-      toastElement.hidden = true;
-    }, 2600);
+    showToast(message, "info");
+  }
+
+  function setupToastEvents() {
+    document.addEventListener("site:save-success", function (event) {
+      showToast(event.detail && event.detail.message ? event.detail.message : "تم الحفظ بنجاح", "success");
+    });
+    document.addEventListener("site:save-error", function (event) {
+      showToast(event.detail && event.detail.message ? event.detail.message : "تعذر الحفظ", "error");
+    });
+    document.addEventListener("site:upload-success", function (event) {
+      showToast(event.detail && event.detail.message ? event.detail.message : "تم الرفع بنجاح", "success");
+    });
+    document.addEventListener("site:upload-error", function (event) {
+      showToast(event.detail && event.detail.message ? event.detail.message : "تعذر الرفع", "error");
+    });
+    document.addEventListener("nds:upload:success", function (event) {
+      showToast(event.detail && event.detail.message ? event.detail.message : "تم الرفع بنجاح", "success");
+    });
+    document.addEventListener("nds:upload:error", function (event) {
+      showToast(event.detail && event.detail.message ? event.detail.message : "تعذر الرفع", "error");
+    });
+    document.addEventListener("nds:upload:validationError", function (event) {
+      showToast(event.detail && event.detail.message ? event.detail.message : "تعذر الرفع", "error");
+    });
   }
 
   function render() {
@@ -1707,9 +2413,15 @@
     if (document.body.dataset.page === "pages") renderPagesPage(appState.data);
     if (document.body.dataset.page === "notifications") renderNotificationsPage();
     if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.init) window.NDS.Mainnav.init();
+    updateHeaderActions(appState.data);
+    revealHeaderShell();
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
+  var appInitialized = false;
+
+  function initApp() {
+    if (appInitialized) return;
+    appInitialized = true;
     setupNavToggle();
     setupDropmenus();
     setupThemeToggle();
@@ -1720,8 +2432,15 @@
     setupLoginModal();
     setupNotifications();
     setupNotificationsPageEvents();
+    setupToastEvents();
     render();
-  });
+  }
+
+  if (document.body) {
+    initApp();
+  } else {
+    document.addEventListener("DOMContentLoaded", initApp);
+  }
 
   window.addEventListener("hashchange", render);
   window.addEventListener("site:datachange", function () {
@@ -1732,7 +2451,17 @@
     render: render,
     emptyState: emptyState,
     toast: toast,
+    showToast: showToast,
     openLoginModal: openLoginModal,
+    openChangePasswordModal: openChangePasswordModal,
+    openChangeEmailModal: openChangeEmailModal,
+    openChangePhoneModal: openChangePhoneModal,
+    logoutUser: logoutUser,
+    updateHeaderActions: updateHeaderActions,
+    toggleTheme: toggleTheme,
+    updateThemeIcon: updateThemeIcon,
+    updateHeaderDateTime: updateHeaderDateTime,
+    openNotifications: openNotifications,
     isAdminAuthenticated: isAdminAuthenticated,
     addNotification: addNotification
   };

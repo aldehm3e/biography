@@ -16,44 +16,97 @@
   </script>
   <title>لوحة الإدارة</title>
   <!-- Reusable NDS frontend toolkit is vendored locally under assets/vendor/nds/. -->
-  <link rel="icon" type="image/svg+xml" href="assets/vendor/nds/images/favicon.svg">
-  <link rel="stylesheet" href="css/custom.css">
+  <link rel="icon" type="image/svg+xml" href="assets/images/site-mark.svg">
   <link rel="stylesheet" href="css/nds-icons-full.css">
-  <link rel="stylesheet" href="css/nds-local-components.css">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
+  <link rel="stylesheet" href="css/nds-local-components.css">
+  <link rel="stylesheet" href="css/custom.css">
 </head>
 <body data-page="admin">
   <header class="site-header">
     <nav class="nds-main-nav nds-content-wrapper" id="ndsMainNav" aria-label="التنقل الرئيسي">
       <div class="site-container nds-nav-container">
         <a class="nds-brand nds-link" href="index.html" aria-label="الرئيسية">
-          <img class="nds-brand-logo brand-logo" src="assets/vendor/nds/images/palm_swords.svg" width="40" height="40" loading="lazy" alt="">
+          <img class="nds-brand-logo brand-logo" src="assets/vendor/nds/images/palm_swords.svg" width="40" height="40" loading="eager" fetchpriority="high" alt="">
           <span class="nds-brand-name">
             <span data-site-title>السيرة الذاتية</span>
             <span class="nds-brand-slogan">موقع شخصي</span>
           </span>
         </a>
-        <ul class="nds-nav-minimal" hidden>
+        <ul class="nds-nav-minimal">
           <li class="nds-mainNav-toggler nds-nav-item">
             <button class="nds-nav-link nds-btn nds-subtle nds-indicator" type="button" data-nav-toggle aria-label="فتح التنقل" aria-expanded="false" aria-controls="ndsNavCollapse">
               <i class="nds-icon nds-hgi-menu-01" aria-hidden="true"></i>
             </button>
           </li>
         </ul>
-        <div class="nds-collapse" id="ndsNavCollapse" data-nav-panel hidden>
+        <div class="nds-collapse" id="ndsNavCollapse" data-nav-panel>
           <div class="nds-collapse-content">
-            <ul class="nds-nav-primary" data-nav-list></ul>
+            <ul class="nds-nav-primary" data-nav-list>
+              <li class="nds-nav-item">
+                <a class="nds-nav-link nds-btn nds-subtle nav-link" href="index.html">
+                  <span class="nds-label">الرئيسية</span>
+                </a>
+              </li>
+              <li class="nds-nav-item">
+                <a class="nds-nav-link nds-btn nds-subtle nav-link" href="projects.html">
+                  <span class="nds-label">المشاريع</span>
+                </a>
+              </li>
+            </ul>
             <div class="nds-nav-item nds-show-more">
               <button class="nds-nav-link nds-btn nds-subtle nds-indicator nds-full" type="button" title="Show More" aria-label="Show More" data-nav-scroll="next">
                 <i class="nds-icon nds-hgi-arrow-down-01" aria-hidden="true"></i>
               </button>
             </div>
             <ul class="header-actions nds-nav-actions" aria-label="أدوات الموقع">
-                            <li class="nds-nav-item nds-dropdown nds-icon-only nds-PAB notification-dropdown" data-notifications-root></li>
-<li class="nds-nav-item nds-icon-only">
-                <a class="nds-nav-link nds-btn nds-subtle nds-indicator nav-admin-link header-admin-link" href="admin.html" aria-label="الإدارة" title="الإدارة">
-                  <i class="nds-icon nds-icon-avatar nav-admin-icon" aria-hidden="true"></i>
+              <li class="nds-nav-item nds-dropdown nds-icon-only notification-dropdown" data-notifications-root>
+                <button class="nds-nav-link nds-btn nds-subtle nds-indicator notification-trigger" type="button" data-notifications-trigger aria-haspopup="true" aria-expanded="false" aria-label="الإشعارات" title="الإشعارات">
+                  <i class="nds-icon nds-hgi-notification-02 nav-notification-icon" aria-hidden="true"></i>
+                  <span class="nds-label">الإشعارات</span>
+                </button>
+                <div class="nds-dropdown-menu nds-fit" data-notifications-menu>
+                  <div class="nds-dropdown-content">
+                    <div class="nds-column">
+                      <nav class="nds-drawer" style="--drawer-max-height: 40svh; min-width: 40vw; max-width: 100%;">
+                        <ul class="nds-drawer-list"></ul>
+                      </nav>
+                    </div>
+                  </div>
+                </div>
+              </li>
+              <li class="nds-nav-item nds-dropdown nds-icon-only nds-PAB admin-persona-dropdown">
+                <a class="nds-nav-link nds-btn nds-subtle nds-indicator nav-admin-link header-admin-link" href="admin.html" aria-haspopup="true" aria-expanded="false" aria-label="الإدارة" title="الإدارة">
+                  <span class="nds-avatar nds-sm admin-trigger-avatar" aria-hidden="true">
+                    <img data-admin-trigger-avatar alt="" hidden>
+                    <i class="nds-icon nds-icon-avatar nav-admin-icon" data-admin-trigger-icon aria-hidden="true"></i>
+                  </span>
+                  <span class="nds-label" data-admin-trigger-label>الإدارة</span>
                 </a>
+                <div class="nds-dropdown-menu nds-fit">
+                  <div class="nds-dropdown-content">
+                    <div class="nds-column">
+                      <div class="nds-persona nds-sm">
+                        <div class="nds-persona-info">
+                          <span class="nds-persona-name" data-admin-persona-name>السيرة الذاتية</span>
+                          <span class="nds-persona-role nds-truncate" data-admin-persona-role>Administrator</span>
+                          <span class="nds-persona-desc" data-admin-persona-desc>admin@gmail.com</span>
+                        </div>
+                        <hr class="nds-divider">
+                        <div class="nds-persona-action">
+                          <a href="admin.html" class="nds-btn nds-subtle nds-dropdown-item">
+                            <i class="nds-icon nds-hgi-identity-card" aria-hidden="true"></i>
+                            <span class="nds-label">لوحة الادارة</span>
+                          </a>
+                          <button type="button" class="nds-btn nds-subtle nds-destructive nds-dropdown-item" id="logoutBtn" data-admin-persona-logout>
+                            <i class="nds-icon nds-hgi-door-01" aria-hidden="true"></i>
+                            <span class="nds-label">تسجيل خروج</span>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               </li>
               <li class="nds-nav-item header-date-item"><time class="site-datetime" data-date-time aria-live="polite"></time></li>
               <li class="nds-nav-item nds-icon-only">
@@ -81,9 +134,6 @@
           </nav>
           <h1 class="nds-section-title" data-admin-dashboard-title>لوحة الإدارة</h1>
           <p class="nds-section-description">إدارة المحتوى المحلي قبل أي خطوة نشر.</p>
-        </div>
-        <div class="nds-section-action">
-          <button class="nds-btn nds-secondary-outline" type="button" data-logout><span class="nds-label">تسجيل الخروج</span></button>
         </div>
       </div>
     </section>
