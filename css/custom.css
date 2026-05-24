@@ -214,6 +214,21 @@ textarea {
   box-shadow: var(--shadow-md);
 }
 
+html[data-site-loading="true"] .site-header::after {
+  content: "";
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--colors-primary-sa-flag-600), transparent);
+  animation: site-loading-bar 1.2s ease-in-out infinite;
+}
+
+@keyframes site-loading-bar {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
 .nds-main-nav {
   height: var(--nds-nav-height);
   background: var(--background-nav);

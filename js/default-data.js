@@ -4,9 +4,14 @@
   window.DEFAULT_SITE_DATA = {
     settings: {
       siteName: "",
+      brandName: "",
+      brandSlogan: "موقع شخصي",
+      brandLogo: "",
       language: "ar",
       direction: "rtl",
-      theme: "light"
+      theme: "light",
+      phoneNumber: "",
+      email: ""
     },
     navigation: {
       homeLabel: "الرئيسية",
@@ -20,6 +25,11 @@
       intro: "",
       avatar: "",
       biography: "",
+      heroTitle: "",
+      heroSubtitle: "",
+      heroIntro: "",
+      heroImage: "",
+      heroVideo: "",
       heroSlides: [],
       experience: [],
       achievements: [],
@@ -44,13 +54,7 @@
     { value: "html", label: "HTML منسق" }
   ];
 
-  /*
-   * This local passcode is only for local testing. For production, replace this
-   * with real authentication such as Supabase Auth.
-   */
   window.ADMIN_AUTH_CONFIG = {
-    email: "admin@gmail.com",
-    passcode: "1234",
     sessionKey: "websiteDemo:adminSession"
   };
 })();

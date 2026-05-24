@@ -32,6 +32,16 @@
     }
   }
 
+  function saveData() {
+    return window.SiteStore.save(data).then(function (savedData) {
+      data = savedData;
+      return data;
+    }).catch(function (error) {
+      toast(error.message || "تعذر حفظ البيانات", "error");
+      throw error;
+    });
+  }
+
   function safeText(value) {
     return String(value || "")
       .replace(/&/g, "&amp;")
@@ -74,10 +84,31 @@
   }
 
   function fillForms() {
-    data = window.SiteStore.load();
+    return window.SiteStore.load().then(function (loadedData) {
+      data = loadedData;
+      fillLoadedForms();
+      return data;
+    }).catch(function (error) {
+      toast(error.message || "تعذر تحميل بيانات الموقع", "error");
+      data = window.SiteStore.current();
+      fillLoadedForms();
+      return data;
+    });
+  }
 
+  function fillLoadedForms() {
     setValue("siteName", data.settings.siteName);
+    setValue("siteNameNav", data.settings.siteName);
+    setValue("brandName", data.settings.brandName);
+    setValue("brandSlogan", data.settings.brandSlogan);
+    setValue("brandLogo", data.settings.brandLogo);
+    setValue("settingsPhone", data.settings.phoneNumber);
+    setValue("settingsEmail", data.settings.email);
+    setValue("siteLanguage", data.settings.language);
+    setValue("siteDirection", data.settings.direction);
+    setValue("siteTheme", data.settings.theme);
     setValue("homeLabel", data.navigation.homeLabel);
+    setValue("pagesLabel", data.navigation.pagesLabel);
     setValue("projectsLabel", data.navigation.projectsLabel);
     setValue("adminLabel", data.navigation.adminLabel);
 
@@ -86,23 +117,49 @@
     setValue("intro", data.home.intro);
     setValue("avatar", data.home.avatar);
     setValue("biography", data.home.biography);
-    setValue("skills", (data.home.skills || []).join("\n"));
+    setValue("heroTitle", data.home.heroTitle);
+    setValue("heroSubtitle", data.home.heroSubtitle);
+    setValue("heroIntro", data.home.heroIntro);
+    setValue("heroImage", data.home.heroImage);
+    setValue("heroVideo", data.home.heroVideo);
+    setValue("skills", (data.home.skills || []).map(function (item) { return typeof item === "string" ? item : item.name; }).join("\n"));
     setValue("experience", formatItems(data.home.experience || []));
     setValue("achievements", formatItems(data.home.achievements || []));
 
     renderHeroSlidesEditor();
+    renderContentRowsEditor("experience");
+    renderContentRowsEditor("achievements");
+    renderSkillsEditor();
     renderContactsEditor();
     renderProjectsEditor();
     renderPagesEditor();
   }
 
-  function saveNavigation(event) {
+  function saveSettings(event) {
     event.preventDefault();
     data.settings.siteName = value("siteName");
+    data.navigation.pagesLabel = value("pagesLabel") || data.navigation.pagesLabel || "الصفحات";
+    data.settings.brandName = value("brandName");
+    data.settings.brandSlogan = value("brandSlogan");
+    data.settings.brandLogo = value("brandLogo");
+    data.settings.phoneNumber = value("settingsPhone");
+    data.settings.email = value("settingsEmail");
+    data.settings.language = value("siteLanguage") || "ar";
+    data.settings.direction = value("siteDirection") || "rtl";
+    data.settings.theme = value("siteTheme") || data.settings.theme || "light";
+    saveData().then(function () {
+      toast("تم حفظ إعدادات الموقع");
+    });
+  }
+
+  function saveNavigation(event) {
+    event.preventDefault();
+    data.settings.siteName = value("siteNameNav") || value("siteName");
+    data.navigation.pagesLabel = value("pagesLabel") || data.navigation.pagesLabel || "الصفحات";
     data.navigation.homeLabel = value("homeLabel") || "الرئيسية";
     data.navigation.projectsLabel = value("projectsLabel") || "المشاريع";
     data.navigation.adminLabel = value("adminLabel") || "الإدارة";
-    data = window.SiteStore.save(data);
+    saveData();
     toast("تم حفظ إعدادات التنقل");
   }
 
@@ -113,16 +170,32 @@
     data.home.intro = value("intro");
     data.home.avatar = value("avatar");
     data.home.biography = value("biography");
+    data.home.heroTitle = value("heroTitle");
+    data.home.heroSubtitle = value("heroSubtitle");
+    data.home.heroIntro = value("heroIntro");
+    data.home.heroImage = value("heroImage");
+    data.home.heroVideo = value("heroVideo");
     data.home.heroSlides = collectHeroSlides();
-    data.home.skills = value("skills").split(/\n+/).map(function (item) { return item.trim(); }).filter(Boolean);
-    data.home.experience = parseLines(value("experience"), function (parts) {
-      return parts.length ? { title: parts[0] || "", meta: parts[1] || "", description: parts.slice(2).join(" | ") || "" } : null;
-    });
-    data.home.achievements = parseLines(value("achievements"), function (parts) {
-      return parts.length ? { title: parts[0] || "", meta: parts[1] || "", description: parts.slice(2).join(" | ") || "" } : null;
-    });
+    data.home.experience = collectContentRows("experience");
+    data.home.achievements = collectContentRows("achievements");
+    data.home.skills = collectSkills();
+    if (!data.home.experience.length && value("experience")) {
+      data.home.experience = parseLines(value("experience"), function (parts) {
+        return parts.length ? { title: parts[0] || "", meta: parts[1] || "", description: parts.slice(2).join(" | ") || "", visible: true } : null;
+      });
+    }
+    if (!data.home.achievements.length && value("achievements")) {
+      data.home.achievements = parseLines(value("achievements"), function (parts) {
+        return parts.length ? { title: parts[0] || "", meta: parts[1] || "", description: parts.slice(2).join(" | ") || "", visible: true } : null;
+      });
+    }
+    if (!data.home.skills.length && value("skills")) {
+      data.home.skills = value("skills").split(/\n+/).map(function (item) {
+        return { name: item.trim(), visible: true };
+      }).filter(function (item) { return item.name; });
+    }
     data.home.contacts = collectContacts();
-    data = window.SiteStore.save(data);
+    saveData();
     addAdminNotification({
       status: "success",
       tag: "تحديث",
@@ -140,6 +213,19 @@
       '<div class="nds-form-control"><input class="nds-input" data-field="' + safeText(key) + '" type="text" value="' + safeText(value) + '"></div>',
       '</div>'
     ].join("");
+  }
+
+  function uploadControlHtml(targetField, type) {
+    return [
+      '<div class="nds-form-container upload-inline-control">',
+      '<div class="nds-form-header"><label><span class="nds-label">رفع ملف</span></label></div>',
+      '<div class="nds-form-control"><input class="nds-input file-input" type="file" data-media-upload="' + safeText(type || "image") + '" data-upload-target-field="' + safeText(targetField) + '"></div>',
+      '</div>'
+    ].join("");
+  }
+
+  function uploadableInputHtml(key, label, value, type, info) {
+    return inputHtml(key, label, value, info) + uploadControlHtml(key, type);
   }
 
   function textareaHtml(key, label, value, rows, info) {
@@ -196,6 +282,7 @@
   function heroSlideTemplate(slide, index) {
     var panelId = "hero-slide-panel-" + index;
     var title = slide.video || slide.image || slide.alt || "وسائط هيرو";
+    title = slide.title || title;
     var isOpen = pendingOpenEditor.hero === index;
     return [
       '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="hero" data-state="' + (isOpen ? "open" : "closed") + '" data-hero-slide-index="' + index + '">',
@@ -209,10 +296,15 @@
       '</div>',
       '<div class="admin-template-body" id="' + panelId + '">',
       '<div class="form-grid">',
-      inputHtml("heroImage", "مسار الصورة أو صورة غلاف الفيديو", slide.image, "مثال: assets/images/hero.jpg"),
-      inputHtml("heroMobileImage", "مسار صورة الجوال أو غلاف الجوال اختياري", slide.mobileImage, "اتركه فارغا لاستخدام نفس الصورة"),
-      inputHtml("heroVideo", "مسار الفيديو اختياري", slide.video, "مثال: assets/video/hero.webm"),
-      inputHtml("heroMobileVideo", "مسار فيديو الجوال اختياري", slide.mobileVideo, "اتركه فارغا لاستخدام نفس الفيديو"),
+      inputHtml("heroSlideTitle", "عنوان الشريحة", slide.title),
+      inputHtml("heroSlideSubtitle", "العنوان الفرعي", slide.subtitle),
+      '</div>',
+      textareaHtml("heroSlideIntro", "وصف الشريحة", slide.intro || "", 3),
+      '<div class="form-grid">',
+      uploadableInputHtml("heroImage", "مسار الصورة أو صورة غلاف الفيديو", slide.image, "hero-image", "مثال: uploads/images/hero.jpg"),
+      uploadableInputHtml("heroMobileImage", "مسار صورة الجوال أو غلاف الجوال اختياري", slide.mobileImage, "hero-image", "اتركه فارغا لاستخدام نفس الصورة"),
+      uploadableInputHtml("heroVideo", "مسار الفيديو اختياري", slide.video, "hero-video", "مثال: uploads/video/hero.webm"),
+      uploadableInputHtml("heroMobileVideo", "مسار فيديو الجوال اختياري", slide.mobileVideo, "hero-video", "اتركه فارغا لاستخدام نفس الفيديو"),
       '</div>',
       inputHtml("heroAlt", "وصف الصورة اختياري", slide.alt),
       '<label class="check-line"><input type="checkbox" data-hero-slide-visible ' + (slide.visible === false ? "" : "checked") + '> <span>إظهار هذه الوسائط في السلايدر</span></label>',
@@ -236,6 +328,9 @@
   function collectHeroSlides() {
     return qsa("[data-hero-slide-index]").map(function (item) {
       return {
+        title: qs('[data-field="heroSlideTitle"]', item) ? qs('[data-field="heroSlideTitle"]', item).value.trim() : "",
+        subtitle: qs('[data-field="heroSlideSubtitle"]', item) ? qs('[data-field="heroSlideSubtitle"]', item).value.trim() : "",
+        intro: qs('[data-field="heroSlideIntro"]', item) ? qs('[data-field="heroSlideIntro"]', item).value.trim() : "",
         image: qs('[data-field="heroImage"]', item).value.trim(),
         mobileImage: qs('[data-field="heroMobileImage"]', item).value.trim(),
         video: qs('[data-field="heroVideo"]', item).value.trim(),
@@ -244,7 +339,99 @@
         visible: qs("[data-hero-slide-visible]", item).checked
       };
     }).filter(function (slide) {
-      return slide.image || slide.mobileImage || slide.video || slide.mobileVideo || slide.alt;
+      return slide.title || slide.subtitle || slide.intro || slide.image || slide.mobileImage || slide.video || slide.mobileVideo || slide.alt;
+    });
+  }
+
+  function contentRowsKey(type) {
+    return type === "achievements" ? "achievements" : "experience";
+  }
+
+  function contentRowTemplate(type, item, index) {
+    var title = item.title || (type === "achievements" ? "إنجاز" : "خبرة");
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="' + safeText(type) + '" data-content-row-type="' + safeText(type) + '" data-content-row-index="' + index + '">',
+      '<div class="nds-card-content compact-card-content">',
+      '<div class="editor-item-head sortable-editor-header">',
+      dragHandleHtml("تغيير الترتيب"),
+      '<span class="nds-card-title">' + safeText(title) + '</span>',
+      adminDeleteButton("data-delete-content-row", index, "حذف"),
+      '</div>',
+      '<div class="form-grid">',
+      inputHtml("rowTitle", "العنوان", item.title),
+      inputHtml("rowMeta", "البيانات المختصرة", item.meta),
+      '</div>',
+      textareaHtml("rowDescription", "الوصف", item.description, 3),
+      '<label class="check-line"><input type="checkbox" data-row-visible ' + (item.visible === false ? "" : "checked") + '> <span>إظهار العنصر</span></label>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderContentRowsEditor(type) {
+    var root = qs('[data-' + contentRowsKey(type) + '-editor]');
+    if (!root) return;
+    var key = contentRowsKey(type);
+    data.home[key] = data.home[key] || [];
+    root.dataset.sortableList = key;
+    root.innerHTML = data.home[key].map(function (item, index) {
+      return contentRowTemplate(key, item, index);
+    }).join("");
+    if (!data.home[key].length) {
+      root.append(window.SiteApp.emptyState("لا توجد عناصر", "استخدم زر الإضافة لإنشاء عنصر جديد."));
+    }
+  }
+
+  function collectContentRows(type) {
+    return qsa('[data-content-row-type="' + contentRowsKey(type) + '"]').map(function (item) {
+      return {
+        title: qs('[data-field="rowTitle"]', item).value.trim(),
+        meta: qs('[data-field="rowMeta"]', item).value.trim(),
+        description: qs('[data-field="rowDescription"]', item).value.trim(),
+        visible: qs("[data-row-visible]", item).checked
+      };
+    }).filter(function (row) {
+      return row.title || row.meta || row.description;
+    });
+  }
+
+  function skillTemplate(skill, index) {
+    var name = typeof skill === "string" ? skill : (skill.name || "");
+    var visible = typeof skill === "string" ? true : skill.visible !== false;
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="skills" data-skill-index="' + index + '">',
+      '<div class="nds-card-content compact-card-content">',
+      '<div class="editor-item-head sortable-editor-header">',
+      dragHandleHtml("تغيير ترتيب المهارة"),
+      '<span class="nds-card-title">' + safeText(name || "مهارة") + '</span>',
+      adminDeleteButton("data-delete-skill", index, "حذف المهارة"),
+      '</div>',
+      inputHtml("skillName", "اسم المهارة", name),
+      '<label class="check-line"><input type="checkbox" data-skill-visible ' + (visible ? "checked" : "") + '> <span>إظهار المهارة</span></label>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderSkillsEditor() {
+    var root = qs("[data-skills-editor]");
+    if (!root) return;
+    data.home.skills = data.home.skills || [];
+    root.dataset.sortableList = "skills";
+    root.innerHTML = data.home.skills.map(skillTemplate).join("");
+    if (!data.home.skills.length) {
+      root.append(window.SiteApp.emptyState("لا توجد مهارات", "استخدم زر الإضافة لإضافة مهارة."));
+    }
+  }
+
+  function collectSkills() {
+    return qsa("[data-skill-index]").map(function (item) {
+      return {
+        name: qs('[data-field="skillName"]', item).value.trim(),
+        visible: qs("[data-skill-visible]", item).checked
+      };
+    }).filter(function (skill) {
+      return skill.name;
     });
   }
 
@@ -252,8 +439,9 @@
     var label = contact.label || "وسيلة تواصل";
     var panelId = "contact-panel-" + index;
     return [
-      '<article class="editor-item contact-editor-item nds-card nds-stroke" data-contact-index="' + index + '">',
-      '<div class="contact-accordion-header">',
+      '<article class="editor-item contact-editor-item nds-card nds-stroke" data-sortable-item="contacts" data-contact-index="' + index + '">',
+      '<div class="contact-accordion-header sortable-editor-header">',
+      dragHandleHtml("تغيير ترتيب وسيلة التواصل"),
       '<button class="contact-accordion-btn nds-btn nds-subtle" type="button" data-contact-toggle aria-expanded="false" aria-controls="' + panelId + '">',
       '<span class="contact-accordion-title">' + safeText(label) + '</span>',
       '<i class="nds-icon nds-hgi-arrow-down-01 contact-accordion-arrow" aria-hidden="true"></i>',
@@ -267,7 +455,7 @@
       inputHtml("contactLabel", "التسمية الاختيارية", contact.label),
       inputHtml("contactUrl", "الرابط", contact.url),
       iconTypeDropmenuHtml("contactIconType", "نوع الأيقونة", contact.iconType || "website"),
-      inputHtml("contactIconPath", "مسار شعار مخصص اختياري", contact.iconPath),
+      uploadableInputHtml("contactIconPath", "مسار شعار مخصص اختياري", contact.iconPath, "contact-icon"),
       '</div>',
       '<label class="check-line"><input type="checkbox" data-contact-visible ' + (contact.visible === false ? "" : "checked") + '> <span>إظهار وسيلة التواصل</span></label>',
       '</div>',
@@ -281,6 +469,7 @@
     var root = qs("[data-contacts-editor]");
     if (!root) return;
     data.home.contacts = data.home.contacts || [];
+    root.dataset.sortableList = "contacts";
     root.innerHTML = data.home.contacts.map(contactTemplate).join("");
     if (!data.home.contacts.length) {
       root.append(window.SiteApp.emptyState("لا توجد وسائل تواصل", "استخدم زر إضافة وسيلة لإنشاء رابط تواصل."));
@@ -291,9 +480,10 @@
     var panelId = "project-panel-" + index;
     var title = project.title || "مشروع";
     return [
-      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-project-index="' + index + '">',
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="projects" data-project-index="' + index + '">',
       '<div class="nds-card-content compact-card-content">',
-      '<div class="editor-item-head">',
+      '<div class="editor-item-head sortable-editor-header">',
+      dragHandleHtml("تغيير ترتيب المشروع"),
       '<button class="editor-accordion-btn nds-btn nds-subtle" type="button" data-editor-toggle aria-expanded="false" aria-controls="' + panelId + '">',
       '<span class="nds-card-title">' + safeText(title) + '</span>',
       '<i class="nds-icon nds-hgi-arrow-down-01 editor-accordion-arrow" aria-hidden="true"></i>',
@@ -304,13 +494,15 @@
       '<div class="editor-accordion-content">',
       '<div class="form-grid">',
       inputHtml("projectTitle", "عنوان المشروع", project.title),
+      inputHtml("projectSlug", "الرابط المختصر", project.slug),
       inputHtml("projectStatus", "الحالة", project.status),
       inputHtml("projectDate", "التاريخ", project.date),
       inputHtml("projectCategory", "التصنيف", project.category),
       '</div>',
-      inputHtml("projectImage", "مسار الصورة أو الأيقونة", project.image),
+      uploadableInputHtml("projectImage", "مسار الصورة أو الأيقونة", project.image, "project-image"),
       inputHtml("projectUrl", "رابط تصفح المشروع", project.url, "مثال: https://example.com"),
       textareaHtml("projectDescription", "الوصف", project.description, 4),
+      '<label class="check-line"><input type="checkbox" data-project-visible ' + (project.visible === false ? "" : "checked") + '> <span>إظهار المشروع</span></label>',
       '</div>',
       '</div>',
       '</div>',
@@ -322,6 +514,7 @@
     var root = qs("[data-projects-editor]");
     if (!root) return;
     data.projects = data.projects || [];
+    root.dataset.sortableList = "projects";
     root.innerHTML = data.projects.map(projectTemplate).join("");
     if (!data.projects.length) {
       root.append(window.SiteApp.emptyState("لا توجد مشاريع", "استخدم زر إضافة مشروع لإنشاء بطاقة جديدة."));
@@ -457,12 +650,14 @@
     data.projects = qsa("[data-project-index]").map(function (item) {
       return {
         title: qs('[data-field="projectTitle"]', item).value.trim(),
+        slug: slugify(qs('[data-field="projectSlug"]', item).value.trim() || qs('[data-field="projectTitle"]', item).value.trim()),
         status: qs('[data-field="projectStatus"]', item).value.trim(),
         date: qs('[data-field="projectDate"]', item).value.trim(),
         category: qs('[data-field="projectCategory"]', item).value.trim(),
         image: qs('[data-field="projectImage"]', item).value.trim(),
         url: qs('[data-field="projectUrl"]', item).value.trim(),
-        description: qs('[data-field="projectDescription"]', item).value.trim()
+        description: qs('[data-field="projectDescription"]', item).value.trim(),
+        visible: qs("[data-project-visible]", item).checked
       };
     }).filter(function (project) {
       return project.title || project.description || project.category || project.status || project.date || project.image || project.url;
@@ -503,7 +698,7 @@
   function saveProjects() {
     var previousCount = (data.projects || []).length;
     collectProjects();
-    data = window.SiteStore.save(data);
+      saveData();
     renderProjectsEditor();
     addAdminNotification({
       status: "success",
@@ -518,7 +713,7 @@
   function savePages() {
     var previousCount = (data.pages || []).length;
     collectPages();
-    data = window.SiteStore.save(data);
+      saveData();
     renderPagesEditor();
     refreshPublicShell();
     addAdminNotification({
@@ -551,16 +746,52 @@
     if (!root) return;
     if (root.dataset.sortableList === "hero") {
       data.home.heroSlides = collectHeroSlides();
-      data = window.SiteStore.save(data);
+      saveData();
       renderHeroSlidesEditor();
       refreshPublicShell();
       toast("تم تحديث ترتيب سلايدر الهيرو");
     } else if (root.dataset.sortableList === "pages") {
       collectPages();
-      data = window.SiteStore.save(data);
+      saveData();
       renderPagesEditor();
       refreshPublicShell();
       toast("تم تحديث ترتيب الصفحات");
+    }
+
+    if (root.dataset.sortableList === "projects") {
+      collectProjects();
+      saveData();
+      renderProjectsEditor();
+      refreshPublicShell();
+      toast("تم تحديث ترتيب المشاريع");
+    }
+    if (root.dataset.sortableList === "contacts") {
+      data.home.contacts = collectContacts();
+      saveData();
+      renderContactsEditor();
+      refreshPublicShell();
+      toast("تم تحديث ترتيب وسائل التواصل");
+    }
+    if (root.dataset.sortableList === "experience") {
+      data.home.experience = collectContentRows("experience");
+      saveData();
+      renderContentRowsEditor("experience");
+      refreshPublicShell();
+      toast("تم تحديث ترتيب الخبرات");
+    }
+    if (root.dataset.sortableList === "achievements") {
+      data.home.achievements = collectContentRows("achievements");
+      saveData();
+      renderContentRowsEditor("achievements");
+      refreshPublicShell();
+      toast("تم تحديث ترتيب الإنجازات");
+    }
+    if (root.dataset.sortableList === "skills") {
+      data.home.skills = collectSkills();
+      saveData();
+      renderSkillsEditor();
+      refreshPublicShell();
+      toast("تم تحديث ترتيب المهارات");
     }
   }
 
@@ -634,11 +865,51 @@
     });
   }
 
+  function resolveUploadTarget(input) {
+    var selector = input.dataset.uploadTargetSelector;
+    if (selector) return qs(selector);
+    var name = input.dataset.uploadTargetName;
+    if (name) return field(name) || qs("#" + name);
+    var fieldName = input.dataset.uploadTargetField;
+    if (fieldName) {
+      var scope = input.closest(".editor-item, .nds-card-content, form") || document;
+      return qs('[data-field="' + fieldName + '"]', scope);
+    }
+    return null;
+  }
+
+  function setupUploadEvents() {
+    document.addEventListener("change", function (event) {
+      var input = event.target.closest("[data-media-upload]");
+      if (!input) return;
+      var file = input.files && input.files[0];
+      if (!file) return;
+      var target = resolveUploadTarget(input);
+      if (!target) {
+        toast("تعذر تحديد حقل مسار الملف", "error");
+        return;
+      }
+      input.disabled = true;
+      window.SiteStore.uploadMedia(file, input.dataset.mediaUpload).then(function (result) {
+        target.value = result.path || "";
+        target.dispatchEvent(new Event("input", { bubbles: true }));
+        toast("تم رفع الملف");
+      }).catch(function (error) {
+        toast(error.message || "تعذر رفع الملف", "error");
+      }).finally(function () {
+        input.disabled = false;
+        input.value = "";
+      });
+    });
+  }
+
   function setupEvents() {
+    if (qs("[data-settings-form]")) qs("[data-settings-form]").addEventListener("submit", saveSettings);
     qs("[data-navigation-form]").addEventListener("submit", saveNavigation);
     qs("[data-home-form]").addEventListener("submit", saveHome);
     qs("[data-save-projects]").addEventListener("click", saveProjects);
     qs("[data-save-pages]").addEventListener("click", savePages);
+    setupUploadEvents();
 
     qs("[data-add-hero-slide]").addEventListener("click", function () {
       data.home.heroSlides = collectHeroSlides();
@@ -649,7 +920,7 @@
 
     qs("[data-add-project]").addEventListener("click", function () {
       collectProjects();
-      data.projects.push({ title: "", description: "", status: "", date: "", category: "", image: "", url: "" });
+      data.projects.push({ title: "", slug: "", description: "", status: "", date: "", category: "", image: "", url: "", visible: true });
       renderProjectsEditor();
     });
 
@@ -657,6 +928,24 @@
       data.home.contacts = collectContacts();
       data.home.contacts.push({ id: "", label: "", url: "", iconType: "website", iconPath: "", visible: true });
       renderContactsEditor();
+    });
+
+    if (qs("[data-add-experience]")) qs("[data-add-experience]").addEventListener("click", function () {
+      data.home.experience = collectContentRows("experience");
+      data.home.experience.push({ title: "", meta: "", description: "", visible: true });
+      renderContentRowsEditor("experience");
+    });
+
+    if (qs("[data-add-achievement]")) qs("[data-add-achievement]").addEventListener("click", function () {
+      data.home.achievements = collectContentRows("achievements");
+      data.home.achievements.push({ title: "", meta: "", description: "", visible: true });
+      renderContentRowsEditor("achievements");
+    });
+
+    if (qs("[data-add-skill]")) qs("[data-add-skill]").addEventListener("click", function () {
+      data.home.skills = collectSkills();
+      data.home.skills.push({ name: "", visible: true });
+      renderSkillsEditor();
     });
 
     qs("[data-add-page]").addEventListener("click", function () {
@@ -671,6 +960,8 @@
       var deleteProject = event.target.closest("[data-delete-project]");
       var deletePage = event.target.closest("[data-delete-page]");
       var deleteContact = event.target.closest("[data-delete-contact]");
+      var deleteContentRow = event.target.closest("[data-delete-content-row]");
+      var deleteSkill = event.target.closest("[data-delete-skill]");
       var contactToggle = event.target.closest("[data-contact-toggle]");
       var editorToggle = event.target.closest("[data-editor-toggle]");
       var iconTypeTrigger = event.target.closest("[data-icon-type-trigger]");
@@ -690,72 +981,109 @@
       if (deleteHeroSlide) {
         data.home.heroSlides = collectHeroSlides();
         data.home.heroSlides.splice(getSortableItemIndex(deleteHeroSlide.closest("[data-hero-slide-index]")), 1);
-        data = window.SiteStore.save(data);
+        saveData();
         renderHeroSlidesEditor();
         toast("تم حذف صورة الهيرو");
       }
       if (deleteContact) {
         data.home.contacts = collectContacts();
         data.home.contacts.splice(Number(deleteContact.dataset.deleteContact), 1);
-        data = window.SiteStore.save(data);
+        saveData();
         renderContactsEditor();
         toast("تم حذف وسيلة التواصل");
       }
       if (deleteProject) {
         collectProjects();
         data.projects.splice(Number(deleteProject.dataset.deleteProject), 1);
-        data = window.SiteStore.save(data);
+        saveData();
         renderProjectsEditor();
         toast("تم حذف المشروع");
       }
       if (deletePage) {
         collectPages();
         data.pages.splice(getSortableItemIndex(deletePage.closest("[data-page-index]")), 1);
-        data = window.SiteStore.save(data);
+        saveData();
         renderPagesEditor();
         refreshPublicShell();
         toast("تم حذف الصفحة");
+      }
+      if (deleteContentRow) {
+        var rowItem = deleteContentRow.closest("[data-content-row-type]");
+        var rowType = rowItem ? rowItem.dataset.contentRowType : "experience";
+        data.home[rowType] = collectContentRows(rowType);
+        data.home[rowType].splice(getSortableItemIndex(rowItem), 1);
+        saveData();
+        renderContentRowsEditor(rowType);
+        toast("تم حذف العنصر");
+      }
+      if (deleteSkill) {
+        data.home.skills = collectSkills();
+        data.home.skills.splice(getSortableItemIndex(deleteSkill.closest("[data-skill-index]")), 1);
+        saveData();
+        renderSkillsEditor();
+        toast("تم حذف المهارة");
       }
     });
 
     document.addEventListener("change", function (event) {
       if (!event.target.matches("[data-page-visible]")) return;
       collectPages();
-      data = window.SiteStore.save(data);
+      saveData();
       refreshPublicShell();
       toast(event.target.checked ? "تم إظهار الصفحة في التنقل" : "تم إخفاء الصفحة من التنقل");
     });
 
     qs("[data-export-json]").addEventListener("click", function () {
-      var json = window.SiteStore.exportJson();
-      setValue("jsonBox", json);
-      var blob = new Blob([json], { type: "application/json" });
-      var link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = "site-content.json";
-      link.click();
-      URL.revokeObjectURL(link.href);
-      toast("تم تجهيز ملف التصدير");
+      window.SiteStore.exportJson().then(function (json) {
+        setValue("jsonBox", json);
+        var blob = new Blob([json], { type: "application/json" });
+        var link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "site-content.json";
+        link.click();
+        URL.revokeObjectURL(link.href);
+        toast("تم تجهيز ملف التصدير");
+      }).catch(function (error) {
+        toast(error.message || "تعذر التصدير", "error");
+      });
     });
 
     qs("[data-import-json]").addEventListener("click", function () {
       var json = value("jsonBox");
       if (!json) { toast("ضع محتوى JSON أولا"); return; }
       try {
-        data = window.SiteStore.importJson(json);
-        fillForms();
-        toast("تم استيراد البيانات");
+        window.SiteStore.importJson(json).then(function (importedData) {
+          data = importedData;
+          fillForms();
+          toast("تم استيراد البيانات");
+        }).catch(function (error) {
+          toast(error.message || "تعذر الاستيراد", "error");
+        });
       } catch (error) {
         toast("ملف JSON غير صالح");
       }
     });
 
+    if (qs("[data-import-local-cache]")) qs("[data-import-local-cache]").addEventListener("click", function () {
+      window.SiteStore.importLocalCache().then(function (importedData) {
+        data = importedData;
+        fillForms();
+        toast("تم نقل بيانات localStorage إلى قاعدة البيانات");
+      }).catch(function (error) {
+        toast(error.message || "لا توجد بيانات محلية للنقل", "error");
+      });
+    });
+
     qs("[data-reset-content]").addEventListener("click", function () {
-      if (!confirm("هل تريد إعادة تعيين كل المحتوى المحلي؟")) return;
-      data = window.SiteStore.reset();
-      fillForms();
-      setValue("jsonBox", "");
-      toast("تمت إعادة التعيين");
+      if (!confirm("هل تريد إعادة تعيين كل المحتوى؟")) return;
+      window.SiteStore.reset().then(function (resetData) {
+        data = resetData;
+        fillForms();
+        setValue("jsonBox", "");
+        toast("تمت إعادة التعيين");
+      }).catch(function (error) {
+        toast(error.message || "تعذر إعادة التعيين", "error");
+      });
     });
 
     qs("[data-json-file]").addEventListener("change", function (event) {
@@ -862,7 +1190,7 @@
   }
 
   function isLoggedIn() {
-    return sessionStorage.getItem(window.ADMIN_AUTH_CONFIG.sessionKey) === "true";
+    return Boolean(window.SiteStore && window.SiteStore.currentUser && window.SiteStore.currentUser());
   }
 
   function showDashboard(show) {
@@ -888,16 +1216,18 @@
   }
 
   function setupAuth() {
-    if (isLoggedIn()) {
-      showDashboard(true);
-      initDashboard();
-      return;
-    }
+    window.SiteStore.me().then(function () {
+      if (isLoggedIn()) {
+        showDashboard(true);
+        initDashboard();
+        return;
+      }
 
-    showDashboard(false);
-    if (window.SiteApp && window.SiteApp.openLoginModal) {
-      window.SiteApp.openLoginModal({ redirectToAdmin: false });
-    }
+      showDashboard(false);
+      if (window.SiteApp && window.SiteApp.openLoginModal) {
+        window.SiteApp.openLoginModal({ redirectToAdmin: false });
+      }
+    });
     window.addEventListener("site:admin-login-success", function () {
       showDashboard(true);
       initDashboard();

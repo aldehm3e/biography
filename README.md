@@ -1,23 +1,63 @@
-# MyBiographyWebsite / website_demo
+# MyBiographyWebsite / Biography CMS
 
-Arabic-first local biography website built with vanilla HTML, CSS, and JavaScript. Public pages start blank/minimal and all editable public content comes from `localStorage` through the admin page.
+Arabic-first biography website built with vanilla HTML, CSS, JavaScript, PHP 8+, and MySQL/MariaDB. The public pages keep the current NDS visual language, while editable content now comes from the database through the PHP API.
 
 This README is the project memory for future work. Read it before changing the site.
 
 ## Current Status
 
-- Local-only build. No deployment has been done.
+- Database-backed CMS build for local Laragon/XAMPP testing and shared hosting deployment.
 - Arabic-first UI with `lang="ar"` and `dir="rtl"`.
 - Public pages start blank/minimal.
 - No fake biography, fake projects, fake achievements, fake experience, or sample person names.
 - Owner name is not hard-coded. It is editable from `admin.html`.
-- Extra pages are created from the admin and rendered with hash routing.
-- Data is stored in `localStorage`.
-- Admin dashboard requires a local static passcode for testing only.
-- Supabase is not connected yet.
+- Extra pages are created from the admin and rendered through the existing frontend pages.
+- MySQL/MariaDB is the source of truth for website content.
+- `localStorage` is only a temporary fallback/cache and a migration source for old browser-local data.
+- Admin login uses PHP sessions, `password_hash()`, and `password_verify()`.
+- Database credentials live only in `api/config.php`, which is ignored by Git.
 - Admin editor items are collapsed by default so long editor lists stay clean.
 - Hero media and extra pages can be reordered by drag-and-drop in the admin editor.
 - New hero media and new extra pages are inserted at the top of their editor lists.
+
+## 2026-05-24 Database CMS Update
+
+This section is the current source of truth for storage, login, installation, and deployment. Older README notes about local passcodes, Supabase, or primary localStorage storage are historical and are superseded by this section.
+
+What changed:
+
+- Added a PHP 8+ API under `api/` with PDO, prepared statements, JSON responses, PHP sessions, and protected admin-only save/upload/account endpoints.
+- Added normalized MySQL/MariaDB tables for admin users, site settings, navigation, hero slides, main page content, experiences, achievements, skills, projects, pages, contacts, media uploads, and optional backups.
+- Added installer flow under `install/` for requirements checks, database connection, schema creation, first admin creation, seeding, `api/config.php` generation, and `install/install.lock`.
+- Refactored `js/store.js` so `SiteStore.load()` reads from `api/content/get-site.php` and `SiteStore.save(data)` writes to `api/content/save-site.php`.
+- Updated public rendering and admin editing to wait for async database content while keeping vanilla HTML/CSS/JS and the existing NDS design.
+- Added authenticated media uploads to `uploads/images/`, `uploads/video/`, `uploads/logos/`, and `uploads/icons/`.
+- Added old localStorage migration support in the admin tools panel.
+- Added `README_DATABASE.md` for detailed Laragon, XAMPP, Hostinger, backup, restore, and admin usage instructions.
+
+Core endpoints:
+
+- `GET api/content/get-site.php`: returns the whole website model.
+- `POST api/content/save-site.php`: saves the whole website model, admin only.
+- `POST api/auth/login.php`: logs in with email/password.
+- `POST api/auth/logout.php`: destroys the PHP session.
+- `GET api/auth/me.php`: returns the current admin user.
+- `POST api/auth/change-password.php`: changes password, admin only.
+- `POST api/auth/change-email.php`: changes email, admin only.
+- `POST api/auth/change-phone.php`: changes phone number, admin only.
+- `POST api/upload/upload-media.php`: uploads images/videos/icons/logos, admin only.
+
+Quick Laragon install:
+
+1. Put the project under Laragon, for example `C:\laragon\www\Biography`.
+2. Start Apache and MySQL from Laragon.
+3. Create a database named `biography_cms` with collation `utf8mb4_unicode_ci`.
+4. Open `http://localhost/Biography/install/`.
+5. Use DB host `localhost`, DB user `root`, and the DB password you use in Laragon. A default Laragon install often has an empty MySQL root password.
+6. Create the first admin account in the installer.
+7. Open `http://localhost/Biography/admin.html`, log in, save a small brand/settings change, refresh, and confirm it remains.
+
+For full installation and deployment notes, read `README_DATABASE.md`.
 
 ## 2026-05-24 NDS Header, Persona, Dark Mode, and QA Sanity
 
@@ -27,7 +67,7 @@ This section is the current source of truth for the header/account behavior and 
 - Desktop persona dropdown stays compact at about `215px` wide with a max height around `286px`, aligned under the account icon.
 - Persona dropdown actions are Arabic, one-line, icon-aligned actions: `الإدارة`, `تغيير كلمة المرور`, `تغيير البريد الإلكتروني`, `تغيير رقم الجوال`, and `تسجيل الخروج`.
 - Logged-out account action uses `تسجيل الدخول`.
-- Dark mode is restored as an icon button in both desktop and mobile headers. It toggles the theme, updates the icon, and persists through the existing local theme storage.
+- Dark mode is restored as an icon button in both desktop and mobile headers. It toggles the theme, updates the icon, and authenticated saves persist the theme through the database.
 - Mobile header icon order is: admin, dark mode, notification, hamburger.
 - Mobile header icons are icon-only. The admin label is not shown as wide text in the mobile header.
 - Logged-out header admin/login uses the NDS avatar icon (`nds-icon nds-icon-avatar`) on desktop and mobile; after login it shows the saved personal image when one exists.
@@ -38,8 +78,8 @@ This section is the current source of truth for the header/account behavior and 
 - Date/time is inside the hamburger drawer through the existing header-actions drawer area, not in the visible header.
 - The hamburger drawer keeps navigation, date/time, and the mobile account/persona section. Dark mode is not duplicated inside the drawer.
 - Toasts use `NDS.Alert.create({ display: "toast" })`; browser `alert()` is not used.
-- Logout clears the local session, immediately renders the logged-out UI, shows `تم تسجيل الخروج بنجاح`, and does not leave green/success styling on the header or account controls.
-- Account settings modals are NDS-style, RTL, Arabic-labeled, validated, and still use the existing local auth/settings storage.
+- Logout clears the PHP session, immediately renders the logged-out UI, shows `تم تسجيل الخروج بنجاح`, and does not leave green/success styling on the header or account controls.
+- Account settings modals are NDS-style, RTL, Arabic-labeled, validated, and call the PHP auth/account endpoints.
 - `nds-hgi-smart-phone-01` is the active phone icon class and is present in `css/nds-icons-full.css`.
 
 QA performed for this update:
@@ -175,8 +215,10 @@ Root pages:
 
 - `index.html`: Home/biography page and extra-page hash renderer.
 - `projects.html`: Projects page. Starts empty until projects are added.
-- `admin.html`: Local admin interface for all editable content.
+- `pages.html`: Dedicated added-pages listing page.
+- `admin.html`: Database CMS admin interface for all editable content.
 - `README.md`: Project guide and future handoff notes.
+- `README_DATABASE.md`: Installation, deployment, backup, restore, and admin operation guide.
 
 Styles:
 
@@ -186,10 +228,24 @@ Styles:
 
 Scripts:
 
-- `js/default-data.js`: Empty default data object, contact icon options, and local testing passcode config.
-- `js/store.js`: Isolated localStorage data layer. Future Supabase replacement point is documented here.
+- `js/default-data.js`: Empty fallback/seed data object and contact icon options.
+- `js/store.js`: API-backed data layer. It uses `api/content/get-site.php` and `api/content/save-site.php`, with localStorage only as fallback/cache/migration input.
 - `js/app.js`: Public rendering: navigation, home page, projects page, contact/social icons, extra pages, empty states, theme reveal motion, and hero slider motion.
-- `js/admin.js`: Admin login and editing logic: home, contacts, projects, pages, navigation, import/export/reset, collapsed editor panels, first-position inserts, and drag/drop ordering for hero slides and pages.
+- `js/admin.js`: Admin login and editing logic: settings, home, contacts, projects, pages, navigation, account, import/export/reset, collapsed editor panels, uploads, first-position inserts, and drag/drop ordering.
+
+Backend:
+
+- `api/config.example.php`: Safe example config committed to Git.
+- `api/config.php`: Real database config generated by the installer and ignored by Git.
+- `api/db.php`: Shared PDO/session/JSON helpers.
+- `api/content/site-repository.php`: Database mapping between normalized tables and the frontend site model.
+- `api/content/get-site.php`: Public site data endpoint.
+- `api/content/save-site.php`: Admin-only full-site save endpoint.
+- `api/auth/`: Login, logout, current user, password/email/phone updates.
+- `api/upload/upload-media.php`: Admin-only upload endpoint.
+- `install/index.php`: Browser installer.
+- `install/schema.sql`: MySQL/MariaDB schema.
+- `uploads/`: Runtime media folders; only `.gitkeep` placeholders are committed.
 
 Project assets:
 
@@ -202,15 +258,20 @@ Key vendor assets:
 
 ## Data Model
 
-Default data is defined in `js/default-data.js`.
+Default fallback/seed data is defined in `js/default-data.js`. After installation, the normalized database tables are the source of truth and `api/content/get-site.php` returns the frontend model.
 
 ```js
 window.DEFAULT_SITE_DATA = {
   settings: {
     siteName: "",
+    brandName: "",
+    brandSlogan: "",
+    brandLogo: "",
     language: "ar",
     direction: "rtl",
-    theme: "light"
+    theme: "light",
+    phoneNumber: "",
+    email: ""
   },
   navigation: {
     homeLabel: "الرئيسية",
@@ -223,6 +284,11 @@ window.DEFAULT_SITE_DATA = {
     intro: "",
     avatar: "",
     biography: "",
+    heroTitle: "",
+    heroSubtitle: "",
+    heroIntro: "",
+    heroImage: "",
+    heroVideo: "",
     heroSlides: [],
     experience: [],
     achievements: [],
@@ -273,23 +339,12 @@ Built-in contact icon/logo options:
 
 The admin dashboard is hidden until login succeeds.
 
-- Login session is stored in `sessionStorage`.
-- Logout clears the session.
-- The local passcode config lives in `js/default-data.js` as `ADMIN_AUTH_CONFIG`.
-- This is only static/local testing access control, not production security.
-
-Default local testing passcode:
-
-```text
-1234
-```
-
-Important code comment preserved in `js/default-data.js`:
-
-```js
-This local passcode is only for local testing. For production, replace this
-with real authentication such as Supabase Auth.
-```
+- Login posts email/password to `api/auth/login.php`.
+- PHP sessions keep the authenticated state.
+- Passwords are stored only as hashes created by `password_hash()`.
+- `api/auth/me.php` is used to restore the current admin state after refresh.
+- Save, upload, change-password, change-email, and change-phone endpoints require an authenticated admin session.
+- No admin password or database credentials are stored in JavaScript.
 
 ## Editable Content
 
@@ -347,9 +402,11 @@ Extra pages render through:
 index.html#/page/page-slug
 ```
 
-## LocalStorage
+## Storage
 
-Current storage key:
+Primary storage is MySQL/MariaDB through the PHP API.
+
+The old browser-local storage key is still recognized only for fallback/cache and migration:
 
 ```text
 websiteDemo:siteData
@@ -369,19 +426,11 @@ Admin calls:
 - `SiteStore.exportJson()`
 - `SiteStore.importJson(jsonText)`
 
-This isolation is intentional so localStorage can later be replaced by Supabase without rewriting page rendering.
+This isolation keeps public rendering stable while the backend remains replaceable behind the same store API.
 
-## Future Supabase Plan
+## Supabase Note
 
-Do not connect Supabase yet.
-
-When ready:
-
-1. Keep the `SiteStore` public API stable.
-2. Replace or wrap `readLocal()` and `writeLocal()` in `js/store.js`.
-3. Add async Supabase read/write logic behind the same store interface.
-4. Replace the local passcode gate with real authentication such as Supabase Auth.
-5. Keep `app.js` and `admin.js` mostly unchanged.
+Supabase is no longer the active plan. The current supported architecture is PHP 8+ and MySQL/MariaDB for Laragon, XAMPP, Hostinger, cPanel, and similar shared-hosting environments.
 
 ## Layout Width Rule
 
@@ -400,31 +449,32 @@ Do not let nav links or footer content stretch across the full viewport. The ful
 
 ## How to Run Locally
 
-Option 1: open files directly:
+The CMS must be served through PHP. Opening the HTML files directly will not load the database API.
 
-```text
-index.html
-projects.html
-admin.html
+Laragon quick path:
+
+1. Put the project in `C:\laragon\www\Biography`.
+2. Start Apache and MySQL.
+3. Create the database, for example:
+
+```powershell
+mysql -u root -e "CREATE DATABASE biography_cms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 ```
 
-Option 2: VS Code Live Server:
+4. Open `http://localhost/Biography/install/`.
+5. Complete the DB connection and first admin account form.
+6. Open `http://localhost/Biography/admin.html`.
 
-1. Open this folder in VS Code.
-2. Right-click `index.html`.
-3. Select `Open with Live Server`.
-4. Open `admin.html` to edit content.
-
-No build step is required.
+No build step, Composer, framework, CDN, Bootstrap, Tailwind, React, Vue, or Angular is required.
 
 ## Admin Workflow
 
 1. Open `admin.html`.
-2. Log in with the local testing passcode.
+2. Log in with the admin email and password created by the installer.
 3. Fill content in the relevant section.
 4. For hero media and extra pages, drag the handle on the card to change order when needed.
 5. Save that section.
-6. Open `index.html` or `projects.html`.
+6. Open `index.html`, `projects.html`, or `pages.html`.
 7. Confirm the public page renders saved content in the saved order.
 
 Admin sections:
@@ -434,15 +484,17 @@ Admin sections:
 - الصفحات
 - التنقل
 - الأدوات
+- Account/settings actions from the admin/account UI
 
 ## Export, Import, Reset
 
 From Admin > الأدوات:
 
-- `تصدير JSON`: downloads and prints current local data.
-- `استيراد JSON`: imports JSON from the textarea.
+- `تصدير JSON`: downloads and prints current database content.
+- `استيراد JSON`: imports JSON from the textarea and saves it to the database.
 - File input: loads a JSON file into the textarea.
-- `إعادة التعيين`: clears localStorage and returns to blank defaults.
+- `إعادة التعيين`: resets database content to blank defaults.
+- LocalStorage migration: sends old browser-local content to the database when needed.
 
 ## Validation Checklist
 
@@ -458,10 +510,13 @@ Before future handoff or deployment, test:
 - Home page starts blank/minimal after reset.
 - Projects page loads.
 - Projects page starts empty after reset.
-- Admin page requires login.
+- Installer completes and creates `api/config.php` plus `install/install.lock`.
+- Admin page requires email/password login.
 - Logout works.
 - Admin saves home content.
 - Saved home content appears on home page.
+- Data remains after refresh and in another browser.
+- Brand name, slogan, logo upload, hero image upload, hero video upload, project image upload, and contact icon upload work.
 - Contact/social logo options exist for LinkedIn, GitHub, X/Twitter, Email, Website, and Phone.
 - Contact/social items render only when visible.
 - Admin adds a project.
@@ -480,6 +535,9 @@ Before future handoff or deployment, test:
 - Export JSON works.
 - Import JSON works.
 - Reset content works.
+- Change password works.
+- Change email works.
+- Change phone works.
 - Header content aligns with main content.
 - Footer content aligns with main content.
 - Header admin persona dropdown shows labeled actions on desktop and mobile.
@@ -499,6 +557,19 @@ node --check js\app.js
 node --check js\admin.js
 node --check js\nds-local-components.js
 node --check assets\vendor\nds\components\js\nds-alert.js
+php -l api\config.example.php
+php -l api\db.php
+php -l api\auth\login.php
+php -l api\auth\logout.php
+php -l api\auth\me.php
+php -l api\auth\change-password.php
+php -l api\auth\change-email.php
+php -l api\auth\change-phone.php
+php -l api\content\get-site.php
+php -l api\content\save-site.php
+php -l api\content\site-repository.php
+php -l api\upload\upload-media.php
+php -l install\index.php
 ```
 
 ## 2026-05-24 NDS Persona, Alerts, and Biography Layout QA

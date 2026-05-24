@@ -1,0 +1,12 @@
+api/config.php
+install/install.lock
+install.lock
+
+uploads/images/*
+uploads/video/*
+uploads/logos/*
+uploads/icons/*
+!uploads/images/.gitkeep
+!uploads/video/.gitkeep
+!uploads/logos/.gitkeep
+!uploads/icons/.gitkeep

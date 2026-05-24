@@ -145,17 +145,72 @@
             <div class="nds-card-content">
               <h2 class="nds-card-title">الأقسام</h2>
               <nav class="admin-tabs" aria-label="أقسام الإدارة">
+                <button class="nds-btn nds-subtle" type="button" data-admin-tab="settings"><span class="nds-label">الإعدادات</span></button>
                 <button class="nds-btn nds-subtle" type="button" data-admin-tab="home" data-state="selected"><span class="nds-label">الرئيسية</span></button>
                 <button class="nds-btn nds-subtle" type="button" data-admin-tab="projects"><span class="nds-label">المشاريع</span></button>
                 <button class="nds-btn nds-subtle" type="button" data-admin-tab="pages"><span class="nds-label">الصفحات</span></button>
                 <button class="nds-btn nds-subtle" type="button" data-admin-tab="navigation"><span class="nds-label">التنقل</span></button>
                 <button class="nds-btn nds-subtle" type="button" data-admin-tab="utilities"><span class="nds-label">الأدوات</span></button>
+                <button class="nds-btn nds-subtle" type="button" data-admin-tab="account"><span class="nds-label">الحساب</span></button>
               </nav>
             </div>
           </div>
         </aside>
 
         <div class="admin-main">
+          <form class="nds-form admin-panel" data-admin-panel="settings" data-settings-form hidden>
+            <div class="nds-card nds-stroke">
+              <div class="nds-card-content">
+                <div class="panel-heading">
+                  <div>
+                    <h2 class="nds-card-title">إعدادات الموقع والهوية</h2>
+                    <p class="nds-card-description">إدارة اسم الموقع والهوية وبيانات التواصل الأساسية من قاعدة البيانات.</p>
+                  </div>
+                  <button class="nds-btn nds-primary" type="submit"><span class="nds-label">حفظ الإعدادات</span></button>
+                </div>
+                <div class="form-grid">
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="siteName"><span class="nds-label">اسم الموقع</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="siteName" name="siteName" type="text"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="brandName"><span class="nds-label">اسم الهوية</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="brandName" name="brandName" type="text"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="brandSlogan"><span class="nds-label">الشعار النصي</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="brandSlogan" name="brandSlogan" type="text"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="brandLogo"><span class="nds-label">شعار الموقع</span><span class="nds-info">مثال: uploads/logos/logo.svg</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="brandLogo" name="brandLogo" type="text"></div>
+                    <div class="nds-form-control"><input class="nds-input file-input" type="file" data-media-upload="brand-logo" data-upload-target-name="brandLogo" accept=".jpg,.jpeg,.png,.webp,.svg"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="settingsPhone"><span class="nds-label">رقم الجوال</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="settingsPhone" name="settingsPhone" type="tel"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="settingsEmail"><span class="nds-label">البريد الإلكتروني</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="settingsEmail" name="settingsEmail" type="email"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="siteLanguage"><span class="nds-label">اللغة</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="siteLanguage" name="siteLanguage" type="text"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="siteDirection"><span class="nds-label">اتجاه الصفحة</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="siteDirection" name="siteDirection" type="text"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="siteTheme"><span class="nds-label">الثيم</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="siteTheme" name="siteTheme" type="text"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </form>
+
           <form class="nds-form admin-panel" data-admin-panel="home" data-home-form>
             <div class="nds-card nds-stroke">
               <div class="nds-card-content">
@@ -183,6 +238,33 @@
                 <div class="nds-form-container">
                   <div class="nds-form-header"><label for="avatar"><span class="nds-label">مسار الصورة الشخصية</span><span class="nds-info">مثال: assets/images/avatar.jpg</span></label></div>
                   <div class="nds-form-control"><input class="nds-input" id="avatar" name="avatar" type="text"></div>
+                  <div class="nds-form-control"><input class="nds-input file-input" type="file" data-media-upload="avatar-image" data-upload-target-name="avatar" accept=".jpg,.jpeg,.png,.webp,.svg"></div>
+                </div>
+                <div class="form-grid">
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="heroTitle"><span class="nds-label">عنوان الهيرو</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="heroTitle" name="heroTitle" type="text"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="heroSubtitle"><span class="nds-label">العنوان الفرعي للهيرو</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="heroSubtitle" name="heroSubtitle" type="text"></div>
+                  </div>
+                </div>
+                <div class="nds-form-container">
+                  <div class="nds-form-header"><label for="heroIntro"><span class="nds-label">مقدمة الهيرو</span></label></div>
+                  <div class="nds-form-control textarea-control"><textarea class="nds-input" id="heroIntro" name="heroIntro" rows="3"></textarea></div>
+                </div>
+                <div class="form-grid">
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="heroImage"><span class="nds-label">صورة الهيرو الرئيسية</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="heroImage" name="heroImage" type="text"></div>
+                    <div class="nds-form-control"><input class="nds-input file-input" type="file" data-media-upload="hero-image" data-upload-target-name="heroImage" accept=".jpg,.jpeg,.png,.webp,.svg"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="heroVideo"><span class="nds-label">فيديو الهيرو الرئيسي</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="heroVideo" name="heroVideo" type="text"></div>
+                    <div class="nds-form-control"><input class="nds-input file-input" type="file" data-media-upload="hero-video" data-upload-target-name="heroVideo" accept=".mp4,.webm"></div>
+                  </div>
                 </div>
                 <div class="hero-editor-block">
                   <div class="panel-heading compact-heading">
@@ -198,17 +280,38 @@
                   <div class="nds-form-header"><label for="biography"><span class="nds-label">نص السيرة</span></label></div>
                   <div class="nds-form-control textarea-control"><textarea class="nds-input" id="biography" name="biography" rows="6"></textarea></div>
                 </div>
-                <div class="nds-form-container">
+                <div class="nds-form-container" hidden>
                   <div class="nds-form-header"><label for="experience"><span class="nds-label">الخبرات</span><span class="nds-info">كل سطر: العنوان | الفترة | الوصف</span></label></div>
                   <div class="nds-form-control textarea-control"><textarea class="nds-input" id="experience" name="experience" rows="5"></textarea></div>
                 </div>
-                <div class="nds-form-container">
+                <div class="hero-editor-block">
+                  <div class="panel-heading compact-heading">
+                    <div><h3 class="section-minor-title">إدارة الخبرات</h3></div>
+                    <button class="nds-btn nds-secondary-outline nds-md" type="button" data-add-experience><span class="nds-label">إضافة خبرة</span></button>
+                  </div>
+                  <div class="editor-list compact-editor-list" data-experience-editor></div>
+                </div>
+                <div class="nds-form-container" hidden>
                   <div class="nds-form-header"><label for="achievements"><span class="nds-label">الإنجازات</span><span class="nds-info">كل سطر: العنوان | التاريخ | الوصف</span></label></div>
                   <div class="nds-form-control textarea-control"><textarea class="nds-input" id="achievements" name="achievements" rows="5"></textarea></div>
                 </div>
-                <div class="nds-form-container">
+                <div class="hero-editor-block">
+                  <div class="panel-heading compact-heading">
+                    <div><h3 class="section-minor-title">إدارة الإنجازات</h3></div>
+                    <button class="nds-btn nds-secondary-outline nds-md" type="button" data-add-achievement><span class="nds-label">إضافة إنجاز</span></button>
+                  </div>
+                  <div class="editor-list compact-editor-list" data-achievements-editor></div>
+                </div>
+                <div class="nds-form-container" hidden>
                   <div class="nds-form-header"><label for="skills"><span class="nds-label">مجالات الخبرة</span><span class="nds-info">كل مهارة في سطر مستقل</span></label></div>
                   <div class="nds-form-control textarea-control"><textarea class="nds-input" id="skills" name="skills" rows="5"></textarea></div>
+                </div>
+                <div class="hero-editor-block">
+                  <div class="panel-heading compact-heading">
+                    <div><h3 class="section-minor-title">إدارة المهارات</h3></div>
+                    <button class="nds-btn nds-secondary-outline nds-md" type="button" data-add-skill><span class="nds-label">إضافة مهارة</span></button>
+                  </div>
+                  <div class="editor-list compact-editor-list" data-skills-editor></div>
                 </div>
                 <div class="contact-editor-block">
                   <div class="panel-heading compact-heading">
@@ -272,8 +375,8 @@
                 </div>
                 <div class="form-grid">
                   <div class="nds-form-container">
-                    <div class="nds-form-header"><label for="siteName"><span class="nds-label">اسم الموقع</span></label></div>
-                    <div class="nds-form-control"><input class="nds-input" id="siteName" name="siteName" type="text"></div>
+                    <div class="nds-form-header"><label for="siteNameNav"><span class="nds-label">اسم الموقع</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="siteNameNav" name="siteNameNav" type="text"></div>
                   </div>
                   <div class="nds-form-container">
                     <div class="nds-form-header"><label for="homeLabel"><span class="nds-label">تسمية الرئيسية</span></label></div>
@@ -282,6 +385,10 @@
                   <div class="nds-form-container">
                     <div class="nds-form-header"><label for="projectsLabel"><span class="nds-label">تسمية المشاريع</span></label></div>
                     <div class="nds-form-control"><input class="nds-input" id="projectsLabel" name="projectsLabel" type="text"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="pagesLabel"><span class="nds-label">تسمية الصفحات</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="pagesLabel" name="pagesLabel" type="text"></div>
                   </div>
                   <div class="nds-form-container">
                     <div class="nds-form-header"><label for="adminLabel"><span class="nds-label">تسمية الإدارة</span></label></div>
@@ -303,6 +410,7 @@
                   <div class="nds-section-action">
                     <button class="nds-btn nds-secondary-outline" type="button" data-export-json><span class="nds-label">تصدير JSON</span></button>
                     <button class="nds-btn nds-primary" type="button" data-import-json><span class="nds-label">استيراد JSON</span></button>
+                    <button class="nds-btn nds-secondary-outline" type="button" data-import-local-cache><span class="nds-label">نقل بيانات localStorage</span></button>
                     <button class="nds-btn nds-secondary-outline nds-destructive" type="button" data-reset-content><span class="nds-label">إعادة التعيين</span></button>
                   </div>
                 </div>
@@ -313,6 +421,25 @@
                 <div class="nds-form-container">
                   <div class="nds-form-header"><label for="jsonBox"><span class="nds-label">محتوى JSON</span></label></div>
                   <div class="nds-form-control textarea-control"><textarea class="nds-input" id="jsonBox" name="jsonBox" rows="14"></textarea></div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          <section class="admin-panel" data-admin-panel="account" hidden>
+            <div class="nds-card nds-stroke">
+              <div class="nds-card-content">
+                <div class="panel-heading">
+                  <div>
+                    <h2 class="nds-card-title">إعدادات الحساب</h2>
+                    <p class="nds-card-description">إدارة بيانات دخول المدير من جلسة PHP وقاعدة البيانات.</p>
+                  </div>
+                </div>
+                <div class="nds-section-action">
+                  <button class="nds-btn nds-secondary-outline" type="button" data-account-action="password"><span class="nds-label">تغيير كلمة المرور</span></button>
+                  <button class="nds-btn nds-secondary-outline" type="button" data-account-action="email"><span class="nds-label">تغيير البريد الإلكتروني</span></button>
+                  <button class="nds-btn nds-secondary-outline" type="button" data-account-action="phone"><span class="nds-label">تغيير رقم الجوال</span></button>
+                  <button class="nds-btn nds-secondary-outline nds-destructive" type="button" data-account-action="logout"><span class="nds-label">تسجيل الخروج</span></button>
                 </div>
               </div>
             </div>

@@ -3,7 +3,6 @@
 
   var HERO_SLIDE_DURATION = 8500;
   var NOTIFICATIONS_KEY = "websiteDemo:notifications";
-  var ACCOUNT_SETTINGS_KEY = "websiteDemo:accountSettings";
 
   var appState = {
     data: null,
@@ -43,9 +42,20 @@
   }
 
   function visibleHeroSlides(home) {
-    return visibleItems(home.heroSlides || []).filter(function (slide) {
+    var slides = visibleItems(home.heroSlides || []).filter(function (slide) {
       return hasText(slide.image) || hasText(slide.mobileImage) || hasText(slide.video) || hasText(slide.mobileVideo);
     });
+    if (!slides.length && (hasText(home.heroImage) || hasText(home.heroVideo))) {
+      slides.push({
+        title: home.heroTitle || "",
+        subtitle: home.heroSubtitle || "",
+        intro: home.heroIntro || "",
+        image: home.heroImage || "",
+        video: home.heroVideo || "",
+        alt: home.heroTitle || home.ownerName || ""
+      });
+    }
+    return slides;
   }
 
   function hasHomeHeroContent(home) {
@@ -53,7 +63,10 @@
   }
 
   function hasHomeBodyContent(home) {
-    return [home.ownerName, home.title, home.intro, home.avatar, home.biography].some(hasText) || home.experience.length || home.achievements.length || home.skills.length;
+    return [home.ownerName, home.title, home.intro, home.avatar, home.biography].some(hasText)
+      || visibleItems(home.experience || []).length
+      || visibleItems(home.achievements || []).length
+      || visibleItems(home.skills || []).length;
   }
 
   function hasHomeContent(home) {
@@ -74,7 +87,11 @@
 
   function renderShared(data) {
     applyDocumentSettings(data);
-    setText("[data-site-title]", siteTitle(data));
+    setText("[data-site-title]", data.settings.brandName || siteTitle(data));
+    setText(".nds-brand-slogan", data.settings.brandSlogan || "موقع شخصي");
+    qsa(".brand-logo, .nds-footer-logos img").forEach(function (image) {
+      image.src = data.settings.brandLogo || "assets/vendor/nds/images/palm_swords.svg";
+    });
     renderAccountMenu(data);
     setText("[data-current-year]", String(new Date().getFullYear()));
     renderNavigation(data);
@@ -87,7 +104,7 @@
     var config = window.ADMIN_AUTH_CONFIG || {};
     var name = data.home.ownerName || siteTitle(data);
     var role = data.home.title || "Administrator";
-    var email = config.email || "admin@gmail.com";
+    var email = config.email || "";
     var isAuthenticated = isAdminAuthenticated();
     setText("[data-admin-persona-name]", name);
     setText("[data-admin-persona-role]", role);
@@ -108,26 +125,11 @@
     });
   }
 
-  function loadAccountSettings() {
-    try {
-      return JSON.parse(localStorage.getItem(ACCOUNT_SETTINGS_KEY) || "{}") || {};
-    } catch (error) {
-      return {};
-    }
-  }
-
-  function saveAccountSettings(settings) {
-    localStorage.setItem(ACCOUNT_SETTINGS_KEY, JSON.stringify(settings || {}));
-  }
-
   function currentAuthConfig() {
-    var base = window.ADMIN_AUTH_CONFIG || {};
-    var saved = loadAccountSettings();
+    var user = window.SiteStore && window.SiteStore.currentUser ? window.SiteStore.currentUser() : null;
     return {
-      email: saved.email || base.email || "admin@gmail.com",
-      passcode: saved.passcode || base.passcode || "1234",
-      sessionKey: base.sessionKey || "websiteDemo:adminSession",
-      phone: saved.phone || ""
+      email: user && user.email ? user.email : "",
+      phone: user && user.phone ? user.phone : ""
     };
   }
 
@@ -542,8 +544,7 @@
   }
 
   function isAdminAuthenticated() {
-    var config = currentAuthConfig();
-    return sessionStorage.getItem(config.sessionKey || "websiteDemo:adminSession") === "true";
+    return Boolean(window.SiteStore && window.SiteStore.currentUser && window.SiteStore.currentUser());
   }
 
   function ensureLoginModal() {
@@ -584,7 +585,7 @@
       '<span class="nds-feedback-icon">',
       '<i class="nds-icon" aria-hidden="true"></i>',
       '</span>',
-      '<span class="nds-feedback-message">استخدم admin@gmail.com</span>',
+      '<span class="nds-feedback-message">أدخل بريد المدير</span>',
       '</span>',
       '</div>',
       '</div>',
@@ -612,7 +613,7 @@
       '<span class="nds-feedback-icon">',
       '<i class="nds-icon" aria-hidden="true"></i>',
       '</span>',
-      '<span class="nds-feedback-message">استخدم 1234</span>',
+      '<span class="nds-feedback-message">أدخل كلمة المرور</span>',
       '</span>',
       '</div>',
       '</div>',
@@ -773,13 +774,14 @@
       var next = qs("#new-password", modal).value;
       var confirm = qs("#confirm-password", modal).value;
       if (!current || !next || !confirm) { accountModalMessage(modal, "جميع الحقول مطلوبة."); return; }
-      if (current !== String(config.passcode || "")) { accountModalMessage(modal, "كلمة المرور الحالية غير صحيحة."); return; }
       if (next !== confirm) { accountModalMessage(modal, "كلمة المرور الجديدة وتأكيدها غير متطابقين."); return; }
-      var saved = loadAccountSettings();
-      saved.passcode = next;
-      saveAccountSettings(saved);
-      closeLoginModal();
-      showToast("تم تغيير كلمة المرور بنجاح", "success");
+      window.SiteStore.changePassword(current, next, confirm).then(function () {
+        closeLoginModal();
+        showToast("تم تغيير كلمة المرور بنجاح", "success");
+      }).catch(function (error) {
+        accountModalMessage(modal, error.message || "تعذر تغيير كلمة المرور.");
+      });
+      return;
     };
   }
 
@@ -796,13 +798,14 @@
       var email = qs("#new-email", modal).value.trim();
       var password = qs("#email-password", modal).value;
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { accountModalMessage(modal, "أدخل بريدًا إلكترونيًا صحيحًا."); return; }
-      if (password !== String(config.passcode || "")) { accountModalMessage(modal, "كلمة المرور الحالية غير صحيحة."); return; }
-      var saved = loadAccountSettings();
-      saved.email = email;
-      saveAccountSettings(saved);
-      renderAccountMenu(appState.data || window.SiteStore.load());
-      closeLoginModal();
-      showToast("تم تغيير البريد الإلكتروني بنجاح", "success");
+      window.SiteStore.changeEmail(email, password).then(function () {
+        renderAccountMenu(appState.data || window.SiteStore.current());
+        closeLoginModal();
+        showToast("تم تغيير البريد الإلكتروني بنجاح", "success");
+      }).catch(function (error) {
+        accountModalMessage(modal, error.message || "تعذر تغيير البريد الإلكتروني.");
+      });
+      return;
     };
   }
 
@@ -819,31 +822,32 @@
       var phone = qs("#new-phone", modal).value.trim();
       var password = qs("#phone-password", modal).value;
       if (!phone) { accountModalMessage(modal, "رقم الجوال مطلوب."); return; }
-      if (password !== String(config.passcode || "")) { accountModalMessage(modal, "كلمة المرور الحالية غير صحيحة."); return; }
-      var saved = loadAccountSettings();
-      saved.phone = phone;
-      saveAccountSettings(saved);
-      var data = appState.data || window.SiteStore.load();
-      data.settings.phoneNumber = phone;
-      appState.data = window.SiteStore.save(data);
-      closeLoginModal();
-      renderAccountMenu(appState.data);
-      showToast("تم تغيير رقم الجوال بنجاح", "success");
+      window.SiteStore.changePhone(phone, password).then(function () {
+        return window.SiteStore.load(true);
+      }).then(function (loadedData) {
+        appState.data = loadedData;
+        closeLoginModal();
+        renderShared(appState.data);
+        showToast("تم تغيير رقم الجوال بنجاح", "success");
+      }).catch(function (error) {
+        accountModalMessage(modal, error.message || "تعذر تغيير رقم الجوال.");
+      });
+      return;
     };
   }
 
   function logoutUser() {
-    var config = currentAuthConfig();
-    sessionStorage.removeItem(config.sessionKey || "websiteDemo:adminSession");
     prepareOverlayForLoginModal();
     qsa("[data-account-action='logout'], .account-persona-trigger, .account-menu-item, .mobile-account-section").forEach(function (node) {
       node.removeAttribute("data-status");
       node.removeAttribute("data-state");
       node.classList.remove("nds-success", "success", "active", "selected", "is-active");
     });
-    renderAccountMenu(appState.data || window.SiteStore.load());
-    window.dispatchEvent(new CustomEvent("site:admin-logout"));
-    showToast("تم تسجيل الخروج بنجاح", "success");
+    window.SiteStore.logout().then(function () {
+      renderAccountMenu(appState.data || window.SiteStore.current());
+      window.dispatchEvent(new CustomEvent("site:admin-logout"));
+      showToast("تم تسجيل الخروج بنجاح", "success");
+    });
   }
 
   function clearLoginFeedback() {
@@ -984,27 +988,10 @@
       var loginBtn = qs("#loginSubmitBtn");
       var email = emailInput ? emailInput.value.trim().toLowerCase() : "";
       var pass = passInput ? passInput.value : "";
-      var expectedEmail = String(config.email || "admin@gmail.com").toLowerCase();
-      var expectedPass = String(config.passcode || "1234");
-      if (email !== expectedEmail || pass !== expectedPass) {
-        clearLoginFeedback();
-        if (email !== expectedEmail) {
-          setLoginFieldFeedback("#login-email-field", "\u0623\u062f\u062e\u0644 \u0628\u0631\u064a\u062f \u0627\u0644\u0645\u062f\u064a\u0631: " + expectedEmail);
-          if (emailInput) emailInput.focus();
-        }
-        if (pass !== expectedPass) {
-          setLoginFieldFeedback("#login-password-field", "\u0623\u062f\u062e\u0644 \u0643\u0644\u0645\u0629 \u0645\u0631\u0648\u0631 \u0627\u0644\u0645\u062f\u064a\u0631: " + expectedPass);
-          if (email === expectedEmail && passInput) passInput.focus();
-        }
-        showToast("\u062a\u0639\u0630\u0631 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", "error");
-        return;
-      }
-
       if (loginBtn) loginBtn.dataset.state = "loading";
-      window.setTimeout(function () {
+      window.SiteStore.login(email, pass).then(function () {
         if (loginBtn) loginBtn.removeAttribute("data-state");
-        sessionStorage.setItem(config.sessionKey || "websiteDemo:adminSession", "true");
-        renderAccountMenu(appState.data || window.SiteStore.load());
+        renderAccountMenu(appState.data || window.SiteStore.current());
         closeLoginModal();
         loginForm.reset();
         clearLoginFeedback();
@@ -1014,7 +1001,13 @@
         } else {
           window.dispatchEvent(new CustomEvent("site:admin-login-success"));
         }
-      }, 350);
+      }).catch(function () {
+        if (loginBtn) loginBtn.removeAttribute("data-state");
+        clearLoginFeedback();
+        setLoginFieldFeedback("#login-email-field", "تحقق من بريد المدير.");
+        setLoginFieldFeedback("#login-password-field", "تحقق من كلمة المرور.");
+        showToast("\u062a\u0639\u0630\u0631 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", "error");
+      });
     });
   }
 
@@ -1449,13 +1442,17 @@
   }
 
   function toggleTheme(origin) {
-    var data = appState.data || window.SiteStore.load();
+    var data = appState.data || window.SiteStore.current();
     var current = data.settings.theme || localStorage.getItem("websiteDemo:theme") || "light";
     var next = current === "dark" ? "light" : "dark";
     data.settings.theme = next;
     appState.data = data;
     applyTheme(next, true, origin);
-    appState.data = window.SiteStore.save(data);
+    if (isAdminAuthenticated()) {
+      window.SiteStore.save(data).then(function (savedData) {
+        appState.data = savedData;
+      }).catch(function () {});
+    }
   }
 
   function applyTheme(theme, announce, origin) {
@@ -1861,7 +1858,7 @@
   }
 
   function setHeroIndex(index) {
-    var home = (appState.data && appState.data.home) || window.SiteStore.load().home;
+    var home = (appState.data && appState.data.home) || window.SiteStore.current().home;
     var slides = visibleHeroSlides(home);
     var root = qs("[data-hero-slides]");
     var dots = qs("[data-hero-dots]");
@@ -1889,7 +1886,7 @@
   }
 
   function renderExtraPage(data, slug) {
-    var page = data.pages.find(function (item) { return item.slug === slug; });
+    var page = visibleItems(data.pages || []).find(function (item) { return item.slug === slug; });
     var titleNodes = qsa("[data-extra-page-title]");
     var body = qs("[data-extra-page-content]");
     if (!titleNodes.length || !body) return;
@@ -2014,6 +2011,7 @@
   function renderListCards(selector, items, label) {
     var root = qs(selector);
     if (!root) return;
+    items = visibleItems(items || []);
     root.innerHTML = "";
     if (!items.length) {
       root.append(emptyState("لم تتم إضافة " + label + " بعد", "يمكن إضافة العناصر من لوحة الإدارة."));
@@ -2043,6 +2041,9 @@
   function renderChips(selector, items) {
     var root = qs(selector);
     if (!root) return;
+    items = visibleItems(items || []).map(function (item) {
+      return typeof item === "string" ? item : item.name;
+    }).filter(hasText);
     root.innerHTML = "";
     if (!items.length) {
       root.append(emptyState("لم تتم إضافة مجالات خبرة بعد", "يمكن إضافة المهارات من لوحة الإدارة."));
@@ -2105,16 +2106,17 @@
   function renderProjectsPage(data) {
     var empty = qs("[data-projects-empty]");
     var content = qs("[data-projects-content]");
-    var hasProjects = data.projects.length > 0;
+    var projects = visibleItems(data.projects || []);
+    var hasProjects = projects.length > 0;
     if (empty) empty.hidden = hasProjects;
     if (content) content.hidden = !hasProjects;
     if (!hasProjects) return;
 
-    renderProjectFilters(data.projects);
+    renderProjectFilters(projects);
     var visible = data.projects.map(function (project, index) {
       return { project: project, index: index };
     }).filter(function (entry) {
-      return appState.projectFilter === "all" || entry.project.category === appState.projectFilter;
+      return entry.project.visible !== false && (appState.projectFilter === "all" || entry.project.category === appState.projectFilter);
     });
     renderProjects(visible);
   }
@@ -2171,6 +2173,7 @@
   function renderProjectDetailPage(data) {
     var index = Number(new URLSearchParams(location.search).get("id"));
     var project = Number.isInteger(index) ? data.projects[index] : null;
+    if (project && project.visible === false) project = null;
     var titleNodes = qsa("[data-project-detail-title]");
     var body = qs("[data-project-detail-body]");
     if (!body) return;
@@ -2405,16 +2408,25 @@
   }
 
   function render() {
-    appState.data = window.SiteStore.load();
-    renderShared(appState.data);
-    if (document.body.dataset.page === "home") renderHome(appState.data);
-    if (document.body.dataset.page === "projects") renderProjectsPage(appState.data);
-    if (document.body.dataset.page === "project-detail") renderProjectDetailPage(appState.data);
-    if (document.body.dataset.page === "pages") renderPagesPage(appState.data);
-    if (document.body.dataset.page === "notifications") renderNotificationsPage();
-    if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.init) window.NDS.Mainnav.init();
-    updateHeaderActions(appState.data);
-    revealHeaderShell();
+    document.documentElement.dataset.siteLoading = "true";
+    return window.SiteStore.load().then(function (loadedData) {
+      appState.data = loadedData;
+      renderShared(appState.data);
+      if (document.body.dataset.page === "home") renderHome(appState.data);
+      if (document.body.dataset.page === "projects") renderProjectsPage(appState.data);
+      if (document.body.dataset.page === "project-detail") renderProjectDetailPage(appState.data);
+      if (document.body.dataset.page === "pages") renderPagesPage(appState.data);
+      if (document.body.dataset.page === "notifications") renderNotificationsPage();
+      if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.init) window.NDS.Mainnav.init();
+      updateHeaderActions(appState.data);
+      revealHeaderShell();
+      document.documentElement.dataset.siteLoading = "false";
+    }).catch(function (error) {
+      appState.data = window.SiteStore.current();
+      renderShared(appState.data);
+      showToast(error.message || "تعذر تحميل بيانات الموقع", "error");
+      document.documentElement.dataset.siteLoading = "false";
+    });
   }
 
   var appInitialized = false;
@@ -2433,7 +2445,7 @@
     setupNotifications();
     setupNotificationsPageEvents();
     setupToastEvents();
-    render();
+    window.SiteStore.me().then(render).catch(render);
   }
 
   if (document.body) {
@@ -2445,6 +2457,9 @@
   window.addEventListener("hashchange", render);
   window.addEventListener("site:datachange", function () {
     render();
+  });
+  window.addEventListener("site:authchange", function () {
+    renderAccountMenu(appState.data || window.SiteStore.current());
   });
 
   window.SiteApp = {
