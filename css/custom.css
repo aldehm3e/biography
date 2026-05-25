@@ -1692,7 +1692,7 @@ body[data-state="backdrop"]:has(.nds-modal:not([hidden])) .site-header {
   border-color: var(--colors-primary-sa-flag-200);
   background: var(--colors-primary-sa-flag-50);
   color: var(--colors-primary-sa-flag-800);
-  box-shadow: inset 4px 0 0 var(--colors-primary-sa-flag-600);
+  box-shadow: none;
 }
 
 .admin-section .admin-sidebar > .nds-card,
@@ -1885,11 +1885,74 @@ body[data-state="backdrop"]:has(.nds-modal:not([hidden])) .site-header {
 }
 
 .upload-file-control {
-  padding-inline: var(--spacing-md);
+  padding-inline: 0;
 }
 
-.upload-file-control .file-input {
+.nds-form-control:has(> .file-input) {
+  position: relative;
+  justify-content: center;
+  gap: var(--spacing-sm);
+  overflow: hidden;
+  padding-inline: var(--spacing-lg);
+  background: var(--background-default);
+  color: var(--text-default);
+  cursor: pointer;
+  text-align: center;
+}
+
+.nds-form-control:has(> .file-input)::before {
+  content: attr(data-upload-label);
+  min-width: 0;
+  overflow: hidden;
+  font-weight: 500;
+  line-height: var(--typo-text-md-LH);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nds-form-control:has(> .file-input):hover {
+  background: var(--colors-neutral-100);
+  border-color: var(--colors-neutral-400);
+}
+
+.nds-form-control:has(> .file-input:focus-visible) {
+  background: var(--background-default);
+  border-color: var(--colors-primary-sa-flag-600);
+  box-shadow: 0 0 0 3px rgba(27, 131, 84, 0.14);
+}
+
+.nds-form-control:has(> .file-input:disabled) {
+  cursor: progress;
+  opacity: 0.68;
+}
+
+.nds-form-control[data-upload-status="selected"]:has(> .file-input),
+.nds-form-control[data-upload-status="uploading"]:has(> .file-input) {
+  border-color: var(--colors-primary-sa-flag-600);
+  color: var(--colors-primary-sa-flag-700);
+}
+
+.nds-form-control[data-upload-status="success"]:has(> .file-input) {
+  border-color: var(--colors-primary-sa-flag-600);
+  background: var(--colors-primary-sa-flag-50);
+  color: var(--colors-primary-sa-flag-800);
+}
+
+.nds-form-control[data-upload-status="error"]:has(> .file-input) {
+  border-color: #d92d20;
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.nds-form-control > .file-input {
+  position: absolute;
+  inset: 0;
   width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  opacity: 0;
+  cursor: inherit;
 }
 
 .nds-form-header label {
@@ -2278,6 +2341,11 @@ textarea.nds-input {
 
   .admin-sidebar {
     position: static;
+  }
+
+  .admin-tabs .nds-btn[data-state~="selected"]::after {
+    content: none;
+    display: none;
   }
 }
 
@@ -2694,6 +2762,32 @@ body {
   overflow: visible;
 }
 
+.nds-main-nav .notification-dropdown .nds-dropdown-menu {
+  display: flex;
+  flex-direction: column;
+  overflow: visible;
+  padding-block-end: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 160ms ease, visibility 0s linear 160ms;
+  will-change: opacity;
+}
+
+.nds-main-nav .notification-dropdown[data-state~="open"] .nds-dropdown-menu {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transition-delay: 0s;
+}
+
+.nds-main-nav .notification-dropdown .nds-dropdown-menu > .nds-dropdown-content,
+.nds-main-nav .notification-dropdown:is([data-state~="opening"], [data-state~="closing"]) .nds-dropdown-menu > .nds-dropdown-content {
+  overflow: visible;
+  transform: none;
+  transition: none;
+}
+
 .nds-main-nav .nds-dropdown .nds-dropdown-menu .nds-column {
   padding: var(--spacing-lg);
 }
@@ -2762,12 +2856,15 @@ body {
 
 .notification-dropdown .nds-drawer-item-head {
   flex-direction: row;
+  flex-wrap: wrap;
+  align-items: flex-start;
   width: 100%;
 }
 
 .notification-dropdown .nds-drawer-item-head > .nds-label.nds-truncate {
   order: 1;
   flex: 1 1 auto;
+  min-width: min(180px, 100%);
 }
 
 .notification-dropdown .nds-drawer-item-head > .nds-tag {
@@ -2788,6 +2885,7 @@ body {
   font-size: var(--typo-text-sm-FS);
   line-height: var(--typo-text-sm-LH);
   white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 .nds-tag.nds-xs {
@@ -2856,9 +2954,10 @@ body {
 .notification-dropdown .nds-dropdown-menu .nds-label.nds-truncate {
   display: block !important;
   min-width: 0;
-  overflow: hidden !important;
-  text-overflow: ellipsis;
-  white-space: nowrap !important;
+  overflow: visible !important;
+  text-overflow: clip;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
 }
 
 .nds-flex.nds-row {
@@ -3819,7 +3918,7 @@ body {
   .nds-main-nav .nds-nav-primary .nds-nav-link[data-state~="current"] {
     background: transparent;
     border-radius: var(--radius-sm);
-    border-block-end-color: transparent;
+    border-block-end-color: var(--border-neutral-primary);
   }
 
   @media (hover: hover) and (pointer: fine) {
@@ -3952,6 +4051,28 @@ body {
 
   .nds-main-nav .nds-nav-minimal .nds-dropdown:is([data-state~="opening"], [data-state~="closing"]) .nds-dropdown-menu > .nds-dropdown-content {
     transform: translateY(-100%) !important;
+  }
+
+  .nds-main-nav .nds-nav-minimal .notification-dropdown .nds-dropdown-menu {
+    display: flex;
+    overflow: visible;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 160ms ease, visibility 0s linear 160ms;
+  }
+
+  .nds-main-nav .nds-nav-minimal .notification-dropdown[data-state~="open"] .nds-dropdown-menu {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transition-delay: 0s;
+  }
+
+  .nds-main-nav .nds-nav-minimal .notification-dropdown .nds-dropdown-menu > .nds-dropdown-content,
+  .nds-main-nav .nds-nav-minimal .notification-dropdown:is([data-state~="opening"], [data-state~="closing"]) .nds-dropdown-menu > .nds-dropdown-content {
+    transform: none !important;
+    transition: none;
   }
 
   .nds-main-nav .nds-collapse .nds-dropdown .nds-dropdown-menu {

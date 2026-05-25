@@ -2,6 +2,7 @@
   "use strict";
 
   var DATA_KEY = "websiteDemo:siteData";
+  var PREVIEW_KEY = "websiteDemo:previewData";
   var API = {
     getSite: "api/content/get-site.php",
     saveSite: "api/content/save-site.php",
@@ -154,6 +155,11 @@
   }
 
   function load(force) {
+    var previewData = readPreview();
+    if (previewData) {
+      currentData = normalize(previewData);
+      return Promise.resolve(clone(currentData));
+    }
     if (activeLoad && !force) return activeLoad.then(clone);
     activeLoad = requestJson(API.getSite)
       .then(function (payload) {
@@ -186,6 +192,12 @@
     current: function () {
       if (!currentData) currentData = fallbackData();
       return clone(currentData);
+    },
+
+    previewKey: PREVIEW_KEY,
+
+    previewData: function (previewData) {
+      return normalize(previewData || {});
     },
 
     save: save,
@@ -297,6 +309,26 @@
 
     clone: clone
   };
+
+  function readPreview() {
+    try {
+      var params = new URLSearchParams(window.location.search || "");
+      var previewId = params.get("preview");
+      if (!previewId) return null;
+      var raw = localStorage.getItem(PREVIEW_KEY);
+      if (!raw) return null;
+      var payload = JSON.parse(raw);
+      if (!payload || payload.id !== previewId || !payload.data) return null;
+      if (payload.expiresAt && Date.now() > Number(payload.expiresAt)) {
+        localStorage.removeItem(PREVIEW_KEY);
+        return null;
+      }
+      return payload.data;
+    } catch (error) {
+      console.warn("Unable to read preview data.", error);
+      return null;
+    }
+  }
 
   legacyLocalData = readLocal();
 })();

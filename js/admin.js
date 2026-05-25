@@ -133,6 +133,7 @@
     renderContactsEditor();
     renderProjectsEditor();
     renderPagesEditor();
+    prepareUploadControls();
   }
 
   function saveSettings(event) {
@@ -163,8 +164,7 @@
     toast("تم حفظ إعدادات التنقل");
   }
 
-  function saveHome(event) {
-    event.preventDefault();
+  function collectHomeDraft() {
     data.home.ownerName = value("ownerName");
     data.home.title = value("title");
     data.home.intro = value("intro");
@@ -195,12 +195,17 @@
       }).filter(function (item) { return item.name; });
     }
     data.home.contacts = collectContacts();
+  }
+
+  function saveHome(event) {
+    event.preventDefault();
+    collectHomeDraft();
     saveData();
     addAdminNotification({
       status: "success",
       tag: "تحديث",
       title: "تم تحديث الصفحة الرئيسية",
-      description: "تم حفظ محتوى السيرة أو الهيرو أو التواصل أو الملف الشخصي من لوحة الإدارة.",
+      description: "تم حفظ محتوى السيرة أو القسم الرئيسي أو التواصل أو الملف الشخصي من لوحة الإدارة.",
       href: "index.html"
     });
     toast("تم حفظ محتوى الصفحة الرئيسية");
@@ -230,22 +235,41 @@
     ].join("");
   }
 
+  function uploadButtonLabel(type) {
+    var value = String(type || "").toLowerCase();
+    if (value.indexOf("video") !== -1) return "رفع فيديو";
+    if (value.indexOf("logo") !== -1) return "رفع شعار";
+    if (value.indexOf("image") !== -1 || value.indexOf("icon") !== -1) return "رفع صورة";
+    return "رفع ملف";
+  }
+
+  function uploadAcceptAttribute(type) {
+    var value = String(type || "").toLowerCase();
+    if (value.indexOf("video") !== -1) return ' accept=".mp4,.webm"';
+    if (value.indexOf("image") !== -1 || value.indexOf("icon") !== -1 || value.indexOf("logo") !== -1) {
+      return ' accept=".jpg,.jpeg,.png,.webp,.svg"';
+    }
+    return "";
+  }
+
   function uploadControlHtml(targetField, type) {
+    var safeType = safeText(type || "image");
     return [
       '<div class="nds-form-container upload-inline-control">',
       '<div class="nds-form-header"><label><span class="nds-label">رفع ملف</span></label></div>',
-      '<div class="nds-form-control"><input class="nds-input file-input" type="file" data-media-upload="' + safeText(type || "image") + '" data-upload-target-field="' + safeText(targetField) + '"></div>',
+      '<div class="nds-form-control" data-upload-label="' + safeText(uploadButtonLabel(type)) + '"><input class="nds-input file-input" type="file" data-media-upload="' + safeType + '" data-upload-target-field="' + safeText(targetField) + '"' + uploadAcceptAttribute(type) + '></div>',
       '</div>'
     ].join("");
   }
 
   function uploadableInputHtml(key, label, value, type, info) {
+    var safeType = safeText(type || "image");
     return [
       '<div class="nds-form-container uploadable-field">',
       '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span>' + (info ? '<span class="nds-info">' + safeText(info) + '</span>' : '') + '</label></div>',
       '<div class="uploadable-control-row">',
       '<div class="nds-form-control upload-path-control"><input class="nds-input" data-field="' + safeText(key) + '" type="text" value="' + safeText(value) + '"></div>',
-      '<div class="nds-form-control upload-file-control"><input class="nds-input file-input" type="file" data-media-upload="' + safeText(type || "image") + '" data-upload-target-field="' + safeText(key) + '"></div>',
+      '<div class="nds-form-control upload-file-control" data-upload-label="' + safeText(uploadButtonLabel(type)) + '"><input class="nds-input file-input" type="file" data-media-upload="' + safeType + '" data-upload-target-field="' + safeText(key) + '"' + uploadAcceptAttribute(type) + '></div>',
       '</div>',
       uploadProgressHtml(),
       '</div>'
@@ -305,18 +329,18 @@
 
   function heroSlideTemplate(slide, index) {
     var panelId = "hero-slide-panel-" + index;
-    var title = slide.video || slide.image || slide.alt || "وسائط هيرو";
+    var title = slide.video || slide.image || slide.alt || "وسائط القسم الرئيسي";
     title = slide.title || title;
     var isOpen = pendingOpenEditor.hero === index;
     return [
       '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="hero" data-state="' + (isOpen ? "open" : "closed") + '" data-hero-slide-index="' + index + '">',
       '<div class="admin-template-header sortable-editor-header">',
-      dragHandleHtml("اسحب لتغيير ترتيب وسائط الهيرو"),
+      dragHandleHtml("اسحب لتغيير ترتيب وسائط القسم الرئيسي"),
       '<button class="editor-accordion-btn nds-btn nds-subtle" type="button" data-editor-toggle aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
       '<span class="nds-card-title">' + safeText(title) + '</span>',
       '<i class="nds-icon nds-hgi-arrow-down-01 editor-accordion-arrow" aria-hidden="true"></i>',
       '</button>',
-      adminDeleteButton("data-delete-hero-slide", index, "حذف وسائط الهيرو"),
+      adminDeleteButton("data-delete-hero-slide", index, "حذف وسائط القسم الرئيسي"),
       '</div>',
       '<div class="admin-template-body" id="' + panelId + '">',
       '<div class="form-grid">',
@@ -325,7 +349,7 @@
       '</div>',
       textareaHtml("heroSlideIntro", "وصف الشريحة", slide.intro || "", 3),
       '<div class="form-grid">',
-      uploadableInputHtml("heroImage", "مسار الصورة أو صورة غلاف الفيديو", slide.image, "hero-image", "مثال: uploads/images/hero.jpg"),
+      uploadableInputHtml("heroImage", "مسار الصورة أو غلاف الفيديو", slide.image, "hero-image", "مثال: uploads/images/hero.jpg"),
       uploadableInputHtml("heroMobileImage", "مسار صورة الجوال أو غلاف الجوال اختياري", slide.mobileImage, "hero-image", "اتركه فارغا لاستخدام نفس الصورة"),
       uploadableInputHtml("heroVideo", "مسار الفيديو اختياري", slide.video, "hero-video", "مثال: uploads/video/hero.webm"),
       uploadableInputHtml("heroMobileVideo", "مسار فيديو الجوال اختياري", slide.mobileVideo, "hero-video", "اتركه فارغا لاستخدام نفس الفيديو"),
@@ -345,8 +369,9 @@
     root.innerHTML = data.home.heroSlides.map(heroSlideTemplate).join("");
     pendingOpenEditor.hero = null;
     if (!data.home.heroSlides.length) {
-      root.append(window.SiteApp.emptyState("لا توجد صور هيرو", "استخدم زر إضافة صورة هيرو لإنشاء السلايدر."));
+      root.append(window.SiteApp.emptyState("لا توجد وسائط للقسم الرئيسي", "استخدم زر إضافة وسائط لإنشاء السلايدر."));
     }
+    prepareUploadControls(root);
   }
 
   function collectHeroSlides() {
@@ -540,6 +565,7 @@
     if (!data.home.contacts.length) {
       root.append(window.SiteApp.emptyState("لا توجد وسائل تواصل", "استخدم زر إضافة وسيلة لإنشاء رابط تواصل."));
     }
+    prepareUploadControls(root);
   }
 
   function projectTemplate(project, index) {
@@ -585,6 +611,7 @@
     if (!data.projects.length) {
       root.append(window.SiteApp.emptyState("لا توجد مشاريع", "استخدم زر إضافة مشروع لإنشاء بطاقة جديدة."));
     }
+    prepareUploadControls(root);
   }
 
   function pageTemplate(page, index) {
@@ -795,6 +822,45 @@
     toast("تم حفظ الصفحات");
   }
 
+  function previewDataSnapshot(target) {
+    var snapshot = window.SiteStore && window.SiteStore.clone ? window.SiteStore.clone(data) : JSON.parse(JSON.stringify(data));
+    data = snapshot;
+    if (target === "home") {
+      collectHomeDraft();
+    } else if (target === "projects") {
+      collectProjects();
+    } else if (target === "pages") {
+      collectPages();
+    }
+    return window.SiteStore && window.SiteStore.previewData ? window.SiteStore.previewData(data) : data;
+  }
+
+  function previewUrl(target, previewId) {
+    var suffix = "?preview=" + encodeURIComponent(previewId);
+    if (target === "projects") return "projects.html" + suffix;
+    if (target === "pages") return "pages.html" + suffix;
+    return "index.html" + suffix;
+  }
+
+  function openPreview(target) {
+    var originalData = data;
+    var previewId = "preview-" + Date.now();
+    try {
+      var snapshot = previewDataSnapshot(target);
+      localStorage.setItem((window.SiteStore && window.SiteStore.previewKey) || "websiteDemo:previewData", JSON.stringify({
+        id: previewId,
+        expiresAt: Date.now() + (60 * 60 * 1000),
+        data: snapshot
+      }));
+      data = originalData;
+      var opened = window.open(previewUrl(target, previewId), "_blank", "noopener");
+      if (!opened) toast("اسمح بفتح النوافذ المنبثقة لمعاينة الصفحة.", "error");
+    } catch (error) {
+      data = originalData;
+      toast(error.message || "تعذرت معاينة الصفحة", "error");
+    }
+  }
+
   function getSortableItemIndex(item) {
     if (!item) return -1;
     return qsa("[data-sortable-item], [data-hero-slide-index], [data-page-index], [data-project-index], [data-contact-index]", item.parentElement).indexOf(item);
@@ -818,7 +884,7 @@
       saveData();
       renderHeroSlidesEditor();
       refreshPublicShell();
-      toast("تم تحديث ترتيب سلايدر الهيرو");
+      toast("تم تحديث ترتيب سلايدر القسم الرئيسي");
     } else if (root.dataset.sortableList === "pages") {
       collectPages();
       saveData();
@@ -1009,8 +1075,55 @@
     }, 1400);
   }
 
+  function uploadControl(input) {
+    if (!input) return null;
+    return input.closest(".nds-form-control");
+  }
+
+  function defaultUploadLabel(input) {
+    if (!input) return "رفع ملف";
+    var control = uploadControl(input);
+    if (control && control.dataset.defaultUploadLabel) return control.dataset.defaultUploadLabel;
+    if (control && control.dataset.uploadLabel) return control.dataset.uploadLabel;
+    if (input.hasAttribute("data-json-file")) return "اختيار ملف JSON";
+    return uploadButtonLabel(input.dataset.mediaUpload || "");
+  }
+
+  function setUploadControlState(input, status, label) {
+    var control = uploadControl(input);
+    if (!control) return;
+    if (!control.dataset.defaultUploadLabel) {
+      control.dataset.defaultUploadLabel = control.dataset.uploadLabel || defaultUploadLabel(input);
+    }
+    control.dataset.uploadLabel = label || control.dataset.defaultUploadLabel;
+    if (status) {
+      control.dataset.uploadStatus = status;
+    } else {
+      control.removeAttribute("data-upload-status");
+    }
+    if (!input.getAttribute("aria-label")) input.setAttribute("aria-label", control.dataset.defaultUploadLabel);
+  }
+
+  function resetUploadControlState(input, delay) {
+    window.setTimeout(function () {
+      setUploadControlState(input, "", defaultUploadLabel(input));
+    }, delay || 0);
+  }
+
+  function prepareUploadControls(root) {
+    qsa(".nds-form-control > .file-input", root || document).forEach(function (input) {
+      setUploadControlState(input, "", defaultUploadLabel(input));
+    });
+  }
+
   function setupUploadEvents() {
     document.addEventListener("change", function (event) {
+      var pickedInput = event.target.closest(".file-input");
+      if (pickedInput) {
+        var pickedFile = pickedInput.files && pickedInput.files[0];
+        if (pickedFile) setUploadControlState(pickedInput, "selected", pickedFile.name);
+      }
+
       var input = event.target.closest("[data-media-upload]");
       if (!input) return;
       var file = input.files && input.files[0];
@@ -1022,22 +1135,28 @@
       }
       var progress = ensureUploadProgress(input);
       var uploadLabel = "جاري رفع " + file.name;
+      var uploadSucceeded = false;
       input.disabled = true;
+      setUploadControlState(input, "uploading", file.name);
       setUploadProgress(progress, 0, "info", uploadLabel, "جاري تجهيز الملف...");
       window.SiteStore.uploadMedia(file, input.dataset.mediaUpload, function (percent) {
         setUploadProgress(progress, percent, "info", uploadLabel, percent >= 100 ? "جاري معالجة الملف..." : "جاري رفع الملف...");
       }).then(function (result) {
+        uploadSucceeded = true;
+        setUploadControlState(input, "success", "تم رفع " + file.name);
         setUploadProgress(progress, 100, "success", "تم رفع " + file.name, "تم تحديث مسار الملف.");
         target.value = result.path || "";
         target.dispatchEvent(new Event("input", { bubbles: true }));
         hideUploadProgress(progress);
         toast("تم رفع الملف");
       }).catch(function (error) {
+        setUploadControlState(input, "error", "تعذر رفع " + file.name);
         setUploadProgress(progress, 100, "error", "تعذر رفع " + file.name, error.message || "تعذر رفع الملف");
         toast(error.message || "تعذر رفع الملف", "error");
       }).finally(function () {
         input.disabled = false;
         input.value = "";
+        resetUploadControlState(input, uploadSucceeded ? 1600 : 2600);
       });
     });
   }
@@ -1048,6 +1167,11 @@
     qs("[data-home-form]").addEventListener("submit", saveHome);
     qs("[data-save-projects]").addEventListener("click", saveProjects);
     qs("[data-save-pages]").addEventListener("click", savePages);
+    qsa("[data-preview-target]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        openPreview(button.dataset.previewTarget || "home");
+      });
+    });
     setupUploadEvents();
 
     qs("[data-add-hero-slide]").addEventListener("click", function () {
@@ -1122,7 +1246,7 @@
         data.home.heroSlides.splice(getSortableItemIndex(deleteHeroSlide.closest("[data-hero-slide-index]")), 1);
         saveData();
         renderHeroSlidesEditor();
-        toast("تم حذف صورة الهيرو");
+        toast("تم حذف وسائط القسم الرئيسي");
       }
       if (deleteContact) {
         data.home.contacts = collectContacts();

@@ -1217,7 +1217,7 @@
       "Projects updated": "تم تحديث المشاريع",
       "New page added": "تمت إضافة صفحة جديدة",
       "Pages updated": "تم تحديث الصفحات",
-      "Home biography, hero, contact, or profile content was saved from the admin dashboard.": "تم حفظ محتوى السيرة أو الهيرو أو التواصل أو الملف الشخصي من لوحة الإدارة.",
+      "Home biography, hero, contact, or profile content was saved from the admin dashboard.": "تم حفظ محتوى السيرة أو القسم الرئيسي أو التواصل أو الملف الشخصي من لوحة الإدارة.",
       "A new project was added from the admin dashboard.": "تمت إضافة مشروع جديد من لوحة الإدارة.",
       "Project content was updated from the admin dashboard.": "تم تحديث محتوى المشاريع من لوحة الإدارة.",
       "A new page was added from the admin dashboard.": "تمت إضافة صفحة جديدة من لوحة الإدارة.",
@@ -1356,8 +1356,38 @@
     }, 140);
   }
 
+  function syncNotificationTriggerState(root) {
+    if (!root) return;
+    var trigger = qs("[data-notifications-trigger]", root);
+    if (!trigger) return;
+    var isOpen = (root.dataset.state || "").indexOf("open") !== -1;
+    trigger.setAttribute("aria-expanded", String(isOpen));
+    if (isOpen) {
+      trigger.dataset.state = "active";
+    } else {
+      trigger.dataset.state = "";
+      trigger.removeAttribute("data-state");
+    }
+  }
+
+  function syncAllNotificationTriggerStates() {
+    qsa("[data-notifications-root], [data-mobile-notifications-root]").forEach(syncNotificationTriggerState);
+  }
+
+  function queueNotificationTriggerStateSync(root) {
+    var sync = root ? function () { syncNotificationTriggerState(root); } : syncAllNotificationTriggerStates;
+    window.requestAnimationFrame(function () {
+      sync();
+    });
+    window.setTimeout(function () {
+      sync();
+    }, 360);
+  }
+
   function setupNotifications() {
     document.addEventListener("click", function (event) {
+      queueNotificationTriggerStateSync();
+
       if (event.target.closest("[data-mobile-admin-shortcut], .mobile-account-trigger")) {
         closeNotificationDropdown();
       }
@@ -1381,17 +1411,15 @@
           if (mobileRoot) mobileRoot.dataset.state = willOpen ? "open opened" : "";
           if (mobileTrigger) mobileTrigger.setAttribute("aria-expanded", String(willOpen));
         }
-        window.setTimeout(function () {
-          if (!mobileRoot) return;
-          var currentOpen = (mobileRoot.dataset.state || "").indexOf("open") !== -1;
-          if (willOpen && !currentOpen) mobileRoot.dataset.state = "open opened";
-          if (!willOpen) mobileRoot.dataset.state = "";
-          if (mobileTrigger) mobileTrigger.setAttribute("aria-expanded", String(willOpen));
-        }, 120);
+        syncNotificationTriggerState(mobileRoot);
+        queueNotificationTriggerStateSync(mobileRoot);
         return;
       }
 
       if (event.target.closest("[data-notifications-trigger]")) {
+        var notificationTrigger = event.target.closest("[data-notifications-trigger]");
+        var notificationRoot = notificationTrigger && notificationTrigger.closest("[data-notifications-root], [data-mobile-notifications-root]");
+        queueNotificationTriggerStateSync(notificationRoot);
         closeNavPanel();
       }
 
