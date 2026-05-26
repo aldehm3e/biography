@@ -3,7 +3,12 @@
 
   var HERO_SLIDE_DURATION = 8500;
   var SITE_DATA_KEY = "websiteDemo:siteData";
-  var NOTIFICATIONS_KEY = "websiteDemo:notifications";
+  var LEGACY_NOTIFICATIONS_KEY = "websiteDemo:notifications";
+  var NOTIFICATION_STATE_KEY = "websiteDemo:notificationState";
+  var NOTIFICATIONS_KEEP_OPEN_KEY = "websiteDemo:notificationsKeepOpen";
+  var NOTIFICATION_READ_RETENTION_MS = 10 * 24 * 60 * 60 * 1000;
+  var AUTH_LOADING_MIN_MS = 1200;
+  var notificationSaveQueue = Promise.resolve();
 
   var appState = {
     data: null,
@@ -19,6 +24,12 @@
 
   function qsa(selector, root) {
     return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+  }
+
+  function wait(ms) {
+    return new Promise(function (resolve) {
+      window.setTimeout(resolve, Math.max(0, ms || 0));
+    });
   }
 
   function setText(selector, value, root) {
@@ -243,6 +254,9 @@
     renderDesktopAccountMenu(data);
     renderMobileAccountMenu(data);
     updateHeaderActions(data);
+    if (document.body && document.body.dataset.authLogoutLoading === "true") {
+      setLogoutLoading(null, true);
+    }
   }
 
   function renderDesktopAccountMenu(data) {
@@ -393,25 +407,9 @@
       '<i class="nds-icon nds-hgi-notification-02 nav-notification-icon" aria-hidden="true">' + (unreadCount ? '<span class="nds-badge">' + Math.min(unreadCount, 99) + '</span>' : '') + '</i>',
       '<span class="nds-label">الإشعارات</span>',
       '</button>',
-      '<div class="nds-dropdown-menu nds-fit" data-notifications-menu>',
-      '<div class="nds-dropdown-content">',
-      '<div class="nds-column">',
-      '<nav class="nds-drawer" style="--drawer-max-height: 40svh; min-width: 280px; max-width: 100%;">',
-      '<div class="nds-scroll-more nds-divided" data-axis="vertical" data-state="' + (items.length > 4 ? "has-more at-end" : "") + '">',
-      '<ul class="nds-drawer-list nds-scroll-more-content">',
-      (items.length ? items.map(notificationMarkup).join("") : emptyNotificationsMarkup()),
-      '</ul>',
-      '</div>',
-      '</nav>',
-      '<hr class="nds-divider">',
-      '<a href="notifications.html" class="nds-btn nds-subtle nds-full">',
-      '<i class="nds-icon nds-hgi-notification-02" aria-hidden="true"></i>',
-      '<span class="nds-label">عرض كل الإشعارات</span>',
-      '</a>',
-      '</div>',
-      '</div>',
-      '</div>'
+      notificationsDropdownMarkup(items, "40vw")
     ].join("");
+    refreshNotificationComponents(notificationItem);
     updateHeaderDateTime();
     updateThemeIcon(document.documentElement.dataset.theme || localStorage.getItem("websiteDemo:theme") || "light");
   }
@@ -453,12 +451,18 @@
   }
 
   function pageNavigationItems(data) {
-    return visibleItems(data.pages).map(function (item) {
+    return publicPageItems(data).map(function (item) {
       return {
         label: item.title || item.slug,
         href: "index.html#/page/" + encodeURIComponent(item.slug),
         key: "page:" + item.slug
       };
+    });
+  }
+
+  function publicPageItems(data) {
+    return visibleItems((data && data.pages) || []).filter(function (item) {
+      return hasText(item.title || item.slug) && hasText(item.content);
     });
   }
 
@@ -629,7 +633,7 @@
     modal.setAttribute("aria-hidden", "true");
     modal.hidden = true;
     modal.innerHTML = [
-      '<form id="loginForm" class="nds-form" novalidate>',
+      '<form id="loginForm" class="nds-form auth-loading-surface" data-loading-surface novalidate>',
       '<div class="nds-card-content">',
       '<div class="nds-card-text">',
       '<h3 class="nds-card-title" id="login-modal-title">تسجيل الدخول</h3>',
@@ -786,6 +790,72 @@
       modal.setAttribute("aria-hidden", "true");
       modal.dataset.state = "closed";
     }
+  }
+
+  function waitForAuthLoading(startedAt) {
+    return wait(AUTH_LOADING_MIN_MS - (Date.now() - startedAt));
+  }
+
+  function setLoginSubmitLoading(isLoading) {
+    var button = qs("#loginForm button[type='submit']");
+    if (!button) return;
+    if (isLoading) {
+      button.dataset.state = "loading";
+      button.classList.add("nds-loading", "nds-xs");
+      button.setAttribute("aria-busy", "true");
+    } else {
+      button.removeAttribute("data-state");
+      button.classList.remove("nds-loading", "nds-xs");
+      button.removeAttribute("aria-busy");
+    }
+  }
+
+  function setLoginLoading(isLoading) {
+    var form = qs("#loginForm");
+    if (!form) return;
+    qsa("input, button, select, textarea", form).forEach(function (control) {
+      if (isLoading) {
+        if (!control.disabled) control.dataset.authWasEnabled = "true";
+        control.disabled = true;
+        control.setAttribute("aria-disabled", "true");
+      } else {
+        if (control.dataset.authWasEnabled === "true") control.disabled = false;
+        delete control.dataset.authWasEnabled;
+        control.removeAttribute("aria-disabled");
+      }
+    });
+    if (isLoading) {
+      form.setAttribute("aria-busy", "true");
+      setLoginSubmitLoading(true);
+    } else {
+      form.removeAttribute("aria-busy");
+      setLoginSubmitLoading(false);
+    }
+  }
+
+  function showAuthLoading(message) {
+    var overlay = qs("[data-auth-loading-overlay]");
+    if (!overlay) {
+      overlay = document.createElement("div");
+      overlay.className = "auth-loading-overlay";
+      overlay.dataset.authLoadingOverlay = "true";
+      overlay.setAttribute("role", "status");
+      overlay.setAttribute("aria-live", "polite");
+      overlay.innerHTML = [
+        '<div class="auth-loading-card nds-loading nds-sm" data-loading-surface data-state="loading">',
+        '<span class="auth-loading-message"></span>',
+        '</div>'
+      ].join("");
+      document.body.append(overlay);
+    }
+    var label = qs(".auth-loading-message", overlay);
+    if (label) label.textContent = message || "";
+    overlay.hidden = false;
+  }
+
+  function hideAuthLoading() {
+    var overlay = qs("[data-auth-loading-overlay]");
+    if (overlay) overlay.hidden = true;
   }
 
   function resetLoginCaptchaField(modal) {
@@ -978,17 +1048,106 @@
     };
   }
 
-  function logoutUser() {
-    prepareOverlayForLoginModal();
-    qsa("[data-account-action='logout'], .account-persona-trigger, .account-menu-item, .mobile-account-section").forEach(function (node) {
+  function removeDataStateTokens(element, tokens) {
+    if (!element) return;
+    var remove = tokens || [];
+    var keep = (element.dataset.state || "").split(/\s+/).filter(function (token) {
+      return token && remove.indexOf(token) === -1;
+    });
+    if (keep.length) {
+      element.dataset.state = keep.join(" ");
+    } else {
+      element.removeAttribute("data-state");
+    }
+  }
+
+  function forceClearBackdrop() {
+    if (window.NDS && window.NDS.Backdrop) {
+      if (window.NDS.Backdrop.reset) {
+        window.NDS.Backdrop.reset();
+      } else if (window.NDS.Backdrop.hide) {
+        window.NDS.Backdrop.hide();
+      }
+    }
+    qsa("[data-nds-backdrop]").forEach(function (backdrop) {
+      backdrop.style.display = "";
+      backdrop.removeAttribute("data-state");
+    });
+    removeDataStateTokens(document.body, ["backdrop"]);
+  }
+
+  function closeAccountOverlays() {
+    dismissNdsHeaderOverlays();
+    qsa(".admin-persona-dropdown, .account-menu-item, .mobile-account-dropdown, [data-mobile-admin-shortcut]").forEach(function (root) {
+      root.removeAttribute("data-state");
+      qsa(".account-persona-trigger, .mobile-account-trigger, .header-admin-link, .nav-admin-link, .account-login-trigger, [data-login-trigger]", root).forEach(function (trigger) {
+        removeDataStateTokens(trigger, ["active", "open", "opened", "opening", "closing"]);
+        trigger.setAttribute("aria-expanded", "false");
+      });
+    });
+    hideAuthLoading();
+    forceClearBackdrop();
+  }
+
+  function logoutButtons(trigger) {
+    var buttons = [];
+    if (trigger) buttons.push(trigger);
+    qsa("[data-account-action='logout'], [data-admin-persona-logout], #logoutBtn, .account-persona-trigger, .mobile-account-trigger, .header-admin-link, .nav-admin-link, .account-login-trigger, .site-header [data-login-trigger], [data-mobile-admin-shortcut] > .nds-btn").forEach(function (button) {
+      if (buttons.indexOf(button) === -1) buttons.push(button);
+    });
+    return buttons;
+  }
+
+  function setLogoutLoading(trigger, isLoading) {
+    if (document.body) {
+      if (isLoading) {
+        document.body.dataset.authLogoutLoading = "true";
+      } else {
+        delete document.body.dataset.authLogoutLoading;
+      }
+    }
+    logoutButtons(trigger).forEach(function (button) {
+      if (isLoading) {
+        button.dataset.logoutLoading = "true";
+        button.dataset.state = "loading";
+        button.classList.add("nds-loading", "nds-sm");
+        button.setAttribute("aria-busy", "true");
+        button.setAttribute("aria-disabled", "true");
+        if ("disabled" in button) button.disabled = true;
+      } else {
+        delete button.dataset.logoutLoading;
+        button.removeAttribute("data-state");
+        button.classList.remove("nds-loading", "nds-xs", "nds-sm");
+        button.removeAttribute("aria-busy");
+        button.removeAttribute("aria-disabled");
+        if ("disabled" in button) button.disabled = false;
+      }
+    });
+  }
+
+  function logoutUser(trigger) {
+    var loadingStartedAt = Date.now();
+    setLogoutLoading(trigger, true);
+    closeAccountOverlays();
+    setLogoutLoading(trigger, true);
+    qsa(".account-persona-trigger, .account-menu-item, .mobile-account-section").forEach(function (node) {
       node.removeAttribute("data-status");
-      node.removeAttribute("data-state");
+      removeDataStateTokens(node, ["active", "open", "opened", "opening", "closing"]);
       node.classList.remove("nds-success", "success", "active", "selected", "is-active");
     });
     window.SiteStore.logout().then(function () {
-      renderAccountMenu(appState.data || window.SiteStore.current());
-      window.dispatchEvent(new CustomEvent("site:admin-logout"));
-      showToast("تم تسجيل الخروج بنجاح", "success");
+      return waitForAuthLoading(loadingStartedAt).then(function () {
+        renderAccountMenu(appState.data || window.SiteStore.current());
+        showToast("تم تسجيل الخروج بنجاح", "error");
+        window.dispatchEvent(new CustomEvent("site:admin-logout"));
+      });
+    }).catch(function (error) {
+      return waitForAuthLoading(loadingStartedAt).then(function () {
+        showToast(error.message || "تعذر تسجيل الخروج", "error");
+      });
+    }).finally(function () {
+      closeAccountOverlays();
+      setLogoutLoading(trigger, false);
     });
   }
 
@@ -1040,16 +1199,31 @@
     if (input) input.setAttribute("aria-invalid", "true");
   }
 
+  function toastAlertKey(variant, title, description) {
+    return [variant || "", title || "", description || ""].join("\u001f");
+  }
+
+  function removeMatchingToastAlerts(key) {
+    qsa(".nds-alert-placeholder .nds-alert.nds-toast").forEach(function (alert) {
+      if (alert.dataset.siteToastKey === key) alert.remove();
+    });
+  }
+
   function showToastAlert(variant, title, description) {
     if (!(window.NDS && window.NDS.Alert && window.NDS.Alert.create)) return false;
-    window.NDS.Alert.create({
+    var normalizedDescription = description || "";
+    var key = toastAlertKey(variant, title, normalizedDescription);
+    removeMatchingToastAlerts(key);
+    var alert = window.NDS.Alert.create({
       variant: variant,
       title: title,
-      description: description || "",
+      description: normalizedDescription,
       display: "toast",
       position: "top",
-      duration: 3000
+      duration: 3000,
+      shadow: true
     });
+    if (alert) alert.dataset.siteToastKey = key;
     return true;
   }
 
@@ -1099,7 +1273,7 @@
         if (accountAction.dataset.accountAction === "password") openChangePasswordModal();
         if (accountAction.dataset.accountAction === "email") openChangeEmailModal();
         if (accountAction.dataset.accountAction === "phone") openChangePhoneModal();
-        if (accountAction.dataset.accountAction === "logout") logoutUser();
+        if (accountAction.dataset.accountAction === "logout") logoutUser(accountAction);
         return;
       }
 
@@ -1108,7 +1282,7 @@
         event.preventDefault();
         event.stopPropagation();
         if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-        logoutUser();
+        logoutUser(logoutButton);
         return;
       }
 
@@ -1126,78 +1300,278 @@
     loginForm.dataset.loginReady = "true";
     loginForm.addEventListener("submit", function (event) {
       event.preventDefault();
+      setLoginSubmitLoading(true);
       var config = currentAuthConfig();
       var validation = window.NDS && window.NDS.Forms && window.NDS.Forms.validateForm
         ? window.NDS.Forms.validateForm(loginForm)
         : { valid: true };
-      if (!validation.valid) return;
+      if (!validation.valid) {
+        wait(260).then(function () { setLoginSubmitLoading(false); });
+        return;
+      }
 
       var emailInput = qs("#login-email");
       var passInput = qs("#login-password");
       var captchaInput = qs("#login-captcha-answer");
-      var loginBtn = qs("#loginSubmitBtn");
       var email = emailInput ? emailInput.value.trim().toLowerCase() : "";
       var pass = passInput ? passInput.value : "";
       var captchaAnswer = captchaInput ? captchaInput.value.trim() : "";
       if (!captchaAnswer) {
         clearLoginFeedback();
         setLoginFieldFeedback("#login-captcha-field", "\u0623\u062f\u062e\u0644 \u0646\u0627\u062a\u062c \u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0623\u0645\u0646\u064a.");
+        wait(260).then(function () { setLoginSubmitLoading(false); });
         return;
       }
-      if (loginBtn) loginBtn.dataset.state = "loading";
+      var loadingStartedAt = Date.now();
+      setLoginLoading(true);
       window.SiteStore.login(email, pass, captchaAnswer).then(function () {
-        if (loginBtn) loginBtn.removeAttribute("data-state");
-        renderAccountMenu(appState.data || window.SiteStore.current());
-        closeLoginModal();
-        loginForm.reset();
-        clearLoginFeedback();
-        showToast("\u062a\u0645 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", "success");
-        if (qs("#login-modal") && qs("#login-modal").dataset.redirectToAdmin !== "false") {
-          window.location.href = "admin.html";
-        } else {
-          window.dispatchEvent(new CustomEvent("site:admin-login-success"));
-        }
+        return waitForAuthLoading(loadingStartedAt).then(function () {
+          setLoginLoading(false);
+          renderAccountMenu(appState.data || window.SiteStore.current());
+          closeLoginModal();
+          loginForm.reset();
+          clearLoginFeedback();
+          showToast("\u062a\u0645 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", "success");
+          if (qs("#login-modal") && qs("#login-modal").dataset.redirectToAdmin !== "false") {
+            window.location.href = "admin.html";
+          } else {
+            window.dispatchEvent(new CustomEvent("site:admin-login-success"));
+          }
+        });
       }).catch(function (error) {
-        if (loginBtn) loginBtn.removeAttribute("data-state");
-        clearLoginFeedback();
-        if (error && error.payload && error.payload.code === "captcha_invalid") {
-          setLoginFieldFeedback("#login-captcha-field", "\u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0623\u0645\u0646\u064a \u063a\u064a\u0631 \u0635\u062d\u064a\u062d.");
-        } else {
-          setLoginFieldFeedback("#login-email-field", "تحقق من بريد المدير.");
-          setLoginFieldFeedback("#login-password-field", "تحقق من كلمة المرور.");
-        }
-        loadLoginCaptcha();
-        showToast("\u062a\u0639\u0630\u0631 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", "error");
+        return waitForAuthLoading(loadingStartedAt).then(function () {
+          setLoginLoading(false);
+          clearLoginFeedback();
+          if (error && error.payload && error.payload.code === "captcha_invalid") {
+            setLoginFieldFeedback("#login-captcha-field", "\u0627\u0644\u062a\u062d\u0642\u0642 \u0627\u0644\u0623\u0645\u0646\u064a \u063a\u064a\u0631 \u0635\u062d\u064a\u062d.");
+          } else {
+            setLoginFieldFeedback("#login-email-field", "تحقق من بريد المدير.");
+            setLoginFieldFeedback("#login-password-field", "تحقق من كلمة المرور.");
+          }
+          loadLoginCaptcha();
+          showToast("\u062a\u0639\u0630\u0631 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", "error");
+        });
       });
     });
   }
 
   function loadNotifications() {
-    try {
-      return JSON.parse(localStorage.getItem(NOTIFICATIONS_KEY) || "[]");
-    } catch (error) {
-      return [];
-    }
+    var data = window.SiteStore && window.SiteStore.current ? window.SiteStore.current() : (appState.data || {});
+    var state = readNotificationState();
+    var now = Date.now();
+    var changed = false;
+    var items;
+    clearLegacyNotifications();
+    items = normalizeNotifications(data.notifications || []).map(function (item) {
+      var key = notificationStateKey(item);
+      var entry = key ? state[key] : null;
+      var output = Object.assign({}, item);
+      if (!entry) return output;
+      if (entry.dismissed) return null;
+      if (entry.read) {
+        output.read = true;
+        output.readAt = entry.readAt || "";
+        output.readExpiresAt = entry.readExpiresAt || "";
+        if (notificationReadExpiryTime(output, now) <= now) {
+          delete state[key];
+          changed = true;
+          return null;
+        }
+      }
+      return output;
+    }).filter(Boolean).filter(function (item) {
+      if (!item.read) return true;
+      return notificationReadExpiryTime(item, now) > now;
+    }).slice(0, 20).filter(function (item) {
+      return Boolean(item);
+    });
+    if (changed) writeNotificationState(state);
+    return items;
   }
 
   function saveNotifications(items) {
-    localStorage.setItem(NOTIFICATIONS_KEY, JSON.stringify(items.slice(0, 20)));
+    var current = loadNotifications();
+    var state = readNotificationState();
+    var nextByKey = {};
+    var nowIso = new Date().toISOString();
+    (Array.isArray(items) ? items : []).forEach(function (item) {
+      var key = notificationStateKey(item);
+      if (key) nextByKey[key] = item;
+    });
+    current.forEach(function (item) {
+      var key = notificationStateKey(item);
+      var nextItem = key ? nextByKey[key] : null;
+      var baseTime;
+      if (!key) return;
+      if (!nextItem) {
+        state[key] = Object.assign({}, state[key] || {}, {
+          dismissed: true,
+          dismissedAt: nowIso
+        });
+        return;
+      }
+      if (nextItem.read) {
+        baseTime = notificationTimestamp(item.createdAt) || Date.now();
+        state[key] = Object.assign({}, state[key] || {}, {
+          read: true,
+          readAt: nextItem.readAt || nowIso,
+          readExpiresAt: nextItem.readExpiresAt || new Date(baseTime + NOTIFICATION_READ_RETENTION_MS).toISOString()
+        });
+      }
+    });
+    writeNotificationState(state);
     window.dispatchEvent(new CustomEvent("site:notificationschange"));
   }
 
+  function normalizeNotifications(items) {
+    var seenKeys = {};
+    return (Array.isArray(items) ? items : []).map(function (item) {
+      return normalizeNotificationItem(item);
+    }).filter(function (item) {
+      var key;
+      if (!item) return false;
+      key = notificationDedupeKey(item);
+      if (isRetiredNotificationKey(key)) return false;
+      if (key && seenKeys[key]) return false;
+      if (key) seenKeys[key] = true;
+      return true;
+    }).slice(0, 20);
+  }
+
+  function normalizeNotificationItem(item) {
+    var key;
+    var createdAt;
+    var output;
+    if (!item || typeof item !== "object") return null;
+    createdAt = String(item.createdAt || item.created_at || "1970-01-01T00:00:00.000Z");
+    output = {
+      id: String(item.id || ""),
+      status: notificationStatus(item.status),
+      tag: String(item.tag || "Updated"),
+      title: String(item.title || ""),
+      description: String(item.description || ""),
+      href: String(item.href || "notifications.html"),
+      key: String(item.key || item.notificationKey || item.notification_key || "").slice(0, 255),
+      createdAt: createdAt
+    };
+    if (!output.title && !output.description) return null;
+    key = notificationDedupeKey(output);
+    output.key = key;
+    output.id = output.id || notificationIdFromParts(key, createdAt, output.title);
+    return output;
+  }
+
+  function notificationIdFromParts(key, createdAt, title) {
+    return "notification-" + notificationHash([key, createdAt, title].join("\u001f"));
+  }
+
+  function notificationHash(value) {
+    var hash = 0;
+    var text = String(value || "");
+    var index;
+    for (index = 0; index < text.length; index++) {
+      hash = ((hash << 5) - hash) + text.charCodeAt(index);
+      hash |= 0;
+    }
+    return Math.abs(hash).toString(36);
+  }
+
+  function notificationStateKey(item) {
+    return item && (item.id || notificationDedupeKey(item)) || "";
+  }
+
+  function readNotificationState() {
+    try {
+      var state = JSON.parse(localStorage.getItem(NOTIFICATION_STATE_KEY) || "{}");
+      return state && typeof state === "object" && !Array.isArray(state) ? state : {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function writeNotificationState(state) {
+    try {
+      localStorage.setItem(NOTIFICATION_STATE_KEY, JSON.stringify(state || {}));
+    } catch (error) {}
+  }
+
+  function clearLegacyNotifications() {
+    try {
+      if (localStorage.getItem(LEGACY_NOTIFICATIONS_KEY)) {
+        localStorage.removeItem(LEGACY_NOTIFICATIONS_KEY);
+      }
+    } catch (error) {}
+  }
+
+  function notificationDedupeKey(item) {
+    if (!item) return "";
+    return item.key || [item.status || "", item.tag || "", item.title || "", item.description || "", item.href || ""].join("\u001f");
+  }
+
+  function isRetiredNotificationKey(key) {
+    return key === "admin:home" || key === "admin:projects" || key === "admin:pages";
+  }
+
+  function notificationTimestamp(value) {
+    if (!value) return 0;
+    var time = new Date(value).getTime();
+    return Number.isFinite(time) ? time : 0;
+  }
+
+  function notificationReadExpiryTime(item, fallbackBase) {
+    var explicit = notificationTimestamp(item.readExpiresAt);
+    if (explicit) return explicit;
+    var base = notificationTimestamp(item.createdAt) || notificationTimestamp(item.readAt) || fallbackBase || Date.now();
+    return base + NOTIFICATION_READ_RETENTION_MS;
+  }
+
+  function markNotificationRead(notification) {
+    var baseTime = notificationTimestamp(notification.createdAt) || Date.now();
+    notification.read = true;
+    notification.readAt = notification.readAt || new Date().toISOString();
+    notification.readExpiresAt = notification.readExpiresAt || new Date(baseTime + NOTIFICATION_READ_RETENTION_MS).toISOString();
+    return notification;
+  }
+
   function addNotification(options) {
-    var items = loadNotifications();
-    items.unshift({
-      id: "notification-" + Date.now(),
+    notificationSaveQueue = notificationSaveQueue.catch(function () {}).then(function () {
+      return saveNotificationToSite(options || {});
+    }).catch(function (error) {
+      console.warn("Unable to save notification.", error);
+    });
+    return notificationSaveQueue;
+  }
+
+  function saveNotificationToSite(options) {
+    var data = window.SiteStore && window.SiteStore.current ? window.SiteStore.current() : (appState.data || {});
+    var now = new Date().toISOString();
+    var notification = normalizeNotificationItem({
+      id: "notification-" + notificationHash([(options.key || ""), now, Math.random()].join("\u001f")),
       status: options.status || "info",
       tag: options.tag || "Updated",
       title: options.title || "Content updated",
       description: options.description || "",
-      href: options.href || "admin.html",
-      read: false,
-      createdAt: new Date().toISOString()
+      href: options.href || "notifications.html",
+      key: options.key || "",
+      createdAt: now
     });
-    saveNotifications(items);
+    var key = notificationDedupeKey(notification);
+    var items;
+    if (!notification || !window.SiteStore || !window.SiteStore.save) return Promise.resolve();
+    items = normalizeNotifications(data.notifications || []).filter(function (item) {
+      return notificationDedupeKey(item) !== key;
+    });
+    items.unshift(notification);
+    data.notifications = normalizeNotifications(items);
+    appState.data = data;
+    renderNotifications();
+    if (document.body.dataset.page === "notifications") renderNotificationsPage();
+    return window.SiteStore.save(data).then(function (savedData) {
+      appState.data = savedData;
+      renderNotifications();
+      if (document.body.dataset.page === "notifications") renderNotificationsPage();
+      return savedData;
+    });
   }
 
   function notificationIcon(status) {
@@ -1205,6 +1579,10 @@
     if (status === "warning") return "nds-hgi-alert-circle";
     if (status === "error") return "nds-hgi-cancel-circle";
     return "nds-hgi-notification-02";
+  }
+
+  function notificationStatus(status) {
+    return ["success", "info", "warning", "error"].indexOf(status) !== -1 ? status : "info";
   }
 
   function notificationArabicText(value) {
@@ -1226,43 +1604,157 @@
     return translations[value] || value || "";
   }
 
-  function notificationMarkup(item) {
+  function notificationItemInnerMarkup(item) {
+    var status = notificationStatus(item.status);
     return [
-      '<li data-notification-id="' + item.id + '">',
-      '<button type="button" class="nds-btn nds-subtle nds-menu-btn nds-indicator" aria-expanded="false" data-notification-toggle>',
       '<span class="nds-featured-icon nds-sm">',
-      '<i class="nds-icon ' + notificationIcon(item.status) + '" aria-hidden="true"></i>',
+      '<i class="nds-icon ' + notificationIcon(status) + '" aria-hidden="true"></i>',
       '</span>',
       '<span class="nds-drawer-item">',
       '<span class="nds-drawer-item-head">',
-      '<span class="nds-tag nds-xs" data-status="' + item.status + '">',
+      '<span class="nds-tag nds-xs" data-status="' + status + '">',
       '<span class="nds-label">' + escapeHtml(notificationArabicText(item.tag)) + '</span>',
       '</span>',
       '<span class="nds-label nds-truncate">' + escapeHtml(notificationArabicText(item.title)) + '</span>',
       '</span>',
       '<span class="nds-description">' + escapeHtml(notificationArabicText(item.description)) + '</span>',
-      '</span>',
-      '</button>',
-      '<ul data-notification-actions data-state="closed">',
+      '</span>'
+    ].join("");
+  }
+
+  function notificationActionsMarkup(item) {
+    return [
+      '<ul>',
       '<li>',
       '<div class="nds-flex nds-row">',
-      '<button type="button" class="nds-btn nds-subtle nds-sm" data-notification-read>',
+      '<a href="#" class="nds-btn nds-subtle nds-sm" data-notification-read>',
       '<i class="nds-icon nds-hgi-checkmark-circle-01" aria-hidden="true"></i>',
       '<span class="nds-label">تحديد كمقروء</span>',
-      '</button>',
-      '<a href="' + escapeHtml(item.href || "admin.html") + '" class="nds-btn nds-subtle nds-sm">',
+      '</a>',
+      '<a href="' + escapeHtml(item.href || "admin.html") + '" class="nds-btn nds-subtle nds-sm" data-notification-view>',
       '<i class="nds-icon nds-hgi-eye" aria-hidden="true"></i>',
       '<span class="nds-label">عرض</span>',
       '</a>',
-      '<button type="button" class="nds-btn nds-destructive nds-sm" data-notification-dismiss>',
+      '<a href="#" class="nds-btn nds-destructive nds-sm" data-notification-dismiss>',
       '<i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i>',
       '<span class="nds-label">حذف</span>',
-      '</button>',
+      '</a>',
       '</div>',
       '</li>',
-      '</ul>',
+      '</ul>'
+    ].join("");
+  }
+
+  function notificationMarkup(item, index, expandableIndex) {
+    var itemAttribute = ' data-notification-id="' + escapeHtml(item.id) + '"' + (item.read ? ' data-notification-read-state="read"' : '');
+    if (!item.read && index === expandableIndex) {
+      return [
+        '<li' + itemAttribute + '>',
+        '<button type="button" class="nds-btn nds-subtle nds-menu-btn nds-indicator" aria-expanded="false">',
+        notificationItemInnerMarkup(item),
+        '</button>',
+        notificationActionsMarkup(item),
+        '</li>'
+      ].join("");
+    }
+
+    return [
+      '<li' + itemAttribute + '>',
+      '<a href="' + escapeHtml(item.href || "notifications.html") + '" class="nds-btn nds-subtle nds-indicator">',
+      notificationItemInnerMarkup(item),
+      '</a>',
       '</li>'
     ].join("");
+  }
+
+  function notificationsDropdownMarkup(items, drawerMinWidth) {
+    var expandableIndex = items.findIndex(function (item) { return !item.read; });
+    return [
+      '<div class="nds-dropdown-menu nds-fit" data-notifications-menu>',
+      '<div class="nds-dropdown-content">',
+      '<div class="nds-column">',
+      '<nav class="nds-drawer" style="--drawer-max-height: 40svh; min-width: ' + drawerMinWidth + '; max-width: 100%;">',
+      '<div class="nds-scroll-more nds-divided">',
+      '<ul class="nds-drawer-list nds-scroll-more-content">',
+      (items.length ? items.map(function (item, index) { return notificationMarkup(item, index, expandableIndex); }).join("") : emptyNotificationsMarkup()),
+      '</ul>',
+      '</div>',
+      '</nav>',
+      '<hr class="nds-divider">',
+      '<a href="notifications.html" class="nds-btn nds-subtle nds-full">',
+      '<i class="nds-icon nds-hgi-notification-02" aria-hidden="true"></i>',
+      '<span class="nds-label">عرض كل الإشعارات</span>',
+      '</a>',
+      '</div>',
+      '</div>',
+      '</div>'
+    ].join("");
+  }
+
+  function refreshNotificationComponents(root) {
+    var scope = root || document;
+    if (window.NDS && window.NDS.Drawer && window.NDS.Drawer.create) {
+      qsa(".nds-drawer", scope).forEach(function (drawer) {
+        window.NDS.Drawer.create(drawer);
+      });
+    }
+    if (window.NDS && window.NDS.ScrollMore && window.NDS.ScrollMore.create) {
+      qsa(".nds-scroll-more", scope).forEach(function (scrollMore) {
+        window.NDS.ScrollMore.create(scrollMore);
+      });
+    }
+  }
+
+  function notificationRootMode(root) {
+    return root && root.hasAttribute("data-mobile-notifications-root") ? "mobile" : "desktop";
+  }
+
+  function notificationRootForMode(mode) {
+    return mode === "mobile" ? qs("[data-mobile-notifications-root]") : qs("[data-notifications-root]");
+  }
+
+  function setNotificationDropdownOpen(root) {
+    if (!root) return;
+    root.dataset.state = "open opened";
+    root.setAttribute("data-state", "open opened");
+    var trigger = qs("[data-notifications-trigger]", root);
+    if (trigger) {
+      trigger.dataset.state = "active";
+      trigger.setAttribute("data-state", "active");
+      trigger.setAttribute("aria-expanded", "true");
+    }
+    refreshNotificationComponents(root);
+    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.show) {
+      window.NDS.Backdrop.show({ zIndex: 999, onClick: closeNotificationDropdown });
+    }
+  }
+
+  function keepNotificationDropdownOpen(root) {
+    var mode = notificationRootMode(root);
+    window.requestAnimationFrame(function () {
+      setNotificationDropdownOpen(notificationRootForMode(mode));
+    });
+    window.setTimeout(function () {
+      setNotificationDropdownOpen(notificationRootForMode(mode));
+    }, 80);
+  }
+
+  function rememberNotificationDropdownOpen(root) {
+    try {
+      window.sessionStorage.setItem(NOTIFICATIONS_KEEP_OPEN_KEY, notificationRootMode(root));
+    } catch (error) {}
+  }
+
+  function restoreRememberedNotificationDropdown() {
+    var mode = "";
+    try {
+      mode = window.sessionStorage.getItem(NOTIFICATIONS_KEEP_OPEN_KEY) || "";
+      if (mode) window.sessionStorage.removeItem(NOTIFICATIONS_KEEP_OPEN_KEY);
+    } catch (error) {}
+    if (!mode) return;
+    window.requestAnimationFrame(function () {
+      setNotificationDropdownOpen(notificationRootForMode(mode));
+    });
   }
 
   function emptyNotificationsMarkup() {
@@ -1300,25 +1792,10 @@
       '<button class="nds-nav-link nds-btn nds-subtle nds-indicator notification-trigger" type="button" title="الإشعارات" data-state="' + (existing.dataset.state.indexOf("open") !== -1 ? "active" : "") + '" aria-expanded="' + (existing.dataset.state.indexOf("open") !== -1 ? "true" : "false") + '" data-notifications-trigger>',
       '<i class="nds-icon nds-hgi-notification-02 nav-notification-icon" aria-hidden="true">' + (unreadCount ? '<span class="nds-badge">' + Math.min(unreadCount, 99) + '</span>' : '') + '</i>',
       '</button>',
-      '<div class="nds-dropdown-menu nds-fit" data-notifications-menu>',
-      '<div class="nds-dropdown-content">',
-      '<div class="nds-column">',
-      '<nav class="nds-drawer" style="--drawer-max-height: 40svh; min-width: 40vw; max-width: 100%;">',
-      '<div class="nds-scroll-more nds-divided" data-axis="vertical" data-state="' + (items.length > 4 ? "has-more at-end" : "") + '">',
-      '<ul class="nds-drawer-list nds-scroll-more-content">',
-      (items.length ? items.map(notificationMarkup).join("") : emptyNotificationsMarkup()),
-      '</ul>',
-      '</div>',
-      '</nav>',
-      '<hr class="nds-divider">',
-      '<a href="notifications.html" class="nds-btn nds-subtle nds-full">',
-      '<i class="nds-icon nds-hgi-notification-02" aria-hidden="true"></i>',
-      '<span class="nds-label">عرض كل الإشعارات</span>',
-      '</a>',
-      '</div>',
-      '</div>',
-      '</div>'
+      notificationsDropdownMarkup(items, "40vw")
     ].join("");
+    refreshNotificationComponents(existing);
+    restoreRememberedNotificationDropdown();
   }
 
   function openNotifications() {
@@ -1389,16 +1866,16 @@
       queueNotificationTriggerStateSync();
 
       if (event.target.closest("[data-mobile-admin-shortcut], .mobile-account-trigger")) {
-        closeNotificationDropdown();
+        closeNotificationDropdown({ localOnly: true });
       }
 
       if (event.target.closest("[data-mobile-theme-shortcut], .nds-mainNav-toggler")) {
-        closeNotificationDropdown();
-        closeMobileAccountDropdown();
+        closeNotificationDropdown({ localOnly: true });
+        closeMobileAccountDropdown({ localOnly: true });
       }
 
       if (event.target.closest("[data-mobile-notifications-root] [data-notifications-trigger]")) {
-        closeMobileAccountDropdown();
+        closeMobileAccountDropdown({ localOnly: true });
         event.preventDefault();
         event.stopPropagation();
         if (event.stopImmediatePropagation) event.stopImmediatePropagation();
@@ -1424,80 +1901,49 @@
       }
 
       if (event.target.closest(".header-admin-link, .mobile-account-trigger, [data-mobile-admin-shortcut], .nds-mainNav-toggler")) {
-        closeNotificationDropdown();
+        closeNotificationDropdown({ localOnly: true });
       }
 
-      var root = event.target.closest("[data-notifications-root], [data-mobile-notifications-root]");
       var item = event.target.closest("[data-notification-id]");
-      if (event.target.closest("[data-notification-toggle]") && item) {
-        event.preventDefault();
-        var isOpen = (item.dataset.state || "").split(/\s+/).indexOf("open") !== -1;
-        qsa("[data-notification-id]", root).forEach(function (notificationItem) {
-          var actions = qs("[data-notification-actions]", notificationItem);
-          var toggle = qs("[data-notification-toggle]", notificationItem);
-          if (notificationItem !== item && actions && (actions.dataset.state || "").indexOf("open") !== -1) {
-            animateNotificationActions(notificationItem, toggle, actions, false);
-          }
-        });
-        var itemActions = qs("[data-notification-actions]", item);
-        var itemToggle = qs("[data-notification-toggle]", item);
-        if (itemActions) animateNotificationActions(item, itemToggle, itemActions, !isOpen);
-        return;
-      }
-      if (event.target.closest("[data-notification-read]") && item) {
+      var actionRoot = item && item.closest("[data-notifications-root], [data-mobile-notifications-root]");
+      if (event.target.closest("[data-notification-view]") && item && actionRoot) {
+        var viewLink = event.target.closest("[data-notification-view]");
+        var viewHref = viewLink && viewLink.getAttribute("href") || "notifications.html";
         event.preventDefault();
         event.stopPropagation();
-        saveNotifications(loadNotifications().map(function (notification) {
-          if (notification.id === item.dataset.notificationId) notification.read = true;
-          return notification;
-        }));
-        renderNotifications();
-        return;
-      }
-      if (event.target.closest("[data-notification-dismiss]") && item) {
-        event.preventDefault();
-        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
         saveNotifications(loadNotifications().filter(function (notification) {
           return notification.id !== item.dataset.notificationId;
         }));
-        renderNotifications();
+        rememberNotificationDropdownOpen(actionRoot);
+        window.location.href = viewHref;
+        return;
+      }
+      if (event.target.closest("[data-notification-read]") && item && actionRoot) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        saveNotifications(loadNotifications().map(function (notification) {
+          if (notification.id === item.dataset.notificationId) markNotificationRead(notification);
+          return notification;
+        }));
+        keepNotificationDropdownOpen(actionRoot);
+        return;
+      }
+      if (event.target.closest("[data-notification-dismiss]") && item && actionRoot) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        saveNotifications(loadNotifications().filter(function (notification) {
+          return notification.id !== item.dataset.notificationId;
+        }));
+        keepNotificationDropdownOpen(actionRoot);
         return;
       }
     });
 
     window.addEventListener("site:notificationschange", renderNotifications);
     window.addEventListener("resize", renderNotifications);
-  }
-
-  function animateNotificationActions(item, toggle, actions, open) {
-    if (!item || !actions) return;
-    var duration = 220;
-    item.dataset.state = open ? "opening" : "closing";
-    actions.dataset.state = open ? "opening" : "closing";
-    if (toggle) {
-      toggle.setAttribute("aria-expanded", String(open));
-      toggle.dataset.state = open ? "active" : "";
-    }
-
-    if (open) {
-      actions.style.height = "0px";
-      actions.offsetHeight;
-      actions.style.height = actions.scrollHeight + "px";
-    } else {
-      actions.style.height = actions.scrollHeight + "px";
-      actions.offsetHeight;
-      actions.style.height = "0px";
-    }
-
-    window.setTimeout(function () {
-      item.dataset.state = open ? "open" : "closed";
-      actions.dataset.state = open ? "open" : "closed";
-      actions.style.height = "";
-      if (toggle && !open) {
-        toggle.dataset.state = "";
-        toggle.removeAttribute("data-state");
-      }
-    }, duration + 40);
   }
 
   function closeNotificationDropdown(options) {
@@ -2496,7 +2942,7 @@
   function renderPagesPage(data) {
     var empty = qs("[data-pages-empty]");
     var content = qs("[data-pages-content]");
-    var pages = visibleItems(data.pages || []);
+    var pages = publicPageItems(data);
     var hasPages = pages.length > 0;
     if (empty) empty.hidden = hasPages;
     if (content) content.hidden = !hasPages;
@@ -2567,6 +3013,7 @@
       read.innerHTML = '<i class="nds-icon nds-hgi-checkmark-circle-01" aria-hidden="true"></i><span class="nds-label">' + (item.read ? "مقروء" : "تحديد كمقروء") + '</span>';
       var view = el("a", "nds-btn nds-subtle nds-sm");
       view.href = item.href || "admin.html";
+      view.dataset.notificationView = "true";
       view.innerHTML = '<i class="nds-icon nds-hgi-eye" aria-hidden="true"></i><span class="nds-label">عرض</span>';
       var dismiss = el("button", "nds-btn nds-destructive nds-sm");
       dismiss.type = "button";
@@ -2597,14 +3044,26 @@
       if (document.body.dataset.page !== "notifications") return;
       var card = event.target.closest("[data-notification-id]");
       if (!card) return;
+      if (event.target.closest("[data-notification-view]")) {
+        var viewLink = event.target.closest("[data-notification-view]");
+        var viewHref = viewLink && viewLink.getAttribute("href") || "notifications.html";
+        event.preventDefault();
+        saveNotifications(loadNotifications().filter(function (notification) {
+          return notification.id !== card.dataset.notificationId;
+        }));
+        window.location.href = viewHref;
+        return;
+      }
       if (event.target.closest("[data-notification-read]")) {
+        event.preventDefault();
         saveNotifications(loadNotifications().map(function (notification) {
-          if (notification.id === card.dataset.notificationId) notification.read = true;
+          if (notification.id === card.dataset.notificationId) markNotificationRead(notification);
           return notification;
         }));
         renderNotificationsPage();
       }
       if (event.target.closest("[data-notification-dismiss]")) {
+        event.preventDefault();
         saveNotifications(loadNotifications().filter(function (notification) {
           return notification.id !== card.dataset.notificationId;
         }));

@@ -78,6 +78,19 @@
   --colors-primary-sa-flag-800: #14573a;
   --colors-primary-sa-flag-900: #092a1e;
   --colors-secondary-gold-600: #dba102;
+  --colors-green-50: #f3faf7;
+  --colors-green-100: #dcfae6;
+  --colors-green-600: #079455;
+  --colors-green-700: #067647;
+  --colors-blue-50: #eff8ff;
+  --colors-blue-600: #1570ef;
+  --colors-blue-700: #175cd3;
+  --colors-yellow-50: #fffaeb;
+  --colors-yellow-600: #dc6803;
+  --colors-yellow-700: #b54708;
+  --colors-red-50: #fef3f2;
+  --colors-red-600: #d92d20;
+  --colors-red-700: #b42318;
   --colors-neutral-50: #f9fafb;
   --colors-neutral-100: #f3f4f6;
   --colors-neutral-200: #e5e7eb;
@@ -92,13 +105,33 @@
   --background-card: var(--colors-base-white);
   --background-card-hovered: var(--colors-neutral-50);
   --background-brand-light: var(--colors-primary-sa-flag-50);
+  --background-success: var(--colors-green-600);
+  --background-success-25: #f6fef9;
+  --background-success-light: var(--colors-green-50);
+  --background-info: var(--colors-blue-600);
+  --background-info-25: #f5fbff;
+  --background-info-light: var(--colors-blue-50);
+  --background-warning: var(--colors-yellow-600);
+  --background-warning-25: #fffcf5;
+  --background-warning-light: var(--colors-yellow-50);
+  --background-error: var(--colors-red-600);
+  --background-error-25: #fffbfa;
+  --background-error-light: var(--colors-red-50);
   --text-default: var(--colors-base-black);
   --text-display: var(--colors-neutral-800);
   --text-primary: var(--colors-primary-sa-flag-700);
   --text-secondary-paragraph: var(--colors-neutral-700);
   --text-oncolor-primary: var(--colors-base-white);
+  --text-success: var(--colors-green-700);
+  --text-info: var(--colors-blue-700);
+  --text-warning: var(--colors-yellow-700);
+  --text-error: var(--colors-red-700);
   --border-neutral-primary: var(--colors-neutral-300);
   --border-primary: var(--colors-primary-sa-flag-200);
+  --border-success-light: #abefc6;
+  --border-info-light: #b2ddff;
+  --border-warning-light: #fedf89;
+  --border-error-light: #fecdca;
   --divider-color: rgba(22, 22, 22, 0.12);
   --shadow-sm: 0 1px 2px rgba(16, 24, 40, 0.06);
   --shadow-md: 0 4px 8px -2px rgba(16, 24, 40, 0.1), 0 2px 4px -2px rgba(16, 24, 40, 0.06);
@@ -1466,6 +1499,123 @@ body[data-state="backdrop"]:has(.nds-modal:not([hidden])) .site-header {
   --nds-icon: var(--nds-icon-eye);
 }
 
+.nds-loading,
+[data-state~="loading"] {
+  --_loading-size: var(--loading-size, 32px);
+  --_loading-border: var(--loading-border, 3px);
+  --_loading-color: var(--loading-color, var(--background-primary, var(--colors-primary-sa-flag-600)));
+  --_loading-track: var(--loading-track, rgba(22, 22, 22, 0.12));
+  --_loading-opacity: var(--loading-opacity, 0.15);
+  position: relative;
+  pointer-events: none;
+}
+
+.nds-loading:not(.nds-btn) > *,
+[data-state~="loading"]:not(.nds-btn) > * {
+  opacity: var(--_loading-opacity);
+}
+
+.nds-btn.nds-loading > *,
+.nds-btn[data-state~="loading"] > * {
+  opacity: 0;
+}
+
+.nds-btn[data-logout-loading].nds-loading,
+.nds-btn[data-logout-loading][data-state~="loading"],
+.nds-btn.nds-destructive.nds-loading,
+.nds-btn.nds-destructive[data-state~="loading"] {
+  --loading-color: var(--background-error, var(--colors-red-600));
+  --loading-track: rgba(217, 45, 32, 0.18);
+  background-color: var(--background-error-light, var(--colors-red-50));
+  border-color: var(--border-error-light, #fecdca);
+}
+
+body[data-auth-logout-loading="true"] .site-header :is(.header-admin-link, .nav-admin-link, .mobile-account-trigger),
+body[data-auth-logout-loading="true"] .site-header [data-mobile-admin-shortcut] > .nds-btn,
+body[data-auth-logout-loading="true"] .site-header .account-login-trigger,
+body[data-auth-logout-loading="true"] .site-header [data-login-trigger] {
+  --loading-color: var(--background-error, var(--colors-red-600));
+  --loading-track: rgba(217, 45, 32, 0.18);
+  background-color: var(--background-error-light, var(--colors-red-50));
+  border-color: var(--border-error-light, #fecdca);
+}
+
+.nds-loading::after,
+[data-state~="loading"]::after {
+  content: "";
+  position: absolute;
+  inset: 50% auto auto 50%;
+  width: var(--_loading-size);
+  height: var(--_loading-size);
+  transform: translate(-50%, -50%);
+  border: var(--_loading-border) solid var(--_loading-track);
+  border-top-color: var(--_loading-color);
+  border-radius: 50%;
+  animation: nds-spin 1s linear infinite;
+  z-index: 9;
+}
+
+.nds-loading.nds-xs,
+[data-state~="loading"].nds-xs {
+  --_loading-size: var(--loading-size, 24px);
+  --_loading-border: var(--loading-border, 2px);
+}
+
+.nds-loading.nds-xxs,
+[data-state~="loading"].nds-xxs {
+  --_loading-size: var(--loading-size, 20px);
+  --_loading-border: var(--loading-border, 2px);
+}
+
+.nds-loading.nds-sm,
+[data-state~="loading"].nds-sm {
+  --_loading-size: var(--loading-size, 28px);
+  --_loading-border: var(--loading-border, 2px);
+}
+
+.nds-loading.nds-md,
+[data-state~="loading"].nds-md {
+  --_loading-size: var(--loading-size, 32px);
+  --_loading-border: var(--loading-border, 3px);
+}
+
+.nds-loading.nds-lg,
+[data-state~="loading"].nds-lg {
+  --_loading-size: var(--loading-size, 36px);
+  --_loading-border: var(--loading-border, 3px);
+}
+
+.nds-loading.nds-xl,
+[data-state~="loading"].nds-xl {
+  --_loading-size: var(--loading-size, 40px);
+  --_loading-border: var(--loading-border, 4px);
+}
+
+.nds-loading.nds-2xl,
+[data-state~="loading"].nds-2xl {
+  --_loading-size: var(--loading-size, 44px);
+  --_loading-border: var(--loading-border, 4px);
+}
+
+.nds-loading.nds-neutral,
+[data-state~="loading"].nds-neutral {
+  --_loading-color: var(--loading-color, var(--colors-base-black));
+}
+
+html[data-theme="dark"] .nds-loading,
+html[data-theme="dark"] [data-state~="loading"],
+.nds-loading.nds-oncolor,
+[data-state~="loading"].nds-oncolor {
+  --_loading-color: var(--loading-color, var(--colors-base-white));
+  --_loading-track: var(--loading-track, rgba(255, 255, 255, 0.22));
+}
+
+@keyframes nds-spin {
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
 .nds-alert-placeholder {
   position: fixed;
   z-index: 9999;
@@ -1528,6 +1678,38 @@ body[data-state="backdrop"]:has(.nds-modal:not([hidden])) .site-header {
   background-color: var(--_alert-icon-bg);
 }
 
+.nds-alert.nds-toast:not([hidden]) .nds-feedback-icon {
+  width: var(--nds-icon-size);
+  height: var(--nds-icon-size);
+  background-color: transparent;
+}
+
+.nds-alert.nds-toast:not([hidden]) .nds-alert-close {
+  background: transparent;
+}
+
+.nds-alert.nds-toast:not([hidden]) .nds-alert-close:is(:hover, :focus-visible, [data-state~="active"]) {
+  background: transparent;
+}
+
+.nds-alert.nds-card.nds-color:not([hidden]) {
+  background-color: var(--background-default);
+}
+
+.nds-alert.nds-card.nds-color:not([hidden])::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background-color: var(--_card-bg, var(--background-default));
+  pointer-events: none;
+  z-index: -1;
+}
+
+.nds-alert.nds-card.nds-color:not([hidden]) .nds-alert-title {
+  color: var(--_card-title, var(--text-display));
+}
+
 .nds-alert.nds-card:not([hidden])[data-status="success"] {
   --alert-stripe: var(--background-success, var(--colors-green-600));
   --alert-icon-bg: var(--background-success-light, var(--colors-green-50));
@@ -1546,6 +1728,30 @@ body[data-state="backdrop"]:has(.nds-modal:not([hidden])) .site-header {
 .nds-alert.nds-card:not([hidden]):is([data-status="error"], [data-status="critical"]) {
   --alert-stripe: var(--background-error, var(--colors-red-600));
   --alert-icon-bg: var(--background-error-light, var(--colors-red-50));
+}
+
+.nds-alert.nds-card.nds-color:not([hidden])[data-status="success"] {
+  --_card-bg: var(--background-success-25);
+  --_card-border: var(--border-success-light);
+  --_card-title: var(--text-success);
+}
+
+.nds-alert.nds-card.nds-color:not([hidden])[data-status="info"] {
+  --_card-bg: var(--background-info-25);
+  --_card-border: var(--border-info-light);
+  --_card-title: var(--text-info);
+}
+
+.nds-alert.nds-card.nds-color:not([hidden])[data-status="warning"] {
+  --_card-bg: var(--background-warning-25);
+  --_card-border: var(--border-warning-light);
+  --_card-title: var(--text-warning);
+}
+
+.nds-alert.nds-card.nds-color:not([hidden]):is([data-status="error"], [data-status="critical"]) {
+  --_card-bg: var(--background-error-25);
+  --_card-border: var(--border-error-light);
+  --_card-title: var(--text-error);
 }
 
 .nds-alert.nds-toast {
@@ -2072,6 +2278,44 @@ body[data-state="backdrop"]:has(.nds-modal:not([hidden])) .site-header {
   animation: captcha-refresh-spin 0.8s linear infinite;
 }
 
+.auth-loading-surface[data-state~="loading"] {
+  min-height: 280px;
+}
+
+.auth-loading-overlay {
+  position: fixed;
+  z-index: 10000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: var(--site-gutter);
+  background: rgba(17, 25, 40, 0.24);
+  backdrop-filter: blur(2px);
+}
+
+.auth-loading-overlay[hidden] {
+  display: none;
+}
+
+.auth-loading-card {
+  width: min(90vw, 320px);
+  min-height: 120px;
+  display: grid;
+  place-items: center;
+  padding: var(--spacing-4xl);
+  border: 1px solid var(--border-neutral-primary);
+  border-radius: var(--radius-md);
+  background: var(--background-default);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-display);
+}
+
+.auth-loading-message {
+  font-size: var(--typo-text-md-FS);
+  line-height: var(--typo-text-md-LH);
+  font-weight: 600;
+}
+
 @keyframes captcha-refresh-spin {
   to {
     transform: rotate(360deg);
@@ -2279,6 +2523,8 @@ textarea.nds-input {
 }
 
 .toast {
+  --toast-stripe: var(--border-neutral-primary);
+  --toast-icon-bg: var(--background-neutral-light, var(--colors-neutral-100));
   position: fixed;
   z-index: 40;
   inset-inline-start: 50%;
@@ -2286,10 +2532,40 @@ textarea.nds-input {
   transform: translateX(50%);
   max-width: min(90vw, 420px);
   padding: var(--spacing-lg) var(--spacing-xl);
+  padding-inline-start: calc(var(--spacing-xl) + 8px);
   border-radius: var(--radius-sm);
-  color: var(--text-oncolor-primary);
-  background: var(--colors-primary-sa-flag-800);
+  border: 1px solid var(--border-neutral-primary);
+  color: var(--text-display);
+  background: var(--background-default);
   box-shadow: var(--shadow-lg);
+  overflow: hidden;
+}
+
+.toast::after {
+  content: "";
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 8px;
+  height: 100%;
+  background-color: var(--toast-stripe);
+  opacity: 0.7;
+}
+
+.toast[data-status="success"] {
+  --toast-stripe: var(--background-success);
+}
+
+.toast[data-status="info"] {
+  --toast-stripe: var(--background-info);
+}
+
+.toast[data-status="warning"] {
+  --toast-stripe: var(--background-warning);
+}
+
+.toast:is([data-status="error"], [data-status="critical"]) {
+  --toast-stripe: var(--background-error);
 }
 
 @media (max-width: 960px) {
@@ -2539,6 +2815,8 @@ body {
   inset-block-start: 0;
   inset-inline: 0;
   z-index: 1200;
+  background: var(--background-nav);
+  box-shadow: var(--shadow-md);
   backdrop-filter: blur(14px);
 }
 
@@ -2673,7 +2951,6 @@ body {
   font-size: var(--site-header-icon-size);
   line-height: var(--site-header-icon-size);
   display: block;
-  vertical-align: top;
 }
 
 .nds-badge {
@@ -2765,7 +3042,7 @@ body {
 .nds-main-nav .notification-dropdown .nds-dropdown-menu {
   display: flex;
   flex-direction: column;
-  overflow: visible;
+  overflow: clip;
   padding-block-end: 0;
   opacity: 0;
   visibility: hidden;
@@ -2783,7 +3060,7 @@ body {
 
 .nds-main-nav .notification-dropdown .nds-dropdown-menu > .nds-dropdown-content,
 .nds-main-nav .notification-dropdown:is([data-state~="opening"], [data-state~="closing"]) .nds-dropdown-menu > .nds-dropdown-content {
-  overflow: visible;
+  overflow: clip;
   transform: none;
   transition: none;
 }
@@ -2800,15 +3077,36 @@ body {
 
 .notification-dropdown .nds-scroll-more {
   max-height: min(40svh, 360px);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.notification-dropdown .nds-scroll-more-content {
+  flex: 1 1 auto;
+  min-height: 0;
   overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.notification-dropdown .nds-scroll-more-content::-webkit-scrollbar {
+  display: none;
 }
 
 .nds-drawer-list {
-  display: grid;
+  display: flex;
+  flex-direction: column;
   gap: 0;
   padding: 0;
   margin: 0;
   list-style: none;
+}
+
+.notification-dropdown .nds-drawer-list li {
+  display: flex;
+  flex-direction: column;
 }
 
 .nds-drawer-list > li + li {
@@ -2824,6 +3122,23 @@ body {
   padding: var(--spacing-lg);
   text-align: start;
   white-space: normal;
+}
+
+.notification-dropdown .nds-menu-btn::after {
+  content: "";
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  margin-inline-start: auto;
+  background: currentColor;
+  mask: var(--nds-icon-arrow-left-01) center / contain no-repeat;
+  rotate: -90deg;
+  transition: transform var(--nds-transition);
+}
+
+.notification-dropdown .nds-menu-btn:is([data-state~="opening"], [data-state~="open"], [aria-expanded="true"])::after {
+  transform: rotate(180deg);
 }
 
 .nds-featured-icon.nds-sm {
@@ -2920,22 +3235,22 @@ body {
   list-style: none;
 }
 
-.notification-dropdown [data-notification-actions] {
+.notification-dropdown .nds-drawer-list li > ul {
   display: none;
   height: 0;
   overflow-y: clip;
   transition: height var(--nds-transition);
 }
 
-.notification-dropdown [data-notification-actions]:is([data-state~="opening"], [data-state~="open"], [data-state~="closing"]) {
+.notification-dropdown .nds-drawer-list li > ul:is([data-state~="opening"], [data-state~="open"], [data-state~="closing"]) {
   display: block;
 }
 
-.notification-dropdown [data-notification-actions][data-state~="open"] {
+.notification-dropdown .nds-drawer-list li > ul[data-state~="open"] {
   height: auto;
 }
 
-.notification-dropdown [data-notification-actions] .nds-flex {
+.notification-dropdown .nds-drawer-list li > ul .nds-flex {
   align-items: center;
   flex-wrap: wrap;
   gap: var(--spacing-xs);
@@ -4004,7 +4319,7 @@ body {
     background: transparent;
     box-shadow: none;
     transform: none !important;
-    z-index: 1300;
+    z-index: 1190;
   }
 
   .nds-main-nav .nds-nav-minimal .nds-dropdown .nds-dropdown-menu > .nds-dropdown-content {
@@ -4055,7 +4370,7 @@ body {
 
   .nds-main-nav .nds-nav-minimal .notification-dropdown .nds-dropdown-menu {
     display: flex;
-    overflow: visible;
+    overflow: clip;
     opacity: 0;
     visibility: hidden;
     pointer-events: none;
@@ -4455,4 +4770,717 @@ body {
   .nds-main-nav .mobile-site-datetime {
     max-width: 108px;
   }
+}
+
+/* NDS reference notification dropdown parity */
+.notification-dropdown {
+  --featuredicons-background-brand-light: var(--colors-primary-sa-flag-50);
+  --featuredicons-icon-primary: var(--colors-primary-sa-flag-700);
+  --featuredicons-background-success-light: var(--colors-primary-sa-flag-50);
+  --featuredicons-icon-success: var(--colors-primary-sa-flag-700);
+  --featuredicons-background-info-light: #eff8ff;
+  --featuredicons-icon-info: #175cd3;
+  --featuredicons-background-warning-light: #fffaeb;
+  --featuredicons-icon-warning: #b54708;
+  --featuredicons-background-error-light: #fef3f2;
+  --featuredicons-icon-error: #b42318;
+  --tag-background-neutral-light: var(--colors-neutral-50);
+  --tag-text-neutral: var(--colors-neutral-700);
+  --tag-border-neutral-light: var(--colors-neutral-200);
+  font-family: var(--nds-font-family);
+}
+
+.notification-dropdown .nds-dropdown-content {
+  background: var(--background-nav);
+}
+
+.notification-dropdown .nds-column {
+  display: flex !important;
+  flex-direction: column;
+  gap: var(--spacing-md) !important;
+  width: 100%;
+  padding: var(--spacing-lg) !important;
+}
+
+.notification-dropdown .nds-divider {
+  margin-block: 0;
+}
+
+.notification-dropdown .nds-drawer {
+  --_max-height: var(--drawer-max-height, 400px);
+  --_divider: var(--drawer-divider, var(--divider-color));
+  width: 100%;
+  min-width: 40vw !important;
+  max-width: 100%;
+  max-height: var(--_max-height);
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.notification-dropdown .nds-drawer > .nds-scroll-more {
+  --scroll-fade: 48px;
+  --_scroll-fade: var(--scroll-fade);
+  --_fade-start: var(--_scroll-fade);
+  --_fade-end: var(--_scroll-fade);
+  --scroll-max-height: var(--drawer-max-height, 400px);
+  flex: 1;
+  min-height: 0;
+  max-block-size: var(--scroll-max-height);
+  max-height: var(--scroll-max-height);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.notification-dropdown .nds-scroll-more-content {
+  --mask-fade-distance: var(--_scroll-fade);
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.notification-dropdown .nds-scroll-more-content::-webkit-scrollbar {
+  display: none;
+}
+
+.notification-dropdown .nds-scroll-more[data-axis="vertical"][data-state~="has-more"] > .nds-scroll-more-content {
+  mask-image: linear-gradient(to bottom, transparent 0%, black var(--_fade-start), black calc(100% - var(--_fade-end)), transparent 100%);
+}
+
+.notification-dropdown .nds-scroll-more[data-state~="at-start"] {
+  --_fade-start: 0px;
+}
+
+.notification-dropdown .nds-scroll-more[data-state~="at-end"] {
+  --_fade-end: 0px;
+}
+
+.notification-dropdown .nds-drawer-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.notification-dropdown .nds-drawer-list li {
+  display: flex;
+  flex-direction: column;
+}
+
+.notification-dropdown .nds-drawer-list > li + li {
+  border-block-start: 1px solid var(--divider-color);
+}
+
+.notification-dropdown .nds-drawer-list > li > .nds-btn {
+  --btn-size: 32px;
+  --btn-height-min: 36px;
+  --btn-width: 100%;
+  --btn-gap: var(--spacing-md);
+  width: 100%;
+  min-height: 36px;
+  height: auto;
+  justify-content: flex-start;
+  align-items: flex-start;
+  gap: var(--spacing-md);
+  padding-block: var(--spacing-md);
+  padding-inline: var(--spacing-xl);
+  text-align: start;
+  white-space: normal;
+  text-decoration: none;
+}
+
+.notification-dropdown .nds-drawer .nds-btn.nds-indicator {
+  position: relative;
+}
+
+.notification-dropdown .nds-drawer-list .nds-menu-btn {
+  --btn-bg-selected: var(--button-background-transparent-default, transparent);
+  --btn-indicator-selected: var(--background-primary, var(--colors-primary-sa-flag-600));
+}
+
+.notification-dropdown .nds-menu-btn::after {
+  content: "";
+  display: inline-block;
+  position: relative;
+  width: 20px;
+  height: 20px;
+  flex: 0 0 20px;
+  margin-inline-start: auto;
+  background: currentColor;
+  mask: var(--nds-icon-arrow-left-01) center / contain no-repeat;
+  rotate: -90deg;
+  transition: transform 0.1s ease;
+}
+
+.notification-dropdown .nds-menu-btn:is([data-state~="opening"], [data-state~="open"], [aria-expanded="true"])::after,
+.notification-dropdown :is([data-state~="opening"], [data-state~="open"]) > .nds-menu-btn::after {
+  transform: rotate(180deg);
+}
+
+.notification-dropdown .nds-featured-icon {
+  --featuredicons-bg-color: var(--icon-bg-color, var(--featuredicons-background-brand-light));
+  --featuredicons-icon-color: var(--icon-color, var(--featuredicons-icon-primary));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  width: var(--nds-icon-size);
+  height: var(--nds-icon-size);
+  padding: calc(var(--nds-icon-size) / 4);
+  border: 0;
+  border-radius: calc((var(--nds-icon-size) / 4) - 2px);
+  background-color: var(--featuredicons-bg-color);
+  color: var(--featuredicons-icon-color);
+  font-size: calc(var(--nds-icon-size) / 2) !important;
+  line-height: calc(var(--nds-icon-size) / 2) !important;
+  flex: 0 0 var(--nds-icon-size);
+}
+
+.notification-dropdown .nds-featured-icon.nds-sm {
+  --nds-icon-size: 32px;
+}
+
+.notification-dropdown [data-status="success"] {
+  --icon-bg-color: var(--featuredicons-background-success-light);
+  --icon-color: var(--featuredicons-icon-success);
+}
+
+.notification-dropdown [data-status="info"] {
+  --icon-bg-color: var(--featuredicons-background-info-light);
+  --icon-color: var(--featuredicons-icon-info);
+}
+
+.notification-dropdown [data-status="warning"] {
+  --icon-bg-color: var(--featuredicons-background-warning-light);
+  --icon-color: var(--featuredicons-icon-warning);
+}
+
+.notification-dropdown [data-status="error"] {
+  --icon-bg-color: var(--featuredicons-background-error-light);
+  --icon-color: var(--featuredicons-icon-error);
+}
+
+.notification-dropdown .nds-drawer-item {
+  display: flex !important;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  flex: 1;
+  min-width: 0;
+  align-items: flex-start;
+  width: 100%;
+}
+
+.notification-dropdown .nds-drawer-item-head {
+  display: block !important;
+  width: 100%;
+  min-width: 0;
+}
+
+.notification-dropdown .nds-drawer-item-head .nds-tag {
+  float: inline-end;
+}
+
+.notification-dropdown .nds-drawer-item-head > .nds-label.nds-truncate {
+  display: block !important;
+  min-width: 0;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  white-space: nowrap !important;
+}
+
+.notification-dropdown .nds-description {
+  width: 100%;
+  color: var(--text-secondary-paragraph);
+  font-size: var(--typo-text-sm-FS);
+  line-height: var(--typo-text-sm-LH);
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.notification-dropdown .nds-tag {
+  --_bg: var(--tag-bg, var(--tag-background-neutral-light));
+  --_text: var(--tag-text, var(--tag-text-neutral));
+  --_border: var(--tag-border, var(--tag-border-neutral-light));
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  height: var(--_tag-height);
+  min-width: fit-content;
+  padding: var(--spacing-none) var(--_tag-padding-inline);
+  border: 1px solid var(--_border);
+  border-radius: var(--radius-sm);
+  background-color: var(--_bg);
+  color: var(--_text);
+  font-size: var(--_tag-fs);
+  line-height: var(--_tag-height);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.notification-dropdown .nds-tag.nds-xs {
+  --_tag-height: 20px;
+  --_tag-fs: var(--typo-text-xs-FS);
+  --_tag-padding-inline: var(--spacing-md);
+}
+
+.notification-dropdown .nds-tag[data-status="success"] {
+  --tag-bg: var(--colors-primary-sa-flag-50);
+  --tag-text: var(--colors-primary-sa-flag-700);
+  --tag-border: var(--colors-primary-sa-flag-200);
+}
+
+.notification-dropdown .nds-tag[data-status="info"] {
+  --tag-bg: #eff8ff;
+  --tag-text: #175cd3;
+  --tag-border: #b2ddff;
+}
+
+.notification-dropdown .nds-tag[data-status="warning"] {
+  --tag-bg: #fffaeb;
+  --tag-text: #b54708;
+  --tag-border: #fedf89;
+}
+
+.notification-dropdown .nds-tag[data-status="error"] {
+  --tag-bg: #fef3f2;
+  --tag-text: #b42318;
+  --tag-border: #fecdca;
+}
+
+.notification-dropdown .nds-drawer-list li > ul {
+  display: none;
+  height: 0;
+  margin: 0;
+  padding: 0 var(--spacing-lg) var(--spacing-lg);
+  list-style: none;
+  overflow-y: clip;
+  transition: height var(--nds-transition);
+}
+
+.notification-dropdown .nds-drawer-list li > ul:is([data-state~="opening"], [data-state~="open"], [data-state~="closing"]) {
+  display: block;
+}
+
+.notification-dropdown .nds-drawer-list li > ul[data-state~="open"] {
+  height: auto;
+}
+
+.notification-dropdown .nds-drawer-list li > ul .nds-flex.nds-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.notification-dropdown .nds-dropdown-menu .nds-label {
+  position: static !important;
+  display: inline-flex !important;
+  width: auto !important;
+  height: auto !important;
+  overflow: visible !important;
+  clip: auto !important;
+}
+
+.notification-dropdown .nds-column > .nds-btn.nds-full:last-child {
+  --btn-width: 100%;
+  width: 100%;
+  min-height: 40px;
+  justify-content: center;
+}
+
+.notification-empty {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xl);
+  color: var(--text-secondary-paragraph);
+}
+
+@media (min-width: 961px) {
+  .nds-main-nav .notification-dropdown .nds-dropdown-menu.nds-fit {
+    display: none;
+    position: absolute !important;
+    inset-inline: auto;
+    inset-block-start: 100%;
+    left: 50%;
+    min-width: fit-content !important;
+    max-inline-size: calc(100vw - 16px);
+    max-width: calc(100vw - 16px);
+    overflow-y: clip;
+    padding-block-end: 1rem;
+    border-radius: 0;
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    transition: none;
+    will-change: auto;
+  }
+
+  .nds-main-nav .notification-dropdown[data-state~="open"] .nds-dropdown-menu.nds-fit {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .nds-main-nav .notification-dropdown .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    overflow: clip !important;
+    border-radius: 0 0 var(--radius-lg) var(--radius-lg) !important;
+    clip-path: none;
+    background: var(--background-nav);
+    box-shadow: var(--shadow-md);
+    transform: translateY(-100%) !important;
+    transition: transform var(--nds-transition) !important;
+  }
+
+  .nds-main-nav .notification-dropdown[data-state~="open"] .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    transform: translateY(0) !important;
+  }
+
+  .nds-main-nav .notification-dropdown:is([data-state~="opening"], [data-state~="closing"]) .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    transform: translateY(-100%) !important;
+  }
+
+  .nds-main-nav .notification-dropdown[data-state~="opened"] .nds-dropdown-menu.nds-fit {
+    overflow: visible;
+    padding-block-end: 0 !important;
+  }
+
+  .nds-main-nav .notification-dropdown[data-state~="opened"] .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    overflow: visible !important;
+  }
+}
+
+/* Final NDS notification drawer parity pass */
+.notification-dropdown {
+  --notification-text-secondary: #6c727e;
+  --notification-button-fs: 14px;
+  --notification-button-lh: 21px;
+  --notification-text-sm-lh: 20px;
+  --notification-title-fw: 500;
+  --notification-menu-title-fw: 600;
+  --notification-btn-padding-inline: 12px;
+  --notification-btn-padding-block: var(--spacing-md);
+  --notification-hover-bg: var(--colors-neutral-100);
+  --featuredicons-background-brand-light: var(--colors-primary-sa-flag-50);
+  --featuredicons-icon-primary: var(--colors-primary-sa-flag-600-primary, var(--colors-primary-sa-flag-700));
+  --tag-background-success-light: #ecfdf3;
+  --tag-text-success: #085d3a;
+  --tag-border-success-light: #abefc6;
+  --tag-background-info-light: #eff8ff;
+  --tag-text-info: #1849a9;
+  --tag-border-info-light: #b2ddff;
+  --tag-background-warning-light: #fffaeb;
+  --tag-text-warning: #93370c;
+  --tag-border-warning-light: #fedf89;
+  --tag-background-error-light: #fef3f2;
+  --tag-text-error: #912018;
+  --tag-border-error-light: #fecdca;
+}
+
+html[data-theme="dark"] .notification-dropdown {
+  --notification-text-secondary: var(--text-secondary-paragraph);
+  --notification-hover-bg: var(--colors-neutral-200);
+}
+
+.notification-dropdown .nds-dropdown-content,
+.notification-dropdown .nds-drawer,
+.notification-dropdown .nds-drawer-list {
+  color: var(--text-default);
+  font-family: var(--nds-font-family);
+}
+
+.notification-dropdown .nds-drawer-list > li > .nds-btn {
+  --btn-size: 32px;
+  --btn-height-min: 36px;
+  --btn-width: 100%;
+  --btn-gap: var(--spacing-md);
+  width: 100%;
+  min-width: var(--btn-size);
+  min-height: 0;
+  height: auto;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--btn-gap);
+  padding-block: var(--notification-btn-padding-block);
+  padding-inline: var(--notification-btn-padding-inline);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  box-shadow: none;
+  color: var(--text-default);
+  font-size: var(--notification-button-fs);
+  line-height: var(--notification-button-lh);
+  font-weight: 400;
+  text-align: start;
+  text-decoration: none;
+  white-space: normal;
+}
+
+.notification-dropdown .nds-drawer-list > li > .nds-btn:is(:hover, :focus-visible, [data-state~="active"], [data-state~="selected"]) {
+  background: var(--notification-hover-bg);
+  color: var(--text-default);
+}
+
+.notification-dropdown .nds-drawer-list > li[data-notification-read-state="read"] > .nds-btn {
+  cursor: pointer;
+}
+
+.notification-dropdown .nds-drawer-list > li[data-notification-read-state="read"] > .nds-btn::after {
+  display: none;
+}
+
+.notification-dropdown .nds-drawer-item {
+  font-weight: 400;
+}
+
+.notification-dropdown .nds-drawer-item-head > .nds-label.nds-truncate {
+  color: var(--text-default);
+  font-size: var(--notification-button-fs);
+  line-height: var(--notification-button-lh);
+  font-weight: var(--notification-title-fw);
+}
+
+.notification-dropdown .nds-menu-btn .nds-drawer-item-head > .nds-label.nds-truncate {
+  font-weight: var(--notification-menu-title-fw);
+}
+
+.notification-dropdown .nds-description {
+  color: var(--notification-text-secondary);
+  font-size: var(--typo-text-sm-FS);
+  line-height: var(--notification-text-sm-lh);
+  font-weight: 400;
+}
+
+.notification-dropdown .nds-tag {
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+}
+
+.notification-dropdown .nds-tag .nds-label {
+  display: flex !important;
+  align-items: center;
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+  color: inherit;
+}
+
+.notification-dropdown .nds-tag.nds-xs {
+  height: 20px;
+  min-height: 20px;
+  padding-block: 0;
+  padding-inline: var(--spacing-md);
+  font-size: var(--typo-text-xs-FS);
+  line-height: 20px;
+}
+
+.notification-dropdown .nds-tag[data-status="success"] {
+  --tag-bg: var(--tag-background-success-light);
+  --tag-text: var(--tag-text-success);
+  --tag-border: var(--tag-border-success-light);
+}
+
+.notification-dropdown .nds-tag[data-status="info"] {
+  --tag-bg: var(--tag-background-info-light);
+  --tag-text: var(--tag-text-info);
+  --tag-border: var(--tag-border-info-light);
+}
+
+.notification-dropdown .nds-tag[data-status="warning"] {
+  --tag-bg: var(--tag-background-warning-light);
+  --tag-text: var(--tag-text-warning);
+  --tag-border: var(--tag-border-warning-light);
+}
+
+.notification-dropdown .nds-tag[data-status="error"] {
+  --tag-bg: var(--tag-background-error-light);
+  --tag-text: var(--tag-text-error);
+  --tag-border: var(--tag-border-error-light);
+}
+
+.notification-dropdown .nds-featured-icon {
+  width: 32px;
+  height: 32px;
+  flex-basis: 32px;
+  border: 0;
+  border-radius: 6px;
+  background-color: var(--featuredicons-background-brand-light);
+  color: var(--featuredicons-icon-primary);
+}
+
+.notification-dropdown .nds-featured-icon .nds-icon {
+  width: 16px;
+  height: 16px;
+  font-size: 16px;
+  line-height: 16px;
+}
+
+.notification-dropdown .nds-drawer-list li > ul {
+  margin: 0;
+  margin-inline-start: var(--spacing-xl);
+  padding: 0;
+  list-style: none;
+}
+
+.notification-dropdown .nds-drawer-list li > ul > li {
+  display: flex;
+  color: inherit;
+}
+
+.notification-dropdown .nds-drawer-list li > ul > li:first-child {
+  padding-block-start: var(--spacing-md);
+}
+
+.notification-dropdown .nds-drawer-list li > ul > li:last-child {
+  padding-block-end: var(--spacing-md);
+}
+
+.notification-dropdown .nds-drawer-list li > ul .nds-btn.nds-sm,
+.notification-dropdown .nds-column > .nds-btn.nds-full:last-child {
+  --btn-size: 32px;
+  min-width: 32px;
+  min-height: 32px;
+  padding-inline: var(--notification-btn-padding-inline);
+  border-radius: var(--radius-sm);
+  font-size: var(--notification-button-fs);
+  line-height: var(--notification-button-lh);
+  font-weight: 500;
+}
+
+.notification-dropdown .nds-drawer-list li > ul .nds-btn.nds-sm .nds-label,
+.notification-dropdown .nds-column > .nds-btn.nds-full:last-child .nds-label {
+  font-size: inherit;
+  line-height: inherit;
+  font-weight: inherit;
+}
+
+@media (max-width: 960px) {
+  .nds-main-nav .nds-nav-minimal .notification-dropdown .nds-dropdown-menu.nds-fit {
+    width: min(calc(100vw - (var(--site-gutter) * 2)), var(--site-max-width)) !important;
+    max-width: calc(100vw - (var(--site-gutter) * 2)) !important;
+  }
+
+  .nds-main-nav .nds-nav-minimal .notification-dropdown .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    transform: translateY(-100%) !important;
+    transition: transform var(--nds-transition) !important;
+  }
+
+  .nds-main-nav .nds-nav-minimal .mobile-account-dropdown > .nds-dropdown-menu.nds-fit > .nds-dropdown-content,
+  .nds-main-nav .nds-nav-minimal .admin-persona-dropdown > .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    transform: translateY(-100%) !important;
+    transition: transform var(--nds-transition) !important;
+  }
+
+  .nds-main-nav .nds-nav-minimal .notification-dropdown[data-state~="open"] .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    transform: translateY(0) !important;
+  }
+
+  .nds-main-nav .nds-nav-minimal .mobile-account-dropdown[data-state~="open"] > .nds-dropdown-menu.nds-fit > .nds-dropdown-content,
+  .nds-main-nav .nds-nav-minimal .admin-persona-dropdown[data-state~="open"] > .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    transform: translateY(0) !important;
+  }
+
+  .nds-main-nav .nds-nav-minimal .notification-dropdown:is([data-state~="opening"], [data-state~="closing"]) .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    transform: translateY(-100%) !important;
+  }
+
+  .nds-main-nav .nds-nav-minimal .mobile-account-dropdown:is([data-state~="opening"], [data-state~="closing"]) > .nds-dropdown-menu.nds-fit > .nds-dropdown-content,
+  .nds-main-nav .nds-nav-minimal .admin-persona-dropdown:is([data-state~="opening"], [data-state~="closing"]) > .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    transform: translateY(-100%) !important;
+  }
+
+  .nds-main-nav .notification-dropdown .nds-drawer {
+    min-width: 0 !important;
+    width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .notification-dropdown {
+    --notification-btn-padding-inline: var(--spacing-lg);
+  }
+
+  .notification-dropdown .nds-drawer-list li > ul {
+    margin-inline-start: var(--spacing-lg);
+  }
+
+  .notification-dropdown .nds-drawer-list li > ul .nds-flex.nds-row {
+    gap: var(--spacing-xs);
+  }
+}
+
+/* NDS-sm parity for notification action links */
+.notification-dropdown {
+  --notification-action-size: 24px;
+  --notification-action-fs: var(--typo-text-xs-FS);
+  --notification-action-lh: var(--typo-text-xs-LH);
+  --notification-action-icon: 16px;
+  --notification-action-padding-inline: var(--spacing-md);
+}
+
+.notification-dropdown .nds-drawer-list li > ul .nds-flex.nds-row {
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.notification-dropdown .nds-drawer-list li > ul .nds-flex.nds-row > .nds-btn.nds-sm {
+  --btn-size: var(--notification-action-size);
+  --btn-padding: 0 var(--notification-action-padding-inline);
+  min-width: var(--notification-action-size);
+  min-height: var(--notification-action-size);
+  height: var(--notification-action-size);
+  padding: var(--btn-padding);
+  gap: var(--spacing-xs);
+  align-items: center;
+  justify-content: center;
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-default);
+  font-size: var(--notification-action-fs);
+  line-height: var(--notification-action-lh);
+  font-weight: 500;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.notification-dropdown .nds-drawer-list li > ul .nds-flex.nds-row > .nds-btn.nds-sm:is(:hover, :focus-visible) {
+  background: var(--notification-hover-bg);
+  color: var(--text-default);
+}
+
+.notification-dropdown .nds-drawer-list li > ul .nds-flex.nds-row > .nds-btn.nds-sm.nds-destructive {
+  color: #b42318;
+}
+
+.notification-dropdown .nds-drawer-list li > ul .nds-flex.nds-row > .nds-btn.nds-sm.nds-destructive:is(:hover, :focus-visible) {
+  background: #fef3f2;
+  color: #b42318;
+}
+
+.notification-dropdown .nds-drawer-list li > ul .nds-flex.nds-row > .nds-btn.nds-sm .nds-label {
+  display: inline-flex !important;
+  align-items: center;
+  flex: 0 0 auto;
+  font-size: var(--notification-action-fs);
+  line-height: var(--notification-action-lh);
+  font-weight: 500;
+  color: inherit;
+}
+
+.notification-dropdown .nds-drawer-list li > ul .nds-flex.nds-row > .nds-btn.nds-sm .nds-icon {
+  width: var(--notification-action-icon);
+  height: var(--notification-action-icon);
+  font-size: var(--notification-action-icon);
+  line-height: var(--notification-action-icon);
+  color: inherit;
 }

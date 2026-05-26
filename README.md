@@ -662,8 +662,9 @@ Header and notification behavior:
 - The dropdown follows the NDS drawer/list structure and has slide-down/slide-up motion.
 - Clicking notification actions such as mark as read or dismiss must not close the dropdown.
 - Clicking "عرض كل الاشعارات" opens `notifications.html`.
-- Notifications are stored locally under `websiteDemo:notifications`.
-- Saving or updating home content, projects, or pages from the admin creates local notifications.
+- Public notification items are saved with the site data so admin updates are visible to visitors.
+- Each visitor's read/delete state is local under `websiteDemo:notificationState`.
+- Saving meaningful public home content, projects, or pages from the admin creates one valid notification per changed item, without repeated counts on unchanged saves.
 - Dark/light mode toggle should not create a notification; the motion feedback is enough.
 
 Footer inheritance:
@@ -699,7 +700,7 @@ node --check js\store.js
 node --check js\app.js
 node --check js\admin.js
 node --check js\nds-local-components.js
-rg -n "Biography v1.0|غير تابع لأي جهة حكومية|admin@gmail.com|login-modal|websiteDemo:notifications" README.md js
+rg -n "Biography v1.0|غير تابع لأي جهة حكومية|admin@gmail.com|login-modal|websiteDemo:notificationState" README.md js
 rg -n "nds-footer-meta|site-footer|data-footer-links|data-footer-social" . -g "*.html"
 rg -n "Biography v1.0|غير تابع لأي جهة حكومية" . -g "*.html"
 ```

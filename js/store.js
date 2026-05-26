@@ -78,6 +78,7 @@
     cleanData.home.contacts = normalizeArray(cleanData.home.contacts);
     cleanData.projects = normalizeArray(cleanData.projects);
     cleanData.pages = normalizeArray(cleanData.pages);
+    cleanData.notifications = normalizeArray(cleanData.notifications);
     return cleanData;
   }
 

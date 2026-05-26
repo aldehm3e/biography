@@ -126,6 +126,18 @@ CREATE TABLE IF NOT EXISTS contacts (
   visible TINYINT(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS site_notifications (
+  id VARCHAR(120) PRIMARY KEY,
+  notification_key VARCHAR(255) UNIQUE,
+  status VARCHAR(50),
+  tag VARCHAR(100),
+  title VARCHAR(255),
+  description TEXT,
+  href VARCHAR(500),
+  sort_order INT DEFAULT 0,
+  created_at VARCHAR(40)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS media_uploads (
   id INT AUTO_INCREMENT PRIMARY KEY,
   original_name VARCHAR(255),

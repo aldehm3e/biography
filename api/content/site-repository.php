@@ -42,12 +42,14 @@ function cms_default_site_data(): array
         ],
         'projects' => [],
         'pages' => [],
+        'notifications' => [],
     ];
 }
 
 function cms_fetch_site_data(PDO $pdo): array
 {
     $data = cms_default_site_data();
+    cms_ensure_notifications_table($pdo);
 
     $settings = $pdo->query('SELECT * FROM site_settings WHERE id = 1 LIMIT 1')->fetch();
     if ($settings) {
@@ -167,6 +169,20 @@ function cms_fetch_site_data(PDO $pdo): array
         ];
     }
 
+    $notifications = $pdo->query('SELECT * FROM site_notifications ORDER BY sort_order, created_at DESC')->fetchAll();
+    foreach ($notifications as $notification) {
+        $data['notifications'][] = [
+            'id' => (string) ($notification['id'] ?? ''),
+            'key' => (string) ($notification['notification_key'] ?? ''),
+            'status' => (string) ($notification['status'] ?? 'info'),
+            'tag' => (string) ($notification['tag'] ?? 'Updated'),
+            'title' => (string) ($notification['title'] ?? 'Content updated'),
+            'description' => (string) ($notification['description'] ?? ''),
+            'href' => (string) ($notification['href'] ?? 'notifications.html'),
+            'createdAt' => (string) ($notification['created_at'] ?? ''),
+        ];
+    }
+
     return $data;
 }
 
@@ -183,9 +199,27 @@ function cms_fetch_content_rows(PDO $pdo, string $table): array
     }, $rows);
 }
 
+function cms_ensure_notifications_table(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS site_notifications (
+            id VARCHAR(120) PRIMARY KEY,
+            notification_key VARCHAR(255) UNIQUE,
+            status VARCHAR(50),
+            tag VARCHAR(100),
+            title VARCHAR(255),
+            description TEXT,
+            href VARCHAR(500),
+            sort_order INT DEFAULT 0,
+            created_at VARCHAR(40)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
 function cms_save_site_data(PDO $pdo, array $input): array
 {
     $data = cms_normalize_site_data($input);
+    cms_ensure_notifications_table($pdo);
     $started = !$pdo->inTransaction();
     if ($started) {
         $pdo->beginTransaction();
@@ -202,6 +236,7 @@ function cms_save_site_data(PDO $pdo, array $input): array
         cms_replace_projects($pdo, $data['projects']);
         cms_replace_pages($pdo, $data['pages']);
         cms_replace_contacts($pdo, $data['home']['contacts']);
+        cms_replace_notifications($pdo, $data['notifications']);
 
         if ($started) {
             $pdo->commit();
@@ -265,6 +300,7 @@ function cms_normalize_site_data(array $input): array
 
     $data['projects'] = cms_normalize_projects($input['projects'] ?? []);
     $data['pages'] = cms_normalize_pages($input['pages'] ?? []);
+    $data['notifications'] = cms_normalize_notifications($input['notifications'] ?? []);
 
     return $data;
 }
@@ -405,6 +441,56 @@ function cms_normalize_pages(mixed $items): array
         ];
         if ($page['title'] !== '' || $page['content'] !== '') {
             $output[] = $page;
+        }
+    }
+    return $output;
+}
+
+function cms_normalize_notifications(mixed $items): array
+{
+    if (!is_array($items)) {
+        return [];
+    }
+    $output = [];
+    $usedIds = [];
+    $usedKeys = [];
+    foreach (array_values($items) as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $key = cms_string($item['key'] ?? $item['notificationKey'] ?? $item['notification_key'] ?? '', 255);
+        $title = cms_string($item['title'] ?? '', 255);
+        $createdAt = cms_string($item['createdAt'] ?? $item['created_at'] ?? '', 40);
+        if ($createdAt === '') {
+            $createdAt = gmdate('c');
+        }
+        $id = cms_string($item['id'] ?? '', 120);
+        if ($id === '') {
+            $id = 'notification-' . substr(hash('sha256', $key . '|' . $createdAt . '|' . $title), 0, 20);
+        }
+        if (isset($usedIds[$id]) || ($key !== '' && isset($usedKeys[$key]))) {
+            continue;
+        }
+        $notification = [
+            'id' => $id,
+            'key' => $key,
+            'status' => cms_string($item['status'] ?? 'info', 50) ?: 'info',
+            'tag' => cms_string($item['tag'] ?? 'Updated', 100) ?: 'Updated',
+            'title' => $title,
+            'description' => cms_string($item['description'] ?? ''),
+            'href' => cms_string($item['href'] ?? 'notifications.html', 500) ?: 'notifications.html',
+            'createdAt' => $createdAt,
+        ];
+        if ($notification['title'] === '' && $notification['description'] === '') {
+            continue;
+        }
+        $usedIds[$id] = true;
+        if ($key !== '') {
+            $usedKeys[$key] = true;
+        }
+        $output[] = $notification;
+        if (count($output) >= 20) {
+            break;
         }
     }
     return $output;
@@ -628,6 +714,28 @@ function cms_replace_contacts(PDO $pdo, array $contacts): void
             'icon_path' => $contact['iconPath'],
             'sort_order' => $index,
             'visible' => cms_bool_int($contact['visible']),
+        ]);
+    }
+}
+
+function cms_replace_notifications(PDO $pdo, array $notifications): void
+{
+    $pdo->exec('DELETE FROM site_notifications');
+    $stmt = $pdo->prepare(
+        'INSERT INTO site_notifications (id, notification_key, status, tag, title, description, href, sort_order, created_at)
+         VALUES (:id, :notification_key, :status, :tag, :title, :description, :href, :sort_order, :created_at)'
+    );
+    foreach ($notifications as $index => $notification) {
+        $stmt->execute([
+            'id' => $notification['id'],
+            'notification_key' => $notification['key'] !== '' ? $notification['key'] : null,
+            'status' => $notification['status'],
+            'tag' => $notification['tag'],
+            'title' => $notification['title'],
+            'description' => $notification['description'],
+            'href' => $notification['href'],
+            'sort_order' => $index,
+            'created_at' => $notification['createdAt'],
         ]);
     }
 }

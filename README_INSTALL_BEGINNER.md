@@ -27,6 +27,7 @@ After installation, content is managed from the admin panel and saved in the dat
 - skills
 - achievements
 - experience
+- public update notifications
 
 Only edit HTML files if you are changing the template, layout, or developer-level structure.
 
@@ -305,6 +306,7 @@ Use the admin panel for:
 - projects
 - pages
 - contacts
+- public update notifications
 - account password
 - admin email
 - phone number

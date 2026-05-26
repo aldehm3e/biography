@@ -37,7 +37,8 @@
       contacts: []
     },
     projects: [],
-    pages: []
+    pages: [],
+    notifications: []
   };
 
   window.CONTACT_ICON_OPTIONS = [

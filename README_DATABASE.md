@@ -10,7 +10,7 @@ For a simpler customer-facing walkthrough, read `README_INSTALL_BEGINNER.md`.
 - Admin saves content through `api/content/save-site.php`.
 - Admin login uses PHP sessions and hashed passwords.
 - Admin login also requires a server-generated math CAPTCHA tied to the PHP session.
-- Brand settings, home content, hero slides, projects, pages, experience, achievements, skills, contacts, navigation labels, and media paths are stored in normalized database tables.
+- Brand settings, home content, hero slides, projects, pages, experience, achievements, skills, contacts, notifications, navigation labels, and media paths are stored in normalized database tables.
 - Media uploads go through `api/upload/upload-media.php`.
 - Old `localStorage` content can be imported from the admin tools panel, but it is no longer primary storage.
 - `api/config.php`, `install/install.lock`, and runtime upload files are ignored by Git.

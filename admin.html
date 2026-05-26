@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="css/nds-icons-full.css">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
   <link rel="stylesheet" href="css/nds-local-components.css">
-  <link rel="stylesheet" href="css/custom.css">
+  <link rel="stylesheet" href="css/custom.css?v=nds-notifications-20260526-itembadge">
 </head>
 <body data-page="admin">
   <header class="site-header">
@@ -69,8 +69,15 @@
                   <div class="nds-dropdown-content">
                     <div class="nds-column">
                       <nav class="nds-drawer" style="--drawer-max-height: 40svh; min-width: 40vw; max-width: 100%;">
-                        <ul class="nds-drawer-list"></ul>
+                        <div class="nds-scroll-more nds-divided">
+                          <ul class="nds-drawer-list nds-scroll-more-content"></ul>
+                        </div>
                       </nav>
+                      <hr class="nds-divider">
+                      <a href="notifications.html" class="nds-btn nds-subtle nds-full">
+                        <i class="nds-icon nds-hgi-notification-02" aria-hidden="true"></i>
+                        <span class="nds-label">&#1593;&#1585;&#1590; &#1603;&#1604; &#1575;&#1604;&#1573;&#1588;&#1593;&#1575;&#1585;&#1575;&#1578;</span>
+                      </a>
                     </div>
                   </div>
                 </div>
@@ -495,13 +502,15 @@
   <script src="assets/vendor/nds/components/js/nds-core.js"></script>
   <script src="assets/vendor/nds/components/js/nds-backdrop.js"></script>
   <script src="assets/vendor/nds/components/js/nds-mainnav.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-drawer.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-scroll-more.js"></script>
   <script src="assets/vendor/nds/components/js/nds-modal.js"></script>
   <script src="assets/vendor/nds/components/js/nds-feedback.js"></script>
   <script src="assets/vendor/nds/components/js/nds-progress.js"></script>
   <script src="assets/vendor/nds/components/js/nds-forms.js"></script>
   <script src="assets/vendor/nds/components/js/nds-alert.js"></script>
   <script src="js/nds-local-components.js"></script>
-  <script src="js/app.js"></script>
-  <script src="js/admin.js"></script>
+  <script src="js/app.js?v=nds-notifications-20260526-globalfeed"></script>
+  <script src="js/admin.js?v=admin-valid-global-notifications-20260526"></script>
 </body>
 </html>

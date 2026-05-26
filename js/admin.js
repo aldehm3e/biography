@@ -6,12 +6,138 @@
   var pendingOpenEditor = { hero: null, page: null };
   var activeDragItem = null;
   var activeSortableRoot = null;
+  var lastSavedSignature = "";
+  var pendingSaveSignature = "";
+  var lastSavedSnapshot = null;
 
   function qs(selector, root) { return (root || document).querySelector(selector); }
   function qsa(selector, root) { return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
   function field(name) { return qs('[name="' + name + '"]'); }
   function value(name) { var input = field(name); return input ? input.value.trim() : ""; }
   function setValue(name, text) { var input = field(name); if (input) input.value = text || ""; }
+  function cloneData(value) {
+    try {
+      return JSON.parse(JSON.stringify(value || {}));
+    } catch (error) {
+      return {};
+    }
+  }
+  function removeVolatileFields(value) {
+    if (Array.isArray(value)) {
+      return value.map(removeVolatileFields);
+    }
+    if (!value || typeof value !== "object") {
+      return value;
+    }
+    var output = {};
+    Object.keys(value).forEach(function (key) {
+      if (key === "id" || key === "notifications") return;
+      output[key] = removeVolatileFields(value[key]);
+    });
+    return output;
+  }
+  function dataSignature(value) {
+    try {
+      return JSON.stringify(removeVolatileFields(value || {}));
+    } catch (error) {
+      return "";
+    }
+  }
+  function rememberSavedData() {
+    lastSavedSignature = dataSignature(data);
+    lastSavedSnapshot = cloneData(data);
+  }
+  function newEntityId(prefix) {
+    return prefix + "-" + Date.now() + "-" + Math.random().toString(36).slice(2, 8);
+  }
+  function ensureEntityId(item, prefix) {
+    if (!item) return newEntityId(prefix);
+    if (!item.id) item.id = newEntityId(prefix);
+    return item.id;
+  }
+  function itemIdSet(items, prefix) {
+    var ids = {};
+    (items || []).forEach(function (item) {
+      if (!item) return;
+      ids[ensureEntityId(item, prefix)] = true;
+    });
+    return ids;
+  }
+  function addedItems(previousItems, currentItems, prefix) {
+    var previousIds = itemIdSet(previousItems, prefix);
+    return (currentItems || []).filter(function (item) {
+      return item && item.id && !previousIds[item.id];
+    });
+  }
+  function findItemById(items, id) {
+    return (items || []).find(function (item) { return item && item.id === id; }) || null;
+  }
+  function stableText(value) {
+    return slugify(value) || String(value || "").trim().toLowerCase();
+  }
+  function itemStableValues(item) {
+    var values = [];
+    if (!item) return values;
+    [item.slug, item.title, item.name, item.meta].forEach(function (value) {
+      var text = stableText(value);
+      if (text && values.indexOf(text) === -1) values.push(text);
+    });
+    return values;
+  }
+  function findItemByStableValue(items, currentItem) {
+    var currentValues = itemStableValues(currentItem);
+    if (!currentValues.length) return null;
+    return (items || []).find(function (item) {
+      return itemStableValues(item).some(function (value) {
+        return currentValues.indexOf(value) !== -1;
+      });
+    }) || null;
+  }
+  function findPreviousItem(items, currentItem) {
+    return findItemById(items, currentItem && currentItem.id) || findItemByStableValue(items, currentItem);
+  }
+  function notificationEntityKey(type, item, fallback) {
+    var key = stableText((item && (item.slug || item.title || item.name || item.meta)) || fallback || type);
+    return ("admin:" + type + ":" + (key || "item")).slice(0, 255);
+  }
+  function homeItemSignature(item, type) {
+    if (type === "skills") return [item.name || "", item.visible !== false ? "1" : "0"].join("\u001f");
+    return [item.title || "", item.meta || "", item.description || "", item.visible !== false ? "1" : "0"].join("\u001f");
+  }
+  function addedPublicHomeItems(previousItems, currentItems, type) {
+    var previousPublic = (previousItems || []).filter(function (item) {
+      return isPublicHomeItem(item, type);
+    });
+    var previousKeys = {};
+    var previousSignatures = {};
+    previousPublic.forEach(function (item) {
+      itemStableValues(item).forEach(function (key) { previousKeys[key] = true; });
+      previousSignatures[homeItemSignature(item, type)] = true;
+    });
+    return (currentItems || []).filter(function (item, index) {
+      var values;
+      if (!isPublicHomeItem(item, type)) return false;
+      values = itemStableValues(item);
+      if (values.some(function (key) { return previousKeys[key]; })) return false;
+      if (previousSignatures[homeItemSignature(item, type)]) return false;
+      return index >= previousPublic.length;
+    });
+  }
+  function publicTextChanged(previousItem, currentItem, signatureFn) {
+    return !previousItem || signatureFn(previousItem) !== signatureFn(currentItem);
+  }
+  function saveDataIfChanged() {
+    var signature = dataSignature(data);
+    if (signature === lastSavedSignature || signature === pendingSaveSignature) return null;
+    pendingSaveSignature = signature;
+    return saveData().then(function (savedData) {
+      pendingSaveSignature = "";
+      return savedData;
+    }).catch(function (error) {
+      pendingSaveSignature = "";
+      throw error;
+    });
+  }
   function toast(message, type) {
     if (!window.SiteApp) return;
     var variant = type || (/غير صالح|أولا|فشل|خطأ/.test(message || "") ? "error" : "success");
@@ -28,13 +154,110 @@
 
   function addAdminNotification(options) {
     if (window.SiteApp && window.SiteApp.addNotification) {
-      window.SiteApp.addNotification(options);
+      return window.SiteApp.addNotification(options);
     }
+    return null;
+  }
+
+  function entityLabel(item, fallback) {
+    return (item && (item.title || item.name || item.meta)) || fallback || "";
+  }
+
+  function isPublicPage(page) {
+    return Boolean(page && page.visible === true && page.title && page.content);
+  }
+
+  function isPublicProject(project) {
+    return Boolean(project && project.visible !== false && project.title && (project.description || project.image || project.url || project.category || project.status || project.date));
+  }
+
+  function isPublicHomeItem(item, type) {
+    if (!item || item.visible === false) return false;
+    if (type === "skills") return Boolean(item.name);
+    return Boolean(item.title || item.meta || item.description);
+  }
+
+  function pagePublicSignature(page) {
+    return [page.title || "", page.slug || "", page.contentMode || "text", page.content || ""].join("\u001f");
+  }
+
+  function projectPublicSignature(project) {
+    return [project.title || "", project.slug || "", project.status || "", project.date || "", project.category || "", project.image || "", project.url || "", project.description || ""].join("\u001f");
+  }
+
+  function notifyPageChange(page, previousPage) {
+    var wasPublic = isPublicPage(previousPage);
+    return addAdminNotification({
+      status: "info",
+      key: notificationEntityKey("page", page, "page"),
+      tag: wasPublic ? "تحديث" : "جديد",
+      title: wasPublic ? "تم تحديث صفحة" : "تمت إضافة صفحة جديدة",
+      description: (wasPublic ? "تم تحديث صفحة: " : "تم نشر صفحة جديدة: ") + entityLabel(page, "صفحة جديدة") + ".",
+      href: "pages.html"
+    });
+  }
+
+  function notifyProjectChange(project, previousProject) {
+    var wasPublic = isPublicProject(previousProject);
+    return addAdminNotification({
+      status: "success",
+      key: notificationEntityKey("project", project, "project"),
+      tag: wasPublic ? "تحديث" : "جديد",
+      title: wasPublic ? "تم تحديث مشروع" : "تمت إضافة مشروع جديد",
+      description: (wasPublic ? "تم تحديث مشروع: " : "تم نشر مشروع جديد: ") + entityLabel(project, "مشروع جديد") + ".",
+      href: "projects.html"
+    });
+  }
+
+  function notifyHomeItemAdded(type, item) {
+    var labels = {
+      experience: { title: "تمت إضافة خبرة جديدة", fallback: "خبرة جديدة", status: "success" },
+      achievements: { title: "تمت إضافة إنجاز جديد", fallback: "إنجاز جديد", status: "success" },
+      skills: { title: "تمت إضافة مهارة جديدة", fallback: "مهارة جديدة", status: "info" }
+    };
+    var config = labels[type] || labels.experience;
+    return addAdminNotification({
+      status: config.status,
+      key: notificationEntityKey(type, item, config.fallback),
+      tag: "جديد",
+      title: config.title,
+      description: config.title + ": " + entityLabel(item, config.fallback) + ".",
+      href: "index.html"
+    });
+  }
+
+  function notifyHomeUpdated() {
+    return addAdminNotification({
+      status: "success",
+      key: "admin:home:update",
+      tag: "تحديث",
+      title: "تم تحديث الصفحة الرئيسية",
+      description: "تم حفظ محتوى السيرة أو القسم الرئيسي أو التواصل أو الملف الشخصي من لوحة الإدارة.",
+      href: "index.html"
+    });
+  }
+
+  function notifyAddedHomeItems(previousData) {
+    var previousHome = previousData && previousData.home || {};
+    var addedExperience = addedPublicHomeItems(previousHome.experience, data.home.experience, "experience");
+    var addedAchievements = addedPublicHomeItems(previousHome.achievements, data.home.achievements, "achievements");
+    var addedSkills = addedPublicHomeItems(previousHome.skills, data.home.skills, "skills");
+    addedExperience.forEach(function (item) { notifyHomeItemAdded("experience", item); });
+    addedAchievements.forEach(function (item) { notifyHomeItemAdded("achievements", item); });
+    addedSkills.forEach(function (item) { notifyHomeItemAdded("skills", item); });
+    return addedExperience.length + addedAchievements.length + addedSkills.length;
   }
 
   function saveData() {
+    var currentData = window.SiteStore && window.SiteStore.current ? window.SiteStore.current() : null;
+    if (currentData && Array.isArray(currentData.notifications)) {
+      data.notifications = currentData.notifications;
+    } else if (!Array.isArray(data.notifications)) {
+      data.notifications = [];
+    }
     return window.SiteStore.save(data).then(function (savedData) {
       data = savedData;
+      rememberSavedData();
       return data;
     }).catch(function (error) {
       toast(error.message || "تعذر حفظ البيانات", "error");
@@ -134,6 +357,14 @@
     renderProjectsEditor();
     renderPagesEditor();
     prepareUploadControls();
+    rememberLoadedEditorState();
+  }
+
+  function rememberLoadedEditorState() {
+    collectHomeDraft();
+    collectProjects();
+    collectPages();
+    rememberSavedData();
   }
 
   function saveSettings(event) {
@@ -181,17 +412,17 @@
     data.home.skills = collectSkills();
     if (!data.home.experience.length && value("experience")) {
       data.home.experience = parseLines(value("experience"), function (parts) {
-        return parts.length ? { title: parts[0] || "", meta: parts[1] || "", description: parts.slice(2).join(" | ") || "", visible: true } : null;
+        return parts.length ? { id: newEntityId("experience"), title: parts[0] || "", meta: parts[1] || "", description: parts.slice(2).join(" | ") || "", visible: true } : null;
       });
     }
     if (!data.home.achievements.length && value("achievements")) {
       data.home.achievements = parseLines(value("achievements"), function (parts) {
-        return parts.length ? { title: parts[0] || "", meta: parts[1] || "", description: parts.slice(2).join(" | ") || "", visible: true } : null;
+        return parts.length ? { id: newEntityId("achievement"), title: parts[0] || "", meta: parts[1] || "", description: parts.slice(2).join(" | ") || "", visible: true } : null;
       });
     }
     if (!data.home.skills.length && value("skills")) {
       data.home.skills = value("skills").split(/\n+/).map(function (item) {
-        return { name: item.trim(), visible: true };
+        return { id: newEntityId("skill"), name: item.trim(), visible: true };
       }).filter(function (item) { return item.name; });
     }
     data.home.contacts = collectContacts();
@@ -199,16 +430,14 @@
 
   function saveHome(event) {
     event.preventDefault();
+    var previousData = cloneData(lastSavedSnapshot || data);
     collectHomeDraft();
-    saveData();
-    addAdminNotification({
-      status: "success",
-      tag: "تحديث",
-      title: "تم تحديث الصفحة الرئيسية",
-      description: "تم حفظ محتوى السيرة أو القسم الرئيسي أو التواصل أو الملف الشخصي من لوحة الإدارة.",
-      href: "index.html"
+    var savePromise = saveDataIfChanged();
+    if (!savePromise) return;
+    savePromise.then(function () {
+      if (!notifyAddedHomeItems(previousData)) notifyHomeUpdated();
+      toast("تم حفظ محتوى الصفحة الرئيسية");
     });
-    toast("تم حفظ محتوى الصفحة الرئيسية");
   }
 
   function inputHtml(key, label, value, info) {
@@ -396,10 +625,15 @@
     return type === "achievements" ? "achievements" : "experience";
   }
 
+  function contentRowIdPrefix(type) {
+    return contentRowsKey(type) === "achievements" ? "achievement" : "experience";
+  }
+
   function contentRowTemplate(type, item, index) {
+    var rowId = ensureEntityId(item, contentRowIdPrefix(type));
     var title = item.title || (type === "achievements" ? "إنجاز" : "خبرة");
     return [
-      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="' + safeText(type) + '" data-content-row-type="' + safeText(type) + '" data-content-row-index="' + index + '">',
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="' + safeText(type) + '" data-content-row-type="' + safeText(type) + '" data-content-row-index="' + index + '" data-content-row-id="' + safeText(rowId) + '">',
       '<div class="nds-card-content compact-card-content">',
       '<div class="editor-item-head sortable-editor-header">',
       dragHandleHtml("تغيير الترتيب"),
@@ -432,16 +666,18 @@
     }
   }
 
-  function collectContentRows(type) {
+  function collectContentRows(type, options) {
+    var keepDrafts = options && options.keepDrafts;
     return qsa('[data-content-row-type="' + contentRowsKey(type) + '"]').map(function (item) {
       return {
+        id: item.dataset.contentRowId || newEntityId(contentRowIdPrefix(type)),
         title: qs('[data-field="rowTitle"]', item).value.trim(),
         meta: qs('[data-field="rowMeta"]', item).value.trim(),
         description: qs('[data-field="rowDescription"]', item).value.trim(),
         visible: qs("[data-row-visible]", item).checked
       };
     }).filter(function (row) {
-      return row.title || row.meta || row.description;
+      return keepDrafts || row.title || row.meta || row.description;
     });
   }
 
@@ -488,8 +724,9 @@
   function skillTemplate(skill, index) {
     var name = typeof skill === "string" ? skill : (skill.name || "");
     var visible = typeof skill === "string" ? true : skill.visible !== false;
+    var skillId = typeof skill === "string" ? newEntityId("skill") : ensureEntityId(skill, "skill");
     return [
-      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="skills" data-skill-index="' + index + '">',
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="skills" data-skill-index="' + index + '" data-skill-id="' + safeText(skillId) + '">',
       '<div class="nds-card-content compact-card-content">',
       '<div class="editor-item-head sortable-editor-header">',
       dragHandleHtml("تغيير ترتيب المهارة"),
@@ -515,14 +752,16 @@
     }
   }
 
-  function collectSkills() {
+  function collectSkills(options) {
+    var keepDrafts = options && options.keepDrafts;
     return qsa("[data-skill-index]").map(function (item) {
       return {
+        id: item.dataset.skillId || newEntityId("skill"),
         name: qs('[data-field="skillName"]', item).value.trim(),
         visible: qs("[data-skill-visible]", item).checked
       };
     }).filter(function (skill) {
-      return skill.name;
+      return keepDrafts || skill.name;
     });
   }
 
@@ -569,10 +808,11 @@
   }
 
   function projectTemplate(project, index) {
+    var projectId = ensureEntityId(project, "project");
     var panelId = "project-panel-" + index;
     var title = project.title || "مشروع";
     return [
-      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="projects" data-project-index="' + index + '">',
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="projects" data-project-index="' + index + '" data-project-id="' + safeText(projectId) + '">',
       '<div class="nds-card-content compact-card-content">',
       '<div class="editor-item-head sortable-editor-header">',
       dragHandleHtml("تغيير ترتيب المشروع"),
@@ -615,12 +855,13 @@
   }
 
   function pageTemplate(page, index) {
+    var pageId = ensureEntityId(page, "page");
     var mode = page.contentMode || "text";
     var panelId = "page-panel-" + index;
     var title = page.title || "صفحة إضافية";
     var isOpen = pendingOpenEditor.page === index;
     return [
-      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="page" data-page-index="' + index + '">',
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="page" data-page-index="' + index + '" data-page-id="' + safeText(pageId) + '">',
       '<div class="nds-card-content compact-card-content">',
       '<div class="editor-item-head sortable-editor-header">',
       dragHandleHtml("اسحب لتغيير ترتيب الصفحات"),
@@ -742,9 +983,11 @@
     ].join("");
   }
 
-  function collectProjects() {
+  function collectProjects(options) {
+    var keepDrafts = options && options.keepDrafts;
     data.projects = qsa("[data-project-index]").map(function (item) {
       return {
+        id: item.dataset.projectId || newEntityId("project"),
         title: qs('[data-field="projectTitle"]', item).value.trim(),
         slug: slugify(qs('[data-field="projectSlug"]', item).value.trim() || qs('[data-field="projectTitle"]', item).value.trim()),
         status: qs('[data-field="projectStatus"]', item).value.trim(),
@@ -756,14 +999,16 @@
         visible: qs("[data-project-visible]", item).checked
       };
     }).filter(function (project) {
-      return project.title || project.description || project.category || project.status || project.date || project.image || project.url;
+      return keepDrafts || project.title || project.description || project.category || project.status || project.date || project.image || project.url;
     });
   }
 
   function collectContacts() {
     return qsa("[data-contact-index]").map(function (item) {
+      var index = Number(item.dataset.contactIndex);
+      var existing = data.home.contacts && data.home.contacts[index] || {};
       return {
-        id: "contact-" + Date.now() + "-" + item.dataset.contactIndex,
+        id: existing.id || "contact-" + Date.now() + "-" + item.dataset.contactIndex,
         label: qs('[data-field="contactLabel"]', item).value.trim(),
         url: qs('[data-field="contactUrl"]', item).value.trim(),
         iconType: qs('[data-field="contactIconType"]', item).value,
@@ -780,6 +1025,7 @@
       var title = qs('[data-field="pageTitle"]', item).value.trim();
       var slug = qs('[data-field="pageSlug"]', item).value.trim() || slugify(title);
       return {
+        id: item.dataset.pageId || newEntityId("page"),
         title: title,
         slug: slugify(slug),
         visible: qs("[data-page-visible]", item).checked,
@@ -792,34 +1038,42 @@
   }
 
   function saveProjects() {
-    var previousCount = (data.projects || []).length;
+    var previousData = cloneData(lastSavedSnapshot || data);
     collectProjects();
-      saveData();
-    renderProjectsEditor();
-    addAdminNotification({
-      status: "success",
-      tag: data.projects.length > previousCount ? "جديد" : "تحديث",
-      title: data.projects.length > previousCount ? "تمت إضافة مشروع جديد" : "تم تحديث المشاريع",
-      description: data.projects.length > previousCount ? "تمت إضافة مشروع جديد من لوحة الإدارة." : "تم تحديث محتوى المشاريع من لوحة الإدارة.",
-      href: "projects.html"
+    var changedProjects = (data.projects || []).filter(function (project) {
+      var previousProject = findPreviousItem(previousData.projects, project);
+      return isPublicProject(project) && (!isPublicProject(previousProject) || publicTextChanged(previousProject, project, projectPublicSignature));
     });
-    toast("تم حفظ المشاريع");
+    var savePromise = saveDataIfChanged();
+    if (!savePromise) return;
+    savePromise.then(function () {
+      return Promise.all(changedProjects.map(function (project) {
+        return notifyProjectChange(project, findPreviousItem(previousData.projects, project));
+      }));
+    }).then(function () {
+      toast("تم حفظ المشاريع");
+    });
+    renderProjectsEditor();
   }
 
   function savePages() {
-    var previousCount = (data.pages || []).length;
+    var previousData = cloneData(lastSavedSnapshot || data);
     collectPages();
-      saveData();
-    renderPagesEditor();
-    refreshPublicShell();
-    addAdminNotification({
-      status: "info",
-      tag: data.pages.length > previousCount ? "جديد" : "تحديث",
-      title: data.pages.length > previousCount ? "تمت إضافة صفحة جديدة" : "تم تحديث الصفحات",
-      description: data.pages.length > previousCount ? "تمت إضافة صفحة جديدة من لوحة الإدارة." : "تم تحديث محتوى الصفحات أو ظهورها في التنقل من لوحة الإدارة.",
-      href: "pages.html"
+    var changedPages = (data.pages || []).filter(function (page) {
+      var previousPage = findPreviousItem(previousData.pages, page);
+      return isPublicPage(page) && (!isPublicPage(previousPage) || publicTextChanged(previousPage, page, pagePublicSignature));
     });
-    toast("تم حفظ الصفحات");
+    var savePromise = saveDataIfChanged();
+    if (!savePromise) return;
+    savePromise.then(function () {
+      return Promise.all(changedPages.map(function (page) {
+        return notifyPageChange(page, findPreviousItem(previousData.pages, page));
+      }));
+    }).then(function () {
+      toast("تم حفظ الصفحات");
+      refreshPublicShell();
+    });
+    renderPagesEditor();
   }
 
   function previewDataSnapshot(target) {
@@ -1182,8 +1436,8 @@
     });
 
     qs("[data-add-project]").addEventListener("click", function () {
-      collectProjects();
-      data.projects.push({ title: "", slug: "", description: "", status: "", date: "", category: "", image: "", url: "", visible: true });
+      collectProjects({ keepDrafts: true });
+      data.projects.push({ id: newEntityId("project"), title: "", slug: "", description: "", status: "", date: "", category: "", image: "", url: "", visible: true });
       renderProjectsEditor();
     });
 
@@ -1194,28 +1448,31 @@
     });
 
     if (qs("[data-add-experience]")) qs("[data-add-experience]").addEventListener("click", function () {
-      data.home.experience = collectContentRows("experience");
-      data.home.experience.push({ title: "", meta: "", description: "", visible: true });
+      data.home.experience = collectContentRows("experience", { keepDrafts: true });
+      data.home.experience.push({ id: newEntityId("experience"), title: "", meta: "", description: "", visible: true });
       renderContentRowsEditor("experience");
     });
 
     if (qs("[data-add-achievement]")) qs("[data-add-achievement]").addEventListener("click", function () {
-      data.home.achievements = collectContentRows("achievements");
-      data.home.achievements.push({ title: "", meta: "", description: "", visible: true });
+      data.home.achievements = collectContentRows("achievements", { keepDrafts: true });
+      data.home.achievements.push({ id: newEntityId("achievement"), title: "", meta: "", description: "", visible: true });
       renderContentRowsEditor("achievements");
     });
 
     if (qs("[data-add-skill]")) qs("[data-add-skill]").addEventListener("click", function () {
-      data.home.skills = collectSkills();
-      data.home.skills.push({ name: "", visible: true });
+      data.home.skills = collectSkills({ keepDrafts: true });
+      data.home.skills.push({ id: newEntityId("skill"), name: "", visible: true });
       renderSkillsEditor();
     });
 
     qs("[data-add-page]").addEventListener("click", function () {
+      var page;
       collectPages();
-      data.pages.unshift({ title: "", slug: "", content: "", contentMode: "text", visible: true });
+      page = { id: newEntityId("page"), title: "صفحة جديدة", slug: "page-" + Date.now(), content: "", contentMode: "text", visible: true };
+      data.pages.unshift(page);
       pendingOpenEditor.page = 0;
       renderPagesEditor();
+      saveData();
     });
 
     document.addEventListener("click", function (event) {
