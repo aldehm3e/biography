@@ -219,7 +219,9 @@ function cms_ensure_notifications_table(PDO $pdo): void
 function cms_save_site_data(PDO $pdo, array $input): array
 {
     $data = cms_normalize_site_data($input);
-    cms_ensure_notifications_table($pdo);
+    if (!$pdo->inTransaction()) {
+        cms_ensure_notifications_table($pdo);
+    }
     $started = !$pdo->inTransaction();
     if ($started) {
         $pdo->beginTransaction();

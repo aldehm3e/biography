@@ -118,6 +118,7 @@ function install_cms(string $schemaPath, string $configPath, string $lockPath): 
     ]);
 
     run_schema($pdo, $schemaPath);
+    cms_ensure_notifications_table($pdo);
 
     $pdo->beginTransaction();
     try {

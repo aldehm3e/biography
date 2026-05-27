@@ -64,6 +64,17 @@ Quick Laragon install:
 
 For first-time installation, read `README_INSTALL_BEGINNER.md`. For detailed database and deployment notes, read `README_DATABASE.md`.
 
+## 2026-05-28 Installer Transaction Fix
+
+The installer previously could fail with `There is no active transaction` after creating some database tables. Root cause: the installer opened a transaction and then `cms_save_site_data()` called `cms_ensure_notifications_table()`, which runs `CREATE TABLE IF NOT EXISTS`. MySQL/MariaDB can implicitly end the active transaction around DDL, so the later commit had no active transaction left.
+
+Fix:
+
+- `install/index.php` now ensures the notifications table immediately after schema import and before starting the installer transaction.
+- `api/content/site-repository.php` now only runs `cms_ensure_notifications_table()` when no transaction is already active.
+
+If this error happened during a fresh install, drop the partially created database, recreate it, and run `install/` again.
+
 ## 2026-05-24 NDS Header, Persona, Dark Mode, and QA Sanity
 
 This section is the current source of truth for the header/account behavior and supersedes older historical notes below when they conflict.
