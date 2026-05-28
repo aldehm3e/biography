@@ -4,17 +4,287 @@
   var data;
   var dashboardReady = false;
   var pendingOpenEditor = { hero: null, page: null };
+  var openEditorAccordions = new Set();
+  var openContactAccordions = new Set();
   var activeDragItem = null;
   var activeSortableRoot = null;
   var lastSavedSignature = "";
   var pendingSaveSignature = "";
   var lastSavedSnapshot = null;
+  var adminUsers = [];
+  var adminPermissions = [];
+  var adminUsersLoaded = false;
+  var MAX_FOOTER_COLUMNS = 3;
+  var MAX_FOOTER_ICON_GROUPS = 2;
+  var ADMIN_PERMISSION_LABELS = {
+    settings: "الإعدادات والهوية",
+    home: "الرئيسية",
+    footer: "التذييل",
+    projects: "المشاريع",
+    pages: "الصفحات",
+    navigation: "التنقل",
+    integrations: "التكاملات",
+    utilities: "النسخ الاحتياطي",
+    uploads: "رفع الملفات",
+    users: "إدارة الموظفين"
+  };
+  var ADMIN_ROLES = [
+    { value: "employee", label: "موظف" },
+    { value: "admin", label: "مدير محتوى" },
+    { value: "owner", label: "مالك" }
+  ];
+  var INTERFACE_TEXT_FIELDS = [
+    ["searchLabel", "تسمية البحث"],
+    ["searchPlaceholder", "نص حقل البحث", true],
+    ["loginLabel", "تسمية تسجيل الدخول"],
+    ["logoutLabel", "تسمية تسجيل الخروج"],
+    ["adminPortalLabel", "تسمية الإدارة"],
+    ["themeToggleLabel", "تسمية تبديل الثيم"],
+    ["homeEmptyTitle", "عنوان فراغ الرئيسية"],
+    ["homeEmptyDescription", "وصف فراغ الرئيسية", true],
+    ["homeEmptyButton", "زر فراغ الرئيسية"],
+    ["adminHomePanelTitle", "عنوان بطاقة تحرير الرئيسية"],
+    ["adminHomePanelDescription", "وصف بطاقة تحرير الرئيسية", true],
+    ["adminHomeSaveButton", "زر حفظ الرئيسية"],
+    ["biographySubtitle", "عنوان فرعي للسيرة"],
+    ["biographyTitle", "عنوان قسم السيرة"],
+    ["professionalSubtitle", "عنوان فرعي للخبرات"],
+    ["professionalTitle", "عنوان قسم الخبرات والإنجازات"],
+    ["experienceHeading", "عنوان الخبرات"],
+    ["achievementsHeading", "عنوان الإنجازات"],
+    ["skillsSubtitle", "عنوان فرعي للمهارات"],
+    ["skillsTitle", "عنوان قسم المهارات"],
+    ["skillsEmptyTitle", "عنوان فراغ المهارات"],
+    ["skillsEmptyDescription", "وصف فراغ المهارات", true],
+    ["projectsDescription", "وصف صفحة المشاريع", true],
+    ["projectsEmptyTitle", "عنوان فراغ المشاريع"],
+    ["projectsEmptyDescription", "وصف فراغ المشاريع", true],
+    ["projectsEmptyButton", "زر إضافة مشروع"],
+    ["projectsListSubtitle", "عنوان فرعي لقائمة المشاريع"],
+    ["projectsListTitle", "عنوان قائمة المشاريع"],
+    ["projectDetailsButton", "زر تفاصيل المشروع"],
+    ["projectFilterAll", "فلتر كل المشاريع"],
+    ["projectFilterGeneral", "تصنيف المشروع الافتراضي"],
+    ["projectNotFoundTitle", "عنوان المشروع غير الموجود"],
+    ["projectNotFoundEmptyTitle", "رسالة المشروع غير الموجود"],
+    ["projectNotFoundEmptyDescription", "وصف المشروع غير الموجود", true],
+    ["projectDetailFallbackTitle", "عنوان تفاصيل المشروع الافتراضي"],
+    ["projectFactStatus", "تسمية الحالة"],
+    ["projectFactDate", "تسمية التاريخ"],
+    ["projectFactCategory", "تسمية التصنيف"],
+    ["projectBackButton", "زر العودة للمشاريع"],
+    ["projectVisitButton", "زر زيارة رابط المشروع"],
+    ["pagesDescription", "وصف صفحة الصفحات", true],
+    ["pagesEmptyTitle", "عنوان فراغ الصفحات"],
+    ["pagesEmptyDescription", "وصف فراغ الصفحات", true],
+    ["pagesEmptyButton", "زر إضافة صفحة"],
+    ["pagesListSubtitle", "عنوان فرعي لقائمة الصفحات"],
+    ["pagesListTitle", "عنوان قائمة الصفحات"],
+    ["pageCardFallbackTitle", "عنوان الصفحة الافتراضي"],
+    ["pageOpenButton", "زر فتح الصفحة"],
+    ["extraPageNotFoundTitle", "عنوان الصفحة غير الموجودة"],
+    ["extraPageNotFoundDescription", "وصف الصفحة غير الموجودة", true],
+    ["extraPageEmptyTitle", "عنوان الصفحة الفارغة"],
+    ["extraPageEmptyDescription", "وصف الصفحة الفارغة", true],
+    ["notificationsLabel", "تسمية الإشعارات"],
+    ["notificationsDescription", "وصف صفحة الإشعارات", true],
+    ["notificationsEmptyTitle", "عنوان فراغ الإشعارات"],
+    ["notificationsEmptyDescription", "وصف فراغ الإشعارات", true],
+    ["notificationsViewAllLabel", "زر عرض كل الإشعارات"],
+    ["notificationReadLabel", "تسمية مقروء"],
+    ["notificationMarkReadLabel", "تسمية تحديد كمقروء"],
+    ["notificationViewLabel", "تسمية عرض الإشعار"],
+    ["notificationDeleteLabel", "تسمية حذف الإشعار"]
+  ];
 
   function qs(selector, root) { return (root || document).querySelector(selector); }
   function qsa(selector, root) { return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
   function field(name) { return qs('[name="' + name + '"]'); }
   function value(name) { var input = field(name); return input ? input.value.trim() : ""; }
   function setValue(name, text) { var input = field(name); if (input) input.value = text || ""; }
+  function currentAdminUser() {
+    return window.SiteStore && window.SiteStore.currentUser ? window.SiteStore.currentUser() : null;
+  }
+  function hasPermission(permission) {
+    var user = currentAdminUser();
+    var permissions = user && Array.isArray(user.permissions) ? user.permissions : [];
+    return Boolean(user && (user.role === "owner" || permissions.indexOf("*") !== -1 || permissions.indexOf(permission) !== -1));
+  }
+  function ensurePermission(permission) {
+    if (hasPermission(permission)) return true;
+    toast("ليس لديك صلاحية لهذا القسم.", "error");
+    return false;
+  }
+  function firstAllowedTab() {
+    var first = qsa("[data-admin-tab]").find(function (button) {
+      var permissionNode = button.closest("[data-permission]");
+      return !permissionNode || !permissionNode.hidden;
+    });
+    return first ? first.dataset.adminTab : "account";
+  }
+  function clearNdsState(element) {
+    if (!element) return;
+    if (window.NDS && window.NDS.State && window.NDS.State.clear) {
+      window.NDS.State.clear(element);
+    } else {
+      element.removeAttribute("data-state");
+    }
+  }
+  function closeAdminSidemenuOverlay() {
+    var menu = qs(".admin-sidemenu");
+    if (!menu) return;
+    var drawer = qs(".admin-sidemenu > .nds-drawer") || qs(".admin-sidemenu .nds-drawer");
+    var toggle = qs(".admin-sidemenu .nds-sidemenu-toggle");
+    clearNdsState(drawer);
+    clearNdsState(menu);
+    clearNdsState(toggle);
+    if (!menu.classList.contains("nds-top")) menu.classList.add("nds-peek");
+    menu.style.removeProperty("z-index");
+    menu.style.removeProperty("padding-top");
+    if (drawer) drawer.style.removeProperty("--drawer-max-height");
+    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.reset) {
+      window.NDS.Backdrop.reset();
+    } else {
+      clearNdsState(document.body);
+      document.body.style.removeProperty("overflow");
+      document.body.style.removeProperty("position");
+      document.body.style.removeProperty("top");
+      document.body.style.removeProperty("width");
+    }
+  }
+  function setAdminSidemenuOpen(open) {
+    var menu = qs(".admin-sidemenu");
+    if (!menu) return;
+    var drawer = qs(".admin-sidemenu > .nds-drawer") || qs(".admin-sidemenu .nds-drawer");
+    var toggle = qs(".admin-sidemenu .nds-sidemenu-toggle");
+    if (open) {
+      menu.dataset.state = "open";
+      if (drawer) drawer.dataset.state = "open";
+      if (toggle) {
+        toggle.dataset.state = "open";
+        toggle.setAttribute("aria-expanded", "true");
+      }
+      return;
+    }
+    clearNdsState(menu);
+    clearNdsState(drawer);
+    clearNdsState(toggle);
+    if (toggle) toggle.setAttribute("aria-expanded", "false");
+    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.reset) {
+      window.NDS.Backdrop.reset();
+    }
+    clearNdsState(document.body);
+    document.body.style.removeProperty("overflow");
+    document.body.style.removeProperty("position");
+    document.body.style.removeProperty("top");
+    document.body.style.removeProperty("width");
+  }
+  function setupAdminSidemenuToggle() {
+    document.addEventListener("click", function (event) {
+      var toggle = event.target.closest(".admin-sidemenu .nds-sidemenu-toggle");
+      if (!toggle) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      var menu = toggle.closest(".admin-sidemenu");
+      var isOpen = menu && (menu.dataset.state || "").indexOf("open") !== -1;
+      setAdminSidemenuOpen(!isOpen);
+    }, true);
+  }
+  function activateAdminTab(target, scrollToPanel) {
+    var button = qs('[data-admin-tab="' + target + '"]');
+    var panel = qs('[data-admin-panel="' + target + '"]');
+    var adminSection = qs(".admin-content-layout") || qs(".admin-section");
+    var header = qs(".site-header");
+    var navHeight = header ? header.offsetHeight : (parseInt(getComputedStyle(document.documentElement).getPropertyValue("--site-shell-height"), 10) || 112);
+    if (!button || button.hidden || (button.closest("[hidden]"))) return;
+    if (!panel || panel.hidden && panel.dataset.adminPanel !== target) return;
+
+    qsa("[data-admin-tab]").forEach(function (item) {
+      var itemParent = item.closest("li");
+      item.dataset.state = "";
+      if (itemParent) itemParent.dataset.state = "";
+    });
+    qsa("[data-admin-panel]").forEach(function (item) {
+      item.hidden = item.dataset.adminPanel !== target;
+    });
+    button.dataset.state = "selected";
+    if (button.closest("li")) button.closest("li").dataset.state = "active";
+    var sidemenuLabel = qs(".admin-sidemenu .nds-sidemenu-toggle .nds-label");
+    if (sidemenuLabel) sidemenuLabel.textContent = (button.textContent || "").trim();
+    if (target === "users" && hasPermission("users")) loadAdminUsers();
+    if (window.NDS && window.NDS.Sidemenu && window.NDS.Sidemenu.init) window.NDS.Sidemenu.init();
+    setAdminSidemenuOpen(false);
+    if (scrollToPanel && adminSection) {
+      window.scrollTo({
+        top: Math.max(0, adminSection.getBoundingClientRect().top + window.scrollY - navHeight - 16),
+        behavior: "smooth"
+      });
+    }
+  }
+  function applyPermissionVisibility() {
+    qsa("[data-permission]").forEach(function (item) {
+      item.hidden = !hasPermission(item.dataset.permission);
+    });
+    var selected = qs("[data-admin-tab][data-state~='selected']");
+    var selectedWrap = selected ? selected.closest("[data-permission]") : null;
+    var target = selected && (!selectedWrap || !selectedWrap.hidden) ? selected.dataset.adminTab : firstAllowedTab();
+    activateAdminTab(target || "account", false);
+  }
+  function interfaceTextId(key) {
+    return "interfaceText" + key.charAt(0).toUpperCase() + key.slice(1);
+  }
+  function renderInterfaceTextFields() {
+    var root = qs("[data-interface-text-fields]");
+    if (!root || root.dataset.ready === "true") return;
+    INTERFACE_TEXT_FIELDS.forEach(function (config) {
+      var key = config[0];
+      var label = config[1];
+      var isLong = Boolean(config[2]);
+      var id = interfaceTextId(key);
+      var container = document.createElement("div");
+      var header = document.createElement("div");
+      var labelNode = document.createElement("label");
+      var labelText = document.createElement("span");
+      var control = document.createElement("div");
+      var input = document.createElement(isLong ? "textarea" : "input");
+
+      container.className = "nds-form-container";
+      header.className = "nds-form-header";
+      labelNode.setAttribute("for", id);
+      labelText.className = "nds-label";
+      labelText.textContent = label;
+      labelNode.append(labelText);
+      header.append(labelNode);
+      control.className = isLong ? "nds-form-control textarea-control" : "nds-form-control";
+      input.className = "nds-input";
+      input.id = id;
+      input.name = id;
+      input.dataset.interfaceTextKey = key;
+      if (isLong) {
+        input.rows = 3;
+      } else {
+        input.type = "text";
+      }
+      control.append(input);
+      container.append(header, control);
+      root.append(container);
+    });
+    root.dataset.ready = "true";
+  }
+  function fillInterfaceTextFields() {
+    var defaults = window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.texts || {};
+    var texts = data && data.texts || {};
+    renderInterfaceTextFields();
+    qsa("[data-interface-text-key]").forEach(function (input) {
+      input.value = texts[input.dataset.interfaceTextKey] || defaults[input.dataset.interfaceTextKey] || "";
+    });
+  }
+  function collectInterfaceTextFields() {
+    data.texts = data.texts || {};
+    qsa("[data-interface-text-key]").forEach(function (input) {
+      data.texts[input.dataset.interfaceTextKey] = input.value.trim();
+    });
+  }
   function cloneData(value) {
     try {
       return JSON.parse(JSON.stringify(value || {}));
@@ -232,7 +502,7 @@
       key: "admin:home:update",
       tag: "تحديث",
       title: "تم تحديث الصفحة الرئيسية",
-      description: "تم حفظ محتوى السيرة أو القسم الرئيسي أو التواصل أو الملف الشخصي من لوحة الإدارة.",
+      description: "تم حفظ محتوى السيرة أو القسم الرئيسي أو التذييل أو الملف الشخصي من لوحة الإدارة.",
       href: "index.html"
     });
   }
@@ -325,11 +595,21 @@
     setValue("brandName", data.settings.brandName);
     setValue("brandSlogan", data.settings.brandSlogan);
     setValue("brandLogo", data.settings.brandLogo);
+    setValue("siteIcon", data.settings.siteIcon);
     setValue("settingsPhone", data.settings.phoneNumber);
     setValue("settingsEmail", data.settings.email);
     setValue("siteLanguage", data.settings.language);
     setValue("siteDirection", data.settings.direction);
     setValue("siteTheme", data.settings.theme);
+    setValue("shellTopbarText", data.settings.shellTopbarText);
+    setValue("shellTopbarShortText", data.settings.shellTopbarShortText);
+    setValue("shellVerifyLabel", data.settings.shellVerifyLabel);
+    setValue("shellVerifyTitle", data.settings.shellVerifyTitle);
+    setValue("shellVerifyDescription", data.settings.shellVerifyDescription);
+    setValue("shellSecurityTitle", data.settings.shellSecurityTitle);
+    setValue("shellSecurityDescription", data.settings.shellSecurityDescription);
+    setValue("shellNoticeText", data.settings.shellNoticeText);
+    fillInterfaceTextFields();
     setValue("homeLabel", data.navigation.homeLabel);
     setValue("pagesLabel", data.navigation.pagesLabel);
     setValue("projectsLabel", data.navigation.projectsLabel);
@@ -348,37 +628,57 @@
     setValue("skills", (data.home.skills || []).map(function (item) { return typeof item === "string" ? item : item.name; }).join("\n"));
     setValue("experience", formatItems(data.home.experience || []));
     setValue("achievements", formatItems(data.home.achievements || []));
+    setValue("footerLinksHeading", data.texts.footerLinksHeading);
+    setValue("footerSocialHeading", data.texts.footerSocialHeading);
+    setValue("footerSocialEmpty", data.texts.footerSocialEmpty);
+    setValue("footerVersion", data.texts.footerVersion);
+    setValue("footerCopyrightText", data.footer && data.footer.copyrightText);
+    setValue("footerLegalText", data.footer && Object.prototype.hasOwnProperty.call(data.footer, "legalText") ? data.footer.legalText : data.texts.footerDisclaimer);
 
     renderHeroSlidesEditor();
     renderContentRowsEditor("experience");
     renderContentRowsEditor("achievements");
     renderSkillsEditor();
-    renderContactsEditor();
+    renderFooterEditors();
     renderProjectsEditor();
     renderPagesEditor();
+    renderIntegrationsEditor();
     prepareUploadControls();
     rememberLoadedEditorState();
   }
 
   function rememberLoadedEditorState() {
     collectHomeDraft();
+    collectFooterDraft();
     collectProjects();
     collectPages();
+    collectIntegrations();
     rememberSavedData();
   }
 
   function saveSettings(event) {
     event.preventDefault();
+    if (!ensurePermission("settings")) return;
     data.settings.siteName = value("siteName");
     data.navigation.pagesLabel = value("pagesLabel") || data.navigation.pagesLabel || "الصفحات";
     data.settings.brandName = value("brandName");
     data.settings.brandSlogan = value("brandSlogan");
     data.settings.brandLogo = value("brandLogo");
+    data.settings.siteIcon = value("siteIcon");
     data.settings.phoneNumber = value("settingsPhone");
     data.settings.email = value("settingsEmail");
     data.settings.language = value("siteLanguage") || "ar";
     data.settings.direction = value("siteDirection") || "rtl";
     data.settings.theme = value("siteTheme") || data.settings.theme || "light";
+    data.settings.shellTopbarText = value("shellTopbarText");
+    data.settings.shellTopbarShortText = value("shellTopbarShortText");
+    data.settings.shellVerifyLabel = value("shellVerifyLabel");
+    data.settings.shellVerifyTitle = value("shellVerifyTitle");
+    data.settings.shellVerifyDescription = value("shellVerifyDescription");
+    data.settings.shellSecurityTitle = value("shellSecurityTitle");
+    data.settings.shellSecurityDescription = value("shellSecurityDescription");
+    data.settings.shellNoticeText = value("shellNoticeText");
+    collectInterfaceTextFields();
     saveData().then(function () {
       toast("تم حفظ إعدادات الموقع");
     });
@@ -386,6 +686,7 @@
 
   function saveNavigation(event) {
     event.preventDefault();
+    if (!ensurePermission("navigation")) return;
     data.settings.siteName = value("siteNameNav") || value("siteName");
     data.navigation.pagesLabel = value("pagesLabel") || data.navigation.pagesLabel || "الصفحات";
     data.navigation.homeLabel = value("homeLabel") || "الرئيسية";
@@ -425,11 +726,38 @@
         return { id: newEntityId("skill"), name: item.trim(), visible: true };
       }).filter(function (item) { return item.name; });
     }
+  }
+
+  function collectFooterDraft() {
+    ensureFooterData();
+    data.texts.footerLinksHeading = value("footerLinksHeading") || data.texts.footerLinksHeading || "روابط سريعة";
+    data.texts.footerSocialHeading = value("footerSocialHeading") || data.texts.footerSocialHeading || "وسائل التواصل";
+    data.texts.footerSocialEmpty = value("footerSocialEmpty") || data.texts.footerSocialEmpty || "لم تتم إضافة وسائل تواصل بعد";
+    data.texts.footerVersion = value("footerVersion") || data.texts.footerVersion || "";
+    data.texts.footerDisclaimer = value("footerLegalText");
+    data.footer.copyrightText = value("footerCopyrightText");
+    data.footer.legalText = value("footerLegalText");
     data.home.contacts = collectContacts();
+    data.home.footerLinks = collectFooterLinks();
+    data.footer.columns = collectFooterColumns();
+    data.footer.iconGroups = collectFooterIconGroups();
+    data.footer.bottomLinks = collectFooterBottomLinks();
+    data.footer.logos = collectFooterLogos();
+  }
+
+  function saveFooter(event) {
+    event.preventDefault();
+    if (!ensurePermission("footer")) return;
+    collectFooterDraft();
+    saveData().then(function () {
+      refreshPublicShell();
+      toast("تم حفظ التذييل");
+    });
   }
 
   function saveHome(event) {
     event.preventDefault();
+    if (!ensurePermission("home")) return;
     var previousData = cloneData(lastSavedSnapshot || data);
     collectHomeDraft();
     var savePromise = saveDataIfChanged();
@@ -441,10 +769,21 @@
   }
 
   function inputHtml(key, label, value, info) {
+    var placeholder = info ? ' placeholder="' + safeText(info) + '"' : "";
     return [
       '<div class="nds-form-container">',
-      '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span>' + (info ? '<span class="nds-info">' + safeText(info) + '</span>' : '') + '</label></div>',
-      '<div class="nds-form-control"><input class="nds-input" data-field="' + safeText(key) + '" type="text" value="' + safeText(value) + '"></div>',
+      '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span></label></div>',
+      '<div class="nds-form-control"><input class="nds-input" data-field="' + safeText(key) + '" type="text" value="' + safeText(value) + '"' + placeholder + '></div>',
+      '</div>'
+    ].join("");
+  }
+
+  function passwordHtml(key, label, info) {
+    var placeholder = info ? ' placeholder="' + safeText(info) + '"' : "";
+    return [
+      '<div class="nds-form-container">',
+      '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span></label></div>',
+      '<div class="nds-form-control"><input class="nds-input" data-field="' + safeText(key) + '" type="password" autocomplete="new-password"' + placeholder + '></div>',
       '</div>'
     ].join("");
   }
@@ -493,11 +832,12 @@
 
   function uploadableInputHtml(key, label, value, type, info) {
     var safeType = safeText(type || "image");
+    var placeholder = info ? ' placeholder="' + safeText(info) + '"' : "";
     return [
       '<div class="nds-form-container uploadable-field">',
-      '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span>' + (info ? '<span class="nds-info">' + safeText(info) + '</span>' : '') + '</label></div>',
+      '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span></label></div>',
       '<div class="uploadable-control-row">',
-      '<div class="nds-form-control upload-path-control"><input class="nds-input" data-field="' + safeText(key) + '" type="text" value="' + safeText(value) + '"></div>',
+      '<div class="nds-form-control upload-path-control"><input class="nds-input" data-field="' + safeText(key) + '" type="text" value="' + safeText(value) + '"' + placeholder + '></div>',
       '<div class="nds-form-control upload-file-control" data-upload-label="' + safeText(uploadButtonLabel(type)) + '"><input class="nds-input file-input" type="file" data-media-upload="' + safeType + '" data-upload-target-field="' + safeText(key) + '"' + uploadAcceptAttribute(type) + '></div>',
       '</div>',
       uploadProgressHtml(),
@@ -506,22 +846,39 @@
   }
 
   function textareaHtml(key, label, value, rows, info) {
+    var placeholder = info ? ' placeholder="' + safeText(info) + '"' : "";
     return [
       '<div class="nds-form-container">',
-      '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span>' + (info ? '<span class="nds-info">' + safeText(info) + '</span>' : '') + '</label></div>',
-      '<div class="nds-form-control textarea-control"><textarea class="nds-input" data-field="' + safeText(key) + '" rows="' + rows + '">' + safeText(value) + '</textarea></div>',
+      '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span></label></div>',
+      '<div class="nds-form-control textarea-control"><textarea class="nds-input" data-field="' + safeText(key) + '" rows="' + rows + '"' + placeholder + '>' + safeText(value) + '</textarea></div>',
       '</div>'
     ].join("");
   }
 
   function selectHtml(key, label, value, options) {
-    var items = options.map(function (option) {
-      return '<option value="' + safeText(option.value) + '" ' + (option.value === value ? 'selected' : '') + '>' + safeText(option.label) + '</option>';
+    var selected = getOption(value, options || []);
+    var items = (options || []).map(function (option) {
+      return [
+        '<button class="nds-btn nds-subtle nds-dropmenu-item icon-type-option admin-select-option" type="button" data-select-value="' + safeText(option.value) + '" data-state="' + (option.value === selected.value ? "selected" : "") + '">',
+        '<span class="nds-label">' + safeText(option.label) + '</span>',
+        '</button>'
+      ].join("");
     }).join("");
     return [
       '<div class="nds-form-container">',
       '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span></label></div>',
-      '<div class="nds-form-control select-control"><select class="nds-input nds-select" data-field="' + safeText(key) + '">' + items + '</select></div>',
+      '<div class="nds-dropmenu icon-type-menu admin-select-menu" data-select-menu>',
+      '<button class="nds-btn nds-secondary-outline nds-dropmenu-trigger icon-type-trigger admin-select-trigger" type="button" data-select-trigger aria-expanded="false">',
+      '<span class="nds-label" data-select-label>' + safeText(selected.label) + '</span>',
+      '<i class="nds-icon nds-hgi-arrow-down-01 icon-type-arrow" aria-hidden="true"></i>',
+      '</button>',
+      '<input type="hidden" data-field="' + safeText(key) + '" value="' + safeText(selected.value) + '">',
+      '<div class="nds-dropmenu-menu icon-type-options admin-select-options" hidden>',
+      '<div class="nds-dropmenu-scroll">',
+      items,
+      '</div>',
+      '</div>',
+      '</div>',
       '</div>'
     ].join("");
   }
@@ -556,18 +913,73 @@
     ].join("");
   }
 
+  function editorAccordionKey(item, prefix, panelId) {
+    if (!item) return panelId || prefix || "";
+    if (item.dataset.editorAccordionKey) return item.dataset.editorAccordionKey;
+    if (item.dataset.footerColumnLinkIndex) {
+      var footerColumn = item.closest("[data-footer-column-index]");
+      return (prefix || "footer-column-link") + ":" + (footerColumn ? footerColumn.dataset.footerColumnIndex : "") + ":" + item.dataset.footerColumnLinkIndex;
+    }
+    if (item.dataset.footerIconLinkIndex) {
+      var footerIconGroup = item.closest("[data-footer-icon-group-index]");
+      return (prefix || "footer-icon-link") + ":" + (footerIconGroup ? footerIconGroup.dataset.footerIconGroupIndex : "") + ":" + item.dataset.footerIconLinkIndex;
+    }
+    var itemId = item.dataset.contentRowId || item.dataset.skillId || item.dataset.footerColumnId || item.dataset.footerIconGroupId || item.dataset.footerLogoId || item.dataset.projectId || item.dataset.pageId || item.dataset.integrationId || item.dataset.adminUserId || item.dataset.heroSlideIndex || item.dataset.footerLinkIndex || item.dataset.footerColumnLinkIndex || item.dataset.footerIconLinkIndex || item.dataset.footerBottomLinkIndex || item.dataset.contentRowIndex || item.dataset.skillIndex || panelId || "";
+    var keyPrefix = prefix || item.dataset.sortableItem || "editor";
+    return keyPrefix + ":" + itemId;
+  }
+
+  function setEditorAccordionState(button, isOpen) {
+    var panel = qs("#" + button.getAttribute("aria-controls"));
+    var item = button.closest(".compact-editor-item, [data-hero-slide-index]");
+    var key = editorAccordionKey(item, "", button.getAttribute("aria-controls"));
+    button.setAttribute("aria-expanded", String(isOpen));
+    button.dataset.state = isOpen ? "open" : "";
+    if (panel) {
+      panel.dataset.state = isOpen ? "open" : "";
+      panel.setAttribute("aria-hidden", String(!isOpen));
+    }
+    if (item) item.dataset.state = isOpen ? "open" : "closed";
+    if (key) {
+      if (isOpen) openEditorAccordions.add(key);
+      else openEditorAccordions.delete(key);
+    }
+  }
+
+  function contactAccordionKey(button) {
+    var item = button.closest(".contact-editor-item");
+    if (!item) return button.getAttribute("aria-controls") || "";
+    return "contact:" + (item.dataset.contactId || item.dataset.contactIndex || button.getAttribute("aria-controls"));
+  }
+
+  function setContactAccordionState(button, isOpen) {
+    var panel = qs("#" + button.getAttribute("aria-controls"));
+    var key = contactAccordionKey(button);
+    button.setAttribute("aria-expanded", String(isOpen));
+    button.dataset.state = isOpen ? "open" : "";
+    if (panel) {
+      panel.dataset.state = isOpen ? "open" : "";
+      panel.setAttribute("aria-hidden", String(!isOpen));
+    }
+    if (key) {
+      if (isOpen) openContactAccordions.add(key);
+      else openContactAccordions.delete(key);
+    }
+  }
+
   function heroSlideTemplate(slide, index) {
     var panelId = "hero-slide-panel-" + index;
     var title = slide.video || slide.image || slide.alt || "وسائط القسم الرئيسي";
     title = slide.title || title;
-    var isOpen = pendingOpenEditor.hero === index;
+    var accordionKey = "hero:" + index;
+    var isOpen = pendingOpenEditor.hero === index || openEditorAccordions.has(accordionKey);
+    if (isOpen) openEditorAccordions.add(accordionKey);
     return [
-      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="hero" data-state="' + (isOpen ? "open" : "closed") + '" data-hero-slide-index="' + index + '">',
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="hero" data-editor-accordion-key="' + safeText(accordionKey) + '" data-state="' + (isOpen ? "open" : "closed") + '" data-hero-slide-index="' + index + '">',
       '<div class="admin-template-header sortable-editor-header">',
       dragHandleHtml("اسحب لتغيير ترتيب وسائط القسم الرئيسي"),
-      '<button class="editor-accordion-btn nds-btn nds-subtle" type="button" data-editor-toggle aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
+      '<button class="editor-accordion-btn nds-accordion-btn nds-btn nds-subtle" type="button" data-editor-toggle data-state="' + (isOpen ? "open" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
       '<span class="nds-card-title">' + safeText(title) + '</span>',
-      '<i class="nds-icon nds-hgi-arrow-down-01 editor-accordion-arrow" aria-hidden="true"></i>',
       '</button>',
       adminDeleteButton("data-delete-hero-slide", index, "حذف وسائط القسم الرئيسي"),
       '</div>',
@@ -690,29 +1102,32 @@
       var title = head ? qs(".nds-card-title", head) : null;
       if (!card || !head || !title) return;
       var panelId = prefix + "-panel-" + index;
+      var key = editorAccordionKey(item, prefix, panelId);
+      var isOpen = openEditorAccordions.has(key);
       var body = document.createElement("div");
       var content = document.createElement("div");
       var inner = document.createElement("div");
       var button = document.createElement("button");
-      var icon = document.createElement("i");
-      body.className = "editor-accordion-collapse";
+      item.dataset.editorAccordionKey = key;
+      item.dataset.state = isOpen ? "open" : "closed";
+      body.className = "editor-accordion-collapse nds-accordion-collapse";
       body.id = panelId;
-      content.className = "editor-accordion-content";
+      body.dataset.state = isOpen ? "open" : "";
+      body.setAttribute("aria-hidden", String(!isOpen));
+      content.className = "editor-accordion-content nds-accordion-content";
       inner.className = "compact-editor-body";
       while (head.nextSibling) inner.appendChild(head.nextSibling);
       content.appendChild(inner);
       body.appendChild(content);
       card.appendChild(body);
-      button.className = "editor-accordion-btn nds-btn nds-subtle";
+      button.className = "editor-accordion-btn nds-accordion-btn nds-btn nds-subtle";
       button.type = "button";
       button.dataset.editorToggle = "";
-      button.setAttribute("aria-expanded", "false");
+      button.dataset.state = isOpen ? "open" : "";
+      button.setAttribute("aria-expanded", String(isOpen));
       button.setAttribute("aria-controls", panelId);
       button.appendChild(title);
-      icon.className = "nds-icon nds-hgi-arrow-down-01 editor-accordion-arrow";
-      icon.setAttribute("aria-hidden", "true");
-      button.appendChild(icon);
-      var deleteButton = qs("[data-delete-content-row], [data-delete-skill]", head);
+      var deleteButton = qs("[data-delete-content-row], [data-delete-skill], [data-delete-footer-link], [data-delete-footer-column], [data-delete-footer-column-link], [data-delete-footer-icon-group], [data-delete-footer-icon-link], [data-delete-footer-bottom-link], [data-delete-footer-logo], [data-delete-integration], [data-delete-admin-user]", head);
       if (deleteButton) {
         head.insertBefore(button, deleteButton);
       } else {
@@ -768,19 +1183,21 @@
   function contactTemplate(contact, index) {
     var label = contact.label || "وسيلة تواصل";
     var panelId = "contact-panel-" + index;
+    var contactId = ensureEntityId(contact, "contact");
+    var accordionKey = "contact:" + contactId;
+    var isOpen = openContactAccordions.has(accordionKey);
     return [
-      '<article class="editor-item contact-editor-item nds-card nds-stroke" data-sortable-item="contacts" data-contact-index="' + index + '">',
+      '<article class="editor-item contact-editor-item nds-card nds-stroke" data-sortable-item="contacts" data-contact-index="' + index + '" data-contact-id="' + safeText(contactId) + '">',
       '<div class="contact-accordion-header sortable-editor-header">',
       dragHandleHtml("تغيير ترتيب وسيلة التواصل"),
-      '<button class="contact-accordion-btn nds-btn nds-subtle" type="button" data-contact-toggle aria-expanded="false" aria-controls="' + panelId + '">',
+      '<button class="contact-accordion-btn nds-accordion-btn nds-btn nds-subtle" type="button" data-contact-toggle data-state="' + (isOpen ? "open" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
       '<span class="contact-accordion-title">' + safeText(label) + '</span>',
-      '<i class="nds-icon nds-hgi-arrow-down-01 contact-accordion-arrow" aria-hidden="true"></i>',
       '</button>',
       contactDeleteButton(index),
       '</div>',
-      '<div class="contact-accordion-collapse" id="' + panelId + '">',
-      '<div class="contact-accordion-content">',
-      '<div class="contact-accordion-body">',
+      '<div class="contact-accordion-collapse nds-accordion-collapse" id="' + panelId + '"' + (isOpen ? ' data-state="open" aria-hidden="false"' : ' aria-hidden="true"') + '>',
+      '<div class="contact-accordion-content nds-accordion-content">',
+      '<div class="contact-accordion-body nds-accordion-body">',
       '<div class="contact-form-grid">',
       inputHtml("contactLabel", "التسمية الاختيارية", contact.label),
       inputHtml("contactUrl", "الرابط", contact.url),
@@ -810,20 +1227,21 @@
   function projectTemplate(project, index) {
     var projectId = ensureEntityId(project, "project");
     var panelId = "project-panel-" + index;
+    var accordionKey = "projects:" + projectId;
+    var isOpen = openEditorAccordions.has(accordionKey);
     var title = project.title || "مشروع";
     return [
-      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="projects" data-project-index="' + index + '" data-project-id="' + safeText(projectId) + '">',
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="projects" data-editor-accordion-key="' + safeText(accordionKey) + '" data-project-index="' + index + '" data-project-id="' + safeText(projectId) + '" data-state="' + (isOpen ? "open" : "closed") + '">',
       '<div class="nds-card-content compact-card-content">',
       '<div class="editor-item-head sortable-editor-header">',
       dragHandleHtml("تغيير ترتيب المشروع"),
-      '<button class="editor-accordion-btn nds-btn nds-subtle" type="button" data-editor-toggle aria-expanded="false" aria-controls="' + panelId + '">',
+      '<button class="editor-accordion-btn nds-accordion-btn nds-btn nds-subtle" type="button" data-editor-toggle data-state="' + (isOpen ? "open" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
       '<span class="nds-card-title">' + safeText(title) + '</span>',
-      '<i class="nds-icon nds-hgi-arrow-down-01 editor-accordion-arrow" aria-hidden="true"></i>',
       '</button>',
       adminDeleteButton("data-delete-project", index, "حذف المشروع"),
       '</div>',
-      '<div class="editor-accordion-collapse" id="' + panelId + '">',
-      '<div class="editor-accordion-content">',
+      '<div class="editor-accordion-collapse nds-accordion-collapse" id="' + panelId + '"' + (isOpen ? ' data-state="open" aria-hidden="false"' : ' aria-hidden="true"') + '>',
+      '<div class="editor-accordion-content nds-accordion-content">',
       '<div class="form-grid">',
       inputHtml("projectTitle", "عنوان المشروع", project.title),
       inputHtml("projectSlug", "الرابط المختصر", project.slug),
@@ -858,27 +1276,33 @@
     var pageId = ensureEntityId(page, "page");
     var mode = page.contentMode || "text";
     var panelId = "page-panel-" + index;
+    var accordionKey = "page:" + pageId;
     var title = page.title || "صفحة إضافية";
-    var isOpen = pendingOpenEditor.page === index;
+    var isOpen = pendingOpenEditor.page === index || openEditorAccordions.has(accordionKey);
+    if (isOpen) openEditorAccordions.add(accordionKey);
+    var showInNavigation = page.showInFooter && page.visible === false ? false : page.showInNavigation !== false;
     return [
-      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="page" data-page-index="' + index + '" data-page-id="' + safeText(pageId) + '">',
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="page" data-editor-accordion-key="' + safeText(accordionKey) + '" data-page-index="' + index + '" data-page-id="' + safeText(pageId) + '" data-state="' + (isOpen ? "open" : "closed") + '">',
       '<div class="nds-card-content compact-card-content">',
       '<div class="editor-item-head sortable-editor-header">',
       dragHandleHtml("اسحب لتغيير ترتيب الصفحات"),
-      '<button class="editor-accordion-btn nds-btn nds-subtle" type="button" data-editor-toggle aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
+      '<button class="editor-accordion-btn nds-accordion-btn nds-btn nds-subtle" type="button" data-editor-toggle data-state="' + (isOpen ? "open" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
       '<span class="nds-card-title">' + safeText(title) + '</span>',
-      '<i class="nds-icon nds-hgi-arrow-down-01 editor-accordion-arrow" aria-hidden="true"></i>',
       '</button>',
       adminDeleteButton("data-delete-page", index, "حذف الصفحة"),
       '</div>',
-      '<div class="editor-accordion-collapse" id="' + panelId + '"' + (isOpen ? ' data-state="open"' : '') + '>',
-      '<div class="editor-accordion-content">',
+      '<div class="editor-accordion-collapse nds-accordion-collapse" id="' + panelId + '"' + (isOpen ? ' data-state="open" aria-hidden="false"' : ' aria-hidden="true"') + '>',
+      '<div class="editor-accordion-content nds-accordion-content">',
       '<div class="form-grid">',
       inputHtml("pageTitle", "عنوان الصفحة", page.title),
       inputHtml("pageSlug", "الرابط المختصر", page.slug),
       optionDropmenuHtml("pageContentMode", "نوع المحتوى", mode, window.PAGE_CONTENT_MODES || []),
       '</div>',
-      '<label class="check-line"><input type="checkbox" data-page-visible ' + (page.visible ? "checked" : "") + '> <span>إظهار الصفحة في التنقل</span></label>',
+      '<div class="admin-check-stack">',
+      '<label class="check-line"><input type="checkbox" data-page-visible ' + (page.visible ? "checked" : "") + '> <span>نشر الصفحة</span></label>',
+      '<label class="check-line"><input type="checkbox" data-page-navigation-link ' + (showInNavigation ? "checked" : "") + '> <span>إظهار في الهيدر</span></label>',
+      '<label class="check-line"><input type="checkbox" data-page-footer-link ' + (page.showInFooter ? "checked" : "") + '> <span>رابط تذييل</span></label>',
+      '</div>',
       textareaHtml("pageContent", "محتوى الصفحة", page.content, 10, "اكتب نصا عاديا أو اختر HTML والصق الكود كاملا. سيتم عرضه داخل حاوية منسقة."),
       '</div>',
       '</div>',
@@ -939,22 +1363,104 @@
     return options.find(function (option) { return option.value === value; }) || options[0] || { value: "", label: "" };
   }
 
+  function pageFooterUrl(value) {
+    if (value === "__home") return "index.html";
+    if (value === "__projects") return "projects.html";
+    var page = (data.pages || []).find(function (candidate) {
+      return candidate && candidate.slug === value;
+    });
+    return page && page.slug ? "index.html#/page/" + encodeURIComponent(page.slug) : "";
+  }
+
+  function footerPageSlugFromUrl(url) {
+    var text = String(url || "");
+    if (text === "index.html" || text === "./" || text === "/") return "__home";
+    if (text === "projects.html") return "__projects";
+    var prefix = "index.html#/page/";
+    if (text.indexOf(prefix) !== 0) return "";
+    try {
+      return decodeURIComponent(text.slice(prefix.length));
+    } catch (error) {
+      return text.slice(prefix.length);
+    }
+  }
+
+  function footerPageOptions() {
+    var pages = (data && data.pages || []).filter(function (page) {
+      return page && (page.title || page.slug);
+    });
+    var navigation = data && data.navigation || {};
+    return [
+      { value: "", label: "رابط مخصص" },
+      { value: "__home", label: navigation.homeLabel || "الرئيسية" },
+      { value: "__projects", label: navigation.projectsLabel || "مشاريعنا" }
+    ].concat(pages.map(function (page) {
+      return {
+        value: page.slug || "",
+        label: page.title || page.slug || "صفحة"
+      };
+    }));
+  }
+
+  function syncFooterLinkFromPage(menu) {
+    var input = menu ? qs('[data-field="footerLinkPage"]', menu) : null;
+    if (!input && menu) input = qs('[data-field$="Page"]', menu);
+    var item = menu ? (menu.closest("[data-footer-link-index]") || menu.closest("[data-footer-logo-index]") || menu.closest(".footer-nested-item")) : null;
+    var slug = input ? input.value : "";
+    if (!item || !slug) return;
+    var fieldPrefix = (input.dataset.field || "footerLinkPage").replace(/Page$/, "");
+    var option = getOption(slug, footerPageOptions());
+    var urlInput = qs('[data-field="' + fieldPrefix + 'Url"]', item);
+    var labelInput = qs('[data-field="' + fieldPrefix + 'Label"]', item);
+    if (urlInput) urlInput.value = pageFooterUrl(slug);
+    if (labelInput && !labelInput.value.trim()) labelInput.value = option && option.label || "";
+  }
+
   function adminOptionIcon(value) {
     var label = value === "html" ? "HTML" : "TXT";
     return '<span class="admin-option-icon" aria-hidden="true">' + safeText(label) + '</span>';
   }
 
+  function adminAppIconSvg(type) {
+    var attrs;
+    var paths;
+    if (type === "appstore") {
+      attrs = 'width="22" height="26" viewBox="0 0 22 26"';
+      paths = [
+        "M18.3067 13.8343C18.3177 12.8377 18.5918 11.8628 19.1072 10.9962C19.6116 10.1296 20.3464 9.4038 21.2236 8.8838C20.6644 8.1147 19.9296 7.4756 19.0743 7.0315C18.2189 6.5874 17.2649 6.3382 16.289 6.3057C14.2054 6.0999 12.1986 7.5081 11.1349 7.5081C10.0713 7.5081 8.42631 6.3274 6.67181 6.3599C5.53131 6.3924 4.42381 6.7174 3.45881 7.2806C2.48281 7.8548 1.68231 8.6564 1.13401 9.6096C-1.25659 13.6068 0.530909 19.478 2.82281 22.7169C3.97421 24.2985 5.31201 26.0642 7.06661 25.9992C8.78821 25.9342 9.42431 24.9484 11.4968 24.9484C13.5694 24.9484 14.1506 25.9992 15.938 25.9667C17.7803 25.9342 18.9427 24.3743 20.0503 22.7819C20.8727 21.6553 21.5087 20.4096 21.9254 19.088C20.8508 18.6547 19.9406 17.9181 19.3046 16.9865C18.6576 16.0549 18.3177 14.9609 18.3177 13.8343H18.3067Z",
+        "M14.9292 4.1705C15.9381 3.0114 16.4315 1.5165 16.3109 0C14.7757 0.1517 13.3611 0.8666 12.3412 1.9823C11.8478 2.524 11.464 3.1631 11.2227 3.8564C10.9815 4.5496 10.8828 5.2754 10.9266 6.0012C11.6942 6.0012 12.4509 5.8495 13.1418 5.5354C13.8326 5.2213 14.4467 4.7555 14.9292 4.1813V4.1705Z"
+      ];
+    } else if (type === "huawei") {
+      attrs = 'width="26" height="26" viewBox="0 0 26 26"';
+      paths = [
+        "M18.27 0H7.15C1.9 0 0 1.97 0 7.31V18.67C0 24.03 1.93 25.98 7.15 25.98H18.27C23.52 25.98 25.42 24.01 25.42 18.67V7.31C25.45 1.97 23.52 0 18.27 0ZM5.03 13.01H5.7V16.4H5.03V15.03H3.5V16.4H2.83V13.01H3.5V14.38H5.03V13.01ZM8.84 14.94C8.84 15.48 8.57 15.79 8.09 15.79C7.61 15.79 7.34 15.49 7.34 14.92V13H6.67V14.95C6.67 15.9 7.18 16.46 8.09 16.46C9 16.46 9.54 15.92 9.54 14.92V13H8.87V14.95H8.84V14.94ZM16.63 15.33L15.88 13H15.32L14.57 15.33L13.85 13H13.13L14.28 16.39H14.84L15.59 14.15L16.34 16.39H16.9L18.05 13H17.35L16.63 15.33ZM19.29 14.94H20.52V14.31H19.29V13.62H21.09V12.99H18.65V16.38H21.17V15.75H19.32V14.93H19.29V14.94ZM21.94 16.4H22.61V13.01H21.94V16.4ZM10.85 15.68L10.56 16.39H9.86L11.31 13H11.9L13.35 16.39H12.65L12.36 15.68H10.85ZM11.09 15.09H12.11L11.6 13.89L11.09 15.09ZM12.72 8.68C10.39 8.68 8.49 6.73 8.49 4.35H9.08C9.08 6.4 10.71 8.07 12.72 8.07C14.73 8.07 16.36 6.4 16.36 4.35H16.95C16.95 6.73 15.05 8.68 12.72 8.68Z"
+      ];
+    } else if (type === "android" || type === "googleplay") {
+      attrs = 'width="23" height="26" viewBox="0 0 23 26"';
+      paths = [
+        "M1.2079 0L13.4575 12.1642L16.8128 8.809L1.9643 0.2318C1.7203 0.0854001 1.4519 0.0122 1.2079 0ZM0.183 0.5612C0.0731996 0.7565 0 0.9883 0 1.2445V24.8775C0 25.0727 0.0366003 25.2435 0.1098 25.39L12.6401 12.9451L0.183 0.5612ZM17.8376 9.3825L14.2506 12.9573L17.8376 16.5077L22.2177 13.9944C22.84 13.6283 22.9254 13.1769 22.9254 12.9329C22.9254 12.5303 22.6692 12.152 22.2299 11.9202C21.8517 11.725 19.0821 10.1023 17.8254 9.3702L17.8376 9.3825ZM13.4575 13.7504L1.1103 26C1.3177 26 1.5373 25.939 1.7447 25.8292C2.2328 25.5486 12.0178 19.8874 12.0178 19.8874L16.8494 17.1178L13.4697 13.7626L13.4575 13.7504Z"
+      ];
+    }
+    if (!paths) return "";
+    return '<svg class="contact-icon contact-icon-' + safeText(type) + ' admin-app-icon" ' + attrs + ' fill="none" aria-hidden="true" focusable="false">' + paths.map(function (path) {
+      return '<path d="' + path + '" fill="currentColor"></path>';
+    }).join("") + '</svg>';
+  }
+
   function adminContactIcon(type) {
+    var appIcon = adminAppIconSvg(type);
+    if (appIcon) return appIcon;
     var icons = {
       linkedin: "nds-hgi-linkedin-02",
       facebook: "nds-hgi-facebook-02",
-      instagram: "hgi hgi-stroke hgi-instagram",
+      instagram: "nds-hgi-instagram",
       youtube: "nds-hgi-youtube",
-      github: "hgi hgi-stroke hgi-github",
+      github: "nds-hgi-github",
       x: "nds-hgi-new-twitter",
       email: "nds-hgi-mail-01",
       website: "nds-hgi-globe",
-      phone: "nds-hgi-smart-phone-01"
+      phone: "nds-hgi-smart-phone-01",
+      location: "nds-hgi-location-01"
     };
     var iconClass = icons[type] || icons.website;
     if (iconClass.indexOf("hgi ") !== 0) iconClass = "nds-icon " + iconClass;
@@ -1008,7 +1514,7 @@
       var index = Number(item.dataset.contactIndex);
       var existing = data.home.contacts && data.home.contacts[index] || {};
       return {
-        id: existing.id || "contact-" + Date.now() + "-" + item.dataset.contactIndex,
+        id: item.dataset.contactId || existing.id || "contact-" + Date.now() + "-" + item.dataset.contactIndex,
         label: qs('[data-field="contactLabel"]', item).value.trim(),
         url: qs('[data-field="contactUrl"]', item).value.trim(),
         iconType: qs('[data-field="contactIconType"]', item).value,
@@ -1017,6 +1523,329 @@
       };
     }).filter(function (contact) {
       return contact.label || contact.url || contact.iconPath;
+    });
+  }
+
+  function ensureFooterData() {
+    data.footer = data.footer || {};
+    data.footer.columns = Array.isArray(data.footer.columns) ? data.footer.columns : [];
+    data.footer.iconGroups = Array.isArray(data.footer.iconGroups) ? data.footer.iconGroups : [];
+    data.footer.bottomLinks = Array.isArray(data.footer.bottomLinks) ? data.footer.bottomLinks : [];
+    data.footer.logos = Array.isArray(data.footer.logos) ? data.footer.logos : [];
+  }
+
+  function footerManagedLinkTemplate(link, prefix, columnIndex, linkIndex) {
+    var selectedPage = footerPageSlugFromUrl(link.url || link.href);
+    var indexAttr = prefix === "footerColumnLink" ? ' data-footer-column-link-index="' + linkIndex + '"' : prefix === "footerIconLink" ? ' data-footer-icon-link-index="' + linkIndex + '"' : ' data-footer-bottom-link-index="' + linkIndex + '"';
+    var sortableAttr = prefix === "footerBottomLink" ? ' data-sortable-item="footerBottomLinks"' : "";
+    var dragHandle = prefix === "footerBottomLink" ? dragHandleHtml() : "";
+    var deleteAttr = prefix === "footerColumnLink" ? "data-delete-footer-column-link" : prefix === "footerIconLink" ? "data-delete-footer-icon-link" : "data-delete-footer-bottom-link";
+    var deleteValue = prefix === "footerBottomLink" ? linkIndex : columnIndex + ":" + linkIndex;
+    var labelText = prefix === "footerColumnLink" ? "النص أو عنوان الرابط" : "عنوان الرابط";
+    var urlPlaceholder = prefix === "footerColumnLink" ? "اتركه فارغا لعرض النص فقط أو اكتب رابطا مثل privacy.html أو https://google.com" : "privacy.html أو https://google.com";
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item footer-nested-item nds-card nds-stroke"' + sortableAttr + indexAttr + '>',
+      '<div class="nds-card-content compact-card-content">',
+      '<div class="editor-item-head sortable-editor-header">',
+      dragHandle,
+      '<span class="nds-card-title">' + safeText(link.label || "رابط") + '</span>',
+      adminDeleteButton(deleteAttr, deleteValue, "حذف الرابط"),
+      '</div>',
+      '<div class="form-grid">',
+      inputHtml(prefix + "Label", labelText, link.label),
+      selectHtml(prefix + "Page", "اختر صفحة داخلية", selectedPage, footerPageOptions()),
+      inputHtml(prefix + "Url", "الرابط اليدوي أو الناتج", link.url || link.href, urlPlaceholder),
+      prefix === "footerIconLink" ? iconTypeDropmenuHtml(prefix + "IconType", "نوع الأيقونة", link.iconType || "website") : "",
+      prefix === "footerIconLink" ? uploadableInputHtml(prefix + "IconPath", "مسار شعار مخصص اختياري", link.iconPath, "contact-icon") : "",
+      '</div>',
+      '<label class="check-line"><input type="checkbox" data-footer-managed-link-visible ' + (link.visible === false ? "" : "checked") + '> <span>إظهار الرابط</span></label>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function footerColumnTemplate(column, index) {
+    var columnId = ensureEntityId(column, "footer-column");
+    var links = Array.isArray(column.links) ? column.links : [];
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="footerColumns" data-footer-column-index="' + index + '" data-footer-column-id="' + safeText(columnId) + '">',
+      '<div class="nds-card-content compact-card-content">',
+      '<div class="editor-item-head sortable-editor-header">',
+      dragHandleHtml("تغيير ترتيب عمود التذييل"),
+      '<span class="nds-card-title">' + safeText(column.title || "عمود تذييل") + '</span>',
+      adminDeleteButton("data-delete-footer-column", index, "حذف عمود التذييل"),
+      '</div>',
+      '<div class="form-grid">',
+      inputHtml("footerColumnTitle", "عنوان العمود", column.title),
+      '</div>',
+      '<label class="check-line"><input type="checkbox" data-footer-column-visible ' + (column.visible === false ? "" : "checked") + '> <span>إظهار العمود</span></label>',
+      '<div class="nested-editor-heading">',
+      '<span class="nds-label">روابط وسطور العمود</span>',
+      '<button class="nds-btn nds-secondary-outline nds-sm" type="button" data-add-footer-column-link="' + index + '"><span class="nds-label">إضافة رابط أو سطر</span></button>',
+      '</div>',
+      '<div class="editor-list compact-editor-list footer-nested-list" data-footer-column-links="' + index + '">',
+      links.map(function (link, linkIndex) { return footerManagedLinkTemplate(link, "footerColumnLink", index, linkIndex); }).join(""),
+      '</div>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderFooterColumnsEditor() {
+    var root = qs("[data-footer-columns-editor]");
+    if (!root) return;
+    ensureFooterData();
+    data.footer.columns = data.footer.columns.slice(0, MAX_FOOTER_COLUMNS);
+    root.dataset.sortableList = "footerColumns";
+    root.innerHTML = data.footer.columns.map(footerColumnTemplate).join("");
+    applySimpleEditorAccordions(root, "footer-columns");
+    if (!data.footer.columns.length) {
+      root.append(window.SiteApp.emptyState("لا توجد أعمدة تذييل", "استخدم زر إضافة عمود لإنشاء بنية مثل عن الموقع أو دعم فني."));
+    }
+    var addButton = qs("[data-add-footer-column]");
+    if (addButton) {
+      var atMax = data.footer.columns.length >= MAX_FOOTER_COLUMNS;
+      addButton.disabled = atMax;
+      addButton.title = atMax ? "الحد الأقصى 3 أعمدة" : "";
+      addButton.dataset.state = atMax ? "disabled" : "";
+    }
+    prepareUploadControls(root);
+  }
+
+  function collectFooterManagedLinks(scope, prefix, keepDrafts) {
+    return qsa("[data-footer-managed-link-visible]", scope).map(function (visibleInput) {
+      var item = visibleInput.closest(".footer-nested-item");
+      return {
+        label: qs('[data-field="' + prefix + 'Label"]', item).value.trim(),
+        url: qs('[data-field="' + prefix + 'Url"]', item).value.trim(),
+        iconType: qs('[data-field="' + prefix + 'IconType"]', item) ? qs('[data-field="' + prefix + 'IconType"]', item).value : "",
+        iconPath: qs('[data-field="' + prefix + 'IconPath"]', item) ? qs('[data-field="' + prefix + 'IconPath"]', item).value.trim() : "",
+        visible: visibleInput.checked
+      };
+    }).filter(function (link) {
+      return keepDrafts || link.label || link.url || link.iconPath || (prefix === "footerIconLink" && link.iconType);
+    });
+  }
+
+  function collectFooterColumns(options) {
+    var keepDrafts = options && options.keepDrafts;
+    return qsa("[data-footer-column-index]").slice(0, MAX_FOOTER_COLUMNS).map(function (item) {
+      return {
+        id: item.dataset.footerColumnId || newEntityId("footer-column"),
+        title: qs('[data-field="footerColumnTitle"]', item).value.trim(),
+        visible: qs("[data-footer-column-visible]", item).checked,
+        links: collectFooterManagedLinks(item, "footerColumnLink", keepDrafts)
+      };
+    }).filter(function (column) {
+      return keepDrafts || column.title || column.links.length;
+    });
+  }
+
+  function footerIconGroupTemplate(group, index) {
+    var groupId = ensureEntityId(group, "footer-icon-group");
+    var links = Array.isArray(group.links) ? group.links : [];
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="footerIconGroups" data-footer-icon-group-index="' + index + '" data-footer-icon-group-id="' + safeText(groupId) + '">',
+      '<div class="nds-card-content compact-card-content">',
+      '<div class="editor-item-head sortable-editor-header">',
+      dragHandleHtml("تغيير ترتيب مجموعة الأيقونات"),
+      '<span class="nds-card-title">' + safeText(group.title || "مجموعة أيقونات") + '</span>',
+      adminDeleteButton("data-delete-footer-icon-group", index, "حذف مجموعة الأيقونات"),
+      '</div>',
+      '<div class="form-grid">',
+      inputHtml("footerIconGroupTitle", "عنوان المجموعة", group.title),
+      '</div>',
+      '<label class="check-line"><input type="checkbox" data-footer-icon-group-visible ' + (group.visible === false ? "" : "checked") + '> <span>إظهار المجموعة</span></label>',
+      '<div class="nested-editor-heading">',
+      '<span class="nds-label">روابط الأيقونات</span>',
+      '<button class="nds-btn nds-secondary-outline nds-sm" type="button" data-add-footer-icon-link="' + index + '"><span class="nds-label">إضافة أيقونة</span></button>',
+      '</div>',
+      '<div class="editor-list compact-editor-list footer-nested-list" data-footer-icon-links="' + index + '">',
+      links.map(function (link, linkIndex) { return footerManagedLinkTemplate(link, "footerIconLink", index, linkIndex); }).join(""),
+      '</div>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderFooterIconGroupsEditor() {
+    var root = qs("[data-footer-icon-groups-editor]");
+    if (!root) return;
+    ensureFooterData();
+    data.footer.iconGroups = data.footer.iconGroups.slice(0, MAX_FOOTER_ICON_GROUPS);
+    root.dataset.sortableList = "footerIconGroups";
+    root.innerHTML = data.footer.iconGroups.map(footerIconGroupTemplate).join("");
+    applySimpleEditorAccordions(root, "footer-icon-groups");
+    if (!data.footer.iconGroups.length) {
+      root.append(window.SiteApp.emptyState("لا توجد مجموعات أيقونات", "استخدم زر إضافة مجموعة لإنشاء تابعنا أو تطبيق الجوال."));
+    }
+    var addButton = qs("[data-add-footer-icon-group]");
+    if (addButton) {
+      var atMax = data.footer.iconGroups.length >= MAX_FOOTER_ICON_GROUPS;
+      addButton.disabled = atMax;
+      addButton.title = atMax ? "الحد الأقصى مجموعتان" : "";
+      addButton.dataset.state = atMax ? "disabled" : "";
+    }
+    prepareUploadControls(root);
+  }
+
+  function collectFooterIconGroups(options) {
+    var keepDrafts = options && options.keepDrafts;
+    return qsa("[data-footer-icon-group-index]").slice(0, MAX_FOOTER_ICON_GROUPS).map(function (item) {
+      return {
+        id: item.dataset.footerIconGroupId || newEntityId("footer-icon-group"),
+        title: qs('[data-field="footerIconGroupTitle"]', item).value.trim(),
+        visible: qs("[data-footer-icon-group-visible]", item).checked,
+        links: collectFooterManagedLinks(item, "footerIconLink", keepDrafts)
+      };
+    }).filter(function (group) {
+      return keepDrafts || group.title || group.links.length;
+    });
+  }
+
+  function isFooterMobileAppGroup(group) {
+    var title = String(group && group.title || "");
+    return /\bmobile\b|\bapps?\b|app\s*store|google\s*play/i.test(title)
+      || title.indexOf("\u062a\u0637\u0628\u064a\u0642") !== -1
+      || title.indexOf("\u0627\u0644\u062c\u0648\u0627\u0644") !== -1;
+  }
+
+  function nextFooterAppIconType(group) {
+    var appTypes = ["appstore", "googleplay", "huawei"];
+    var used = (group.links || []).map(function (link) {
+      return String(link && link.iconType || "").toLowerCase();
+    });
+    return appTypes.find(function (type) {
+      return used.indexOf(type) === -1;
+    }) || "googleplay";
+  }
+
+  function footerBottomLinkTemplate(link, index) {
+    return footerManagedLinkTemplate(link, "footerBottomLink", 0, index);
+  }
+
+  function renderFooterBottomLinksEditor() {
+    var root = qs("[data-footer-bottom-links-editor]");
+    if (!root) return;
+    ensureFooterData();
+    root.dataset.sortableList = "footerBottomLinks";
+    root.innerHTML = data.footer.bottomLinks.map(footerBottomLinkTemplate).join("");
+    applySimpleEditorAccordions(root, "footer-bottom-links");
+    if (!data.footer.bottomLinks.length) {
+      root.append(window.SiteApp.emptyState("لا توجد روابط سفلية", "أضف الشروط والأحكام أو إشعار الخصوصية هنا."));
+    }
+  }
+
+  function collectFooterBottomLinks(options) {
+    return collectFooterManagedLinks(qs("[data-footer-bottom-links-editor]") || document, "footerBottomLink", options && options.keepDrafts);
+  }
+
+  function footerLogoTemplate(logo, index) {
+    var logoId = ensureEntityId(logo, "footer-logo");
+    var selectedPage = footerPageSlugFromUrl(logo.url);
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="footerLogos" data-footer-logo-index="' + index + '" data-footer-logo-id="' + safeText(logoId) + '">',
+      '<div class="nds-card-content compact-card-content">',
+      '<div class="editor-item-head sortable-editor-header">',
+      dragHandleHtml("تغيير ترتيب الشعار"),
+      '<span class="nds-card-title">' + safeText(logo.label || logo.alt || "شعار") + '</span>',
+      adminDeleteButton("data-delete-footer-logo", index, "حذف الشعار"),
+      '</div>',
+      '<div class="form-grid">',
+      inputHtml("footerLogoLabel", "اسم الشعار", logo.label),
+      inputHtml("footerLogoAlt", "النص البديل", logo.alt),
+      selectHtml("footerLogoPage", "اختر صفحة داخلية", selectedPage, footerPageOptions()),
+      inputHtml("footerLogoUrl", "رابط الشعار الداخلي أو الخارجي", logo.url, "index.html أو https://google.com"),
+      uploadableInputHtml("footerLogoSrc", "مسار الصورة", logo.src || logo.image || logo.logo, "footer-logo"),
+      '</div>',
+      '<label class="check-line"><input type="checkbox" data-footer-logo-visible ' + (logo.visible === false ? "" : "checked") + '> <span>إظهار الشعار</span></label>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderFooterLogosEditor() {
+    var root = qs("[data-footer-logos-editor]");
+    if (!root) return;
+    ensureFooterData();
+    root.dataset.sortableList = "footerLogos";
+    root.innerHTML = data.footer.logos.map(footerLogoTemplate).join("");
+    applySimpleEditorAccordions(root, "footer-logos");
+    if (!data.footer.logos.length) {
+      root.append(window.SiteApp.emptyState("لا توجد شعارات", "إذا لم تضف شعارات سيستخدم الموقع شعار الهوية الأساسي."));
+    }
+    prepareUploadControls(root);
+  }
+
+  function collectFooterLogos(options) {
+    var keepDrafts = options && options.keepDrafts;
+    return qsa("[data-footer-logo-index]").map(function (item) {
+      return {
+        id: item.dataset.footerLogoId || newEntityId("footer-logo"),
+        label: qs('[data-field="footerLogoLabel"]', item).value.trim(),
+        alt: qs('[data-field="footerLogoAlt"]', item).value.trim(),
+        url: qs('[data-field="footerLogoUrl"]', item).value.trim(),
+        src: qs('[data-field="footerLogoSrc"]', item).value.trim(),
+        visible: qs("[data-footer-logo-visible]", item).checked
+      };
+    }).filter(function (logo) {
+      return keepDrafts || logo.label || logo.alt || logo.url || logo.src;
+    });
+  }
+
+  function renderFooterEditors() {
+    renderFooterLinksEditor();
+    renderContactsEditor();
+    renderFooterColumnsEditor();
+    renderFooterIconGroupsEditor();
+    renderFooterBottomLinksEditor();
+    renderFooterLogosEditor();
+  }
+
+  function footerLinkTemplate(link, index) {
+    var label = link.label || "رابط تذييل";
+    var selectedPage = footerPageSlugFromUrl(link.url);
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="footerLinks" data-footer-link-index="' + index + '">',
+      '<div class="nds-card-content compact-card-content">',
+      '<div class="editor-item-head sortable-editor-header">',
+      dragHandleHtml("تغيير ترتيب رابط التذييل"),
+      '<span class="nds-card-title">' + safeText(label) + '</span>',
+      adminDeleteButton("data-delete-footer-link", index, "حذف رابط التذييل"),
+      '</div>',
+      '<div class="form-grid">',
+      inputHtml("footerLinkLabel", "عنوان الرابط", link.label),
+      selectHtml("footerLinkPage", "اختر صفحة داخلية", selectedPage, footerPageOptions()),
+      inputHtml("footerLinkUrl", "الرابط اليدوي أو الناتج", link.url, "اختر صفحة داخلية أو اكتب رابطا مثل privacy.html أو https://example.com/privacy"),
+      '</div>',
+      '<label class="check-line"><input type="checkbox" data-footer-link-visible ' + (link.visible === false ? "" : "checked") + '> <span>إظهار الرابط في التذييل</span></label>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderFooterLinksEditor() {
+    var root = qs("[data-footer-links-editor]");
+    if (!root) return;
+    data.home.footerLinks = data.home.footerLinks || [];
+    root.dataset.sortableList = "footerLinks";
+    root.innerHTML = data.home.footerLinks.map(footerLinkTemplate).join("");
+    applySimpleEditorAccordions(root, "footer-links");
+    if (!data.home.footerLinks.length) {
+      root.append(window.SiteApp.emptyState("لا توجد روابط تذييل", "استخدم زر إضافة رابط لإضافة سياسة الخصوصية أو أي رابط مهم."));
+    }
+  }
+
+  function collectFooterLinks(options) {
+    var keepDrafts = options && options.keepDrafts;
+    return qsa("[data-footer-link-index]").map(function (item) {
+      return {
+        label: qs('[data-field="footerLinkLabel"]', item).value.trim(),
+        url: qs('[data-field="footerLinkUrl"]', item).value.trim(),
+        visible: qs("[data-footer-link-visible]", item).checked
+      };
+    }).filter(function (link) {
+      return keepDrafts || link.label || link.url;
     });
   }
 
@@ -1029,6 +1858,8 @@
         title: title,
         slug: slugify(slug),
         visible: qs("[data-page-visible]", item).checked,
+        showInNavigation: qs("[data-page-navigation-link]", item).checked,
+        showInFooter: qs("[data-page-footer-link]", item).checked,
         contentMode: qs('[data-field="pageContentMode"]', item).value || "text",
         content: qs('[data-field="pageContent"]', item).value.trim()
       };
@@ -1037,7 +1868,253 @@
     });
   }
 
+  function integrationLabel(integration) {
+    return integration.name || integration.provider || "تكامل";
+  }
+
+  function integrationTemplate(integration, index) {
+    var integrationId = ensureEntityId(integration, "integration");
+    var panelId = "integration-panel-" + index;
+    var accordionKey = "integrations:" + integrationId;
+    var isOpen = openEditorAccordions.has(accordionKey);
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="integrations" data-editor-accordion-key="' + safeText(accordionKey) + '" data-integration-index="' + index + '" data-integration-id="' + safeText(integrationId) + '" data-state="' + (isOpen ? "open" : "closed") + '">',
+      '<div class="nds-card-content compact-card-content">',
+      '<div class="editor-item-head sortable-editor-header">',
+      dragHandleHtml("تغيير ترتيب التكامل"),
+      '<button class="editor-accordion-btn nds-accordion-btn nds-btn nds-subtle" type="button" data-editor-toggle data-state="' + (isOpen ? "open" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
+      '<span class="nds-card-title">' + safeText(integrationLabel(integration)) + '</span>',
+      '</button>',
+      adminDeleteButton("data-delete-integration", index, "حذف التكامل"),
+      '</div>',
+      '<div class="editor-accordion-collapse nds-accordion-collapse" id="' + panelId + '"' + (isOpen ? ' data-state="open" aria-hidden="false"' : ' aria-hidden="true"') + '>',
+      '<div class="editor-accordion-content nds-accordion-content">',
+      '<div class="form-grid">',
+      selectHtml("integrationType", "نوع التكامل", integration.type || "payment", window.INTEGRATION_TYPES || []),
+      inputHtml("integrationName", "اسم التكامل", integration.name),
+      inputHtml("integrationProvider", "مزود الخدمة", integration.provider, "مثال: Moyasar أو HyperPay أو Stripe"),
+      selectHtml("integrationEnvironment", "البيئة", integration.environment || "test", window.INTEGRATION_ENVIRONMENTS || []),
+      inputHtml("integrationEndpointUrl", "رابط الخدمة أو صفحة الدفع", integration.endpointUrl),
+      inputHtml("integrationWebhookUrl", "رابط Webhook", integration.webhookUrl),
+      inputHtml("integrationPublicKey", "المفتاح العام أو Client ID", integration.publicKey),
+      inputHtml("integrationSecretEnvKey", "اسم متغير المفتاح السري في الخادم", integration.secretEnvKey, "مثال: PAYMENT_SECRET_KEY"),
+      '</div>',
+      textareaHtml("integrationConfigJson", "إعدادات عامة JSON", integration.configJson, 4, "استخدمها للإعدادات العامة فقط"),
+      '<label class="check-line"><input type="checkbox" data-integration-enabled ' + (integration.enabled === false ? "" : "checked") + '> <span>تفعيل التكامل</span></label>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderIntegrationsEditor() {
+    var root = qs("[data-integrations-editor]");
+    if (!root) return;
+    data.integrations = data.integrations || [];
+    root.dataset.sortableList = "integrations";
+    root.innerHTML = data.integrations.map(integrationTemplate).join("");
+    if (!data.integrations.length) {
+      root.append(window.SiteApp.emptyState("لا توجد تكاملات", "استخدم زر إضافة تكامل لتجهيز إعدادات خدمة دفع أو تحليلات أو API."));
+    }
+  }
+
+  function collectIntegrations(options) {
+    var keepDrafts = options && options.keepDrafts;
+    data.integrations = qsa("[data-integration-index]").map(function (item) {
+      return {
+        id: item.dataset.integrationId || newEntityId("integration"),
+        type: qs('[data-field="integrationType"]', item).value,
+        name: qs('[data-field="integrationName"]', item).value.trim(),
+        provider: qs('[data-field="integrationProvider"]', item).value.trim(),
+        environment: qs('[data-field="integrationEnvironment"]', item).value,
+        endpointUrl: qs('[data-field="integrationEndpointUrl"]', item).value.trim(),
+        webhookUrl: qs('[data-field="integrationWebhookUrl"]', item).value.trim(),
+        publicKey: qs('[data-field="integrationPublicKey"]', item).value.trim(),
+        secretEnvKey: qs('[data-field="integrationSecretEnvKey"]', item).value.trim(),
+        configJson: qs('[data-field="integrationConfigJson"]', item).value.trim(),
+        enabled: qs("[data-integration-enabled]", item).checked
+      };
+    }).filter(function (integration) {
+      return keepDrafts || integration.name || integration.provider || integration.endpointUrl || integration.webhookUrl || integration.publicKey || integration.secretEnvKey || integration.configJson;
+    });
+  }
+
+  function roleLabel(role) {
+    var match = ADMIN_ROLES.find(function (item) { return item.value === role; });
+    return match ? match.label : "موظف";
+  }
+
+  function userTitle(user) {
+    return user.displayName || user.email || "موظف جديد";
+  }
+
+  function userPermissionsHtml(user, index) {
+    var userPermissions = Array.isArray(user.permissions) ? user.permissions : [];
+    var isOwner = user.role === "owner";
+    var permissions = adminPermissions.length ? adminPermissions : Object.keys(ADMIN_PERMISSION_LABELS);
+    var userKey = safeText(user.id || "new-" + index);
+    return [
+      '<fieldset class="permission-fieldset nds-check-container nds-md">',
+      '<legend class="nds-label">الصلاحيات</legend>',
+      '<div class="permission-grid" role="group" aria-label="الصلاحيات">'
+    ].concat(permissions.map(function (permission) {
+      var checked = isOwner || userPermissions.indexOf(permission) !== -1;
+      var inputId = "admin-user-permission-" + userKey + "-" + safeText(permission);
+      return [
+        '<label class="permission-check admin-check-control" for="' + inputId + '">',
+        '<span class="nds-form-control admin-check-box">',
+        '<input id="' + inputId + '" type="checkbox" data-user-permission="' + safeText(permission) + '" ' + (checked ? "checked" : "") + (isOwner ? " disabled" : "") + '>',
+        '</span>',
+        '<span class="nds-label">' + safeText(ADMIN_PERMISSION_LABELS[permission] || permission) + '</span>',
+        '</label>'
+      ].join("");
+    })).concat([
+      '</div>',
+      '</fieldset>'
+    ]).join("");
+  }
+
+  function userTemplate(user, index) {
+    var panelId = "admin-user-panel-" + index;
+    var currentUser = currentAdminUser() || {};
+    var isSelf = Number(user.id || 0) === Number(currentUser.id || 0);
+    var activeInputId = "admin-user-active-" + safeText(user.id || "new-" + index);
+    return [
+      '<article class="editor-item admin-user-item nds-accordion nds-card nds-stroke admin-user-accordion" data-admin-user-index="' + index + '" data-admin-user-id="' + safeText(user.id || "") + '">',
+      '<div class="nds-accordion-item">',
+      '<h3 class="nds-accordion-header admin-user-accordion-header">',
+      '<button class="nds-accordion-btn nds-btn nds-subtle" type="button" aria-expanded="false" aria-controls="' + panelId + '">',
+      '<span class="nds-accordion-title">' + safeText(userTitle(user)) + '</span>',
+      '<span class="nds-tag nds-xs" data-status="' + (user.active === false ? "warning" : "success") + '"><span class="nds-label">' + safeText(roleLabel(user.role || "employee")) + '</span></span>',
+      '</button>',
+      isSelf ? '' : '<button class="contact-delete-btn admin-user-delete-btn nds-btn nds-subtle nds-destructive nds-icon-only" type="button" data-delete-admin-user="' + safeText(user.id || "") + '" aria-label="حذف الموظف" title="حذف الموظف"><svg class="contact-delete-icon" viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M9 4h6l.8 2H20v2H4V6h4.2L9 4Zm-2 6h10l-.6 9.2c-.1 1-1 1.8-2 1.8H9.6c-1 0-1.9-.8-2-1.8L7 10Zm3 2v7h2v-7h-2Zm4 0v7h2v-7h-2Z"/></svg><span class="nds-label sr-only">حذف الموظف</span></button>',
+      '</h3>',
+      '<div class="nds-accordion-collapse" id="' + panelId + '">',
+      '<div class="nds-accordion-content">',
+      '<div class="nds-accordion-body admin-user-accordion-body">',
+      '<div class="form-grid">',
+      inputHtml("adminUserDisplayName", "الاسم", user.displayName || user.display_name || ""),
+      inputHtml("adminUserEmail", "البريد الإلكتروني", user.email || ""),
+      inputHtml("adminUserPhone", "رقم الجوال", user.phone || ""),
+      selectHtml("adminUserRole", "الدور", user.role || "employee", ADMIN_ROLES),
+      passwordHtml("adminUserPassword", user.id ? "كلمة مرور جديدة" : "كلمة المرور", user.id ? "اتركه فارغا إذا لا تريد تغييره" : "8 أحرف على الأقل"),
+      '</div>',
+      '<label class="nds-form-container nds-check-container nds-md admin-check-control admin-active-check" for="' + activeInputId + '">',
+      '<span class="nds-form-control admin-check-box">',
+      '<input id="' + activeInputId + '" type="checkbox" data-user-active ' + (user.active === false ? "" : "checked") + (isSelf ? " disabled" : "") + '>',
+      '</span>',
+      '<span class="nds-label">الحساب نشط</span>',
+      '</label>',
+      userPermissionsHtml(user, index),
+      '<div class="nds-section-action admin-user-actions">',
+      '<button class="nds-btn nds-primary nds-md" type="button" data-save-admin-user><span class="nds-label">حفظ الموظف</span></button>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderAdminUsersEditor() {
+    var root = qs("[data-admin-users-editor]");
+    if (!root) return;
+    root.innerHTML = adminUsers.map(userTemplate).join("");
+    if (!adminUsers.length) {
+      root.append(window.SiteApp.emptyState("لا يوجد موظفون بعد", "أضف موظفا وحدد الأقسام التي يمكنه إدارتها."));
+    }
+  }
+
+  function loadAdminUsers(force) {
+    if (!hasPermission("users") || !window.SiteStore || !window.SiteStore.listUsers) return Promise.resolve([]);
+    if (adminUsersLoaded && !force) {
+      renderAdminUsersEditor();
+      return Promise.resolve(adminUsers);
+    }
+    return window.SiteStore.listUsers().then(function (payload) {
+      adminUsers = payload.users || [];
+      adminPermissions = payload.permissions || Object.keys(ADMIN_PERMISSION_LABELS);
+      adminUsersLoaded = true;
+      renderAdminUsersEditor();
+      return adminUsers;
+    }).catch(function (error) {
+      toast(error.message || "تعذر تحميل الموظفين", "error");
+      return [];
+    });
+  }
+
+  function collectAdminUser(item) {
+    var id = Number(item.dataset.adminUserId || 0);
+    var role = qs('[data-field="adminUserRole"]', item).value;
+    var permissions = qsa("[data-user-permission]", item).filter(function (input) {
+      return input.checked && !input.disabled;
+    }).map(function (input) {
+      return input.dataset.userPermission;
+    });
+    return {
+      id: id || undefined,
+      displayName: qs('[data-field="adminUserDisplayName"]', item).value.trim(),
+      email: qs('[data-field="adminUserEmail"]', item).value.trim(),
+      phone: qs('[data-field="adminUserPhone"]', item).value.trim(),
+      role: role,
+      password: qs('[data-field="adminUserPassword"]', item).value,
+      active: qs("[data-user-active]", item).checked,
+      permissions: role === "owner" ? ["*"] : permissions
+    };
+  }
+
+  function addAdminUserDraft() {
+    if (!ensurePermission("users")) return;
+    adminUsers.unshift({
+      id: "",
+      displayName: "",
+      email: "",
+      phone: "",
+      role: "employee",
+      permissions: ["home", "footer", "projects", "pages", "uploads"],
+      active: true
+    });
+    renderAdminUsersEditor();
+  }
+
+  function saveAdminUser(button) {
+    if (!ensurePermission("users")) return;
+    var item = button.closest("[data-admin-user-index]");
+    if (!item) return;
+    window.SiteStore.saveUser(collectAdminUser(item)).then(function (users) {
+      adminUsers = users || [];
+      adminUsersLoaded = true;
+      renderAdminUsersEditor();
+      toast("تم حفظ صلاحيات الموظف");
+    }).catch(function (error) {
+      toast(error.message || "تعذر حفظ الموظف", "error");
+    });
+  }
+
+  function deleteAdminUser(button) {
+    if (!ensurePermission("users")) return;
+    var id = Number(button.dataset.deleteAdminUser || 0);
+    if (!id) {
+      var draftItem = button.closest("[data-admin-user-index]");
+      adminUsers.splice(Number(draftItem ? draftItem.dataset.adminUserIndex : 0), 1);
+      renderAdminUsersEditor();
+      return;
+    }
+    if (!confirm("هل تريد حذف هذا الموظف؟")) return;
+    window.SiteStore.deleteUser(id).then(function (users) {
+      adminUsers = users || [];
+      adminUsersLoaded = true;
+      renderAdminUsersEditor();
+      toast("تم حذف الموظف");
+    }).catch(function (error) {
+      toast(error.message || "تعذر حذف الموظف", "error");
+    });
+  }
+
   function saveProjects() {
+    if (!ensurePermission("projects")) return;
     var previousData = cloneData(lastSavedSnapshot || data);
     collectProjects();
     var changedProjects = (data.projects || []).filter(function (project) {
@@ -1057,6 +2134,7 @@
   }
 
   function savePages() {
+    if (!ensurePermission("pages")) return;
     var previousData = cloneData(lastSavedSnapshot || data);
     collectPages();
     var changedPages = (data.pages || []).filter(function (page) {
@@ -1074,6 +2152,17 @@
       refreshPublicShell();
     });
     renderPagesEditor();
+  }
+
+  function saveIntegrations() {
+    if (!ensurePermission("integrations")) return;
+    collectIntegrations();
+    var savePromise = saveDataIfChanged();
+    if (!savePromise) return;
+    savePromise.then(function () {
+      toast("تم حفظ التكاملات");
+    });
+    renderIntegrationsEditor();
   }
 
   function previewDataSnapshot(target) {
@@ -1161,6 +2250,45 @@
       refreshPublicShell();
       toast("تم تحديث ترتيب وسائل التواصل");
     }
+    if (root.dataset.sortableList === "footerLinks") {
+      data.home.footerLinks = collectFooterLinks();
+      saveData();
+      renderFooterLinksEditor();
+      refreshPublicShell();
+      toast("تم تحديث ترتيب روابط التذييل");
+    }
+    if (root.dataset.sortableList === "footerColumns") {
+      ensureFooterData();
+      data.footer.columns = collectFooterColumns();
+      saveData();
+      renderFooterColumnsEditor();
+      refreshPublicShell();
+      toast("تم تحديث ترتيب أعمدة التذييل");
+    }
+    if (root.dataset.sortableList === "footerIconGroups") {
+      ensureFooterData();
+      data.footer.iconGroups = collectFooterIconGroups();
+      saveData();
+      renderFooterIconGroupsEditor();
+      refreshPublicShell();
+      toast("تم تحديث ترتيب مجموعات الأيقونات");
+    }
+    if (root.dataset.sortableList === "footerBottomLinks") {
+      ensureFooterData();
+      data.footer.bottomLinks = collectFooterBottomLinks();
+      saveData();
+      renderFooterBottomLinksEditor();
+      refreshPublicShell();
+      toast("تم تحديث ترتيب الروابط السفلية");
+    }
+    if (root.dataset.sortableList === "footerLogos") {
+      ensureFooterData();
+      data.footer.logos = collectFooterLogos();
+      saveData();
+      renderFooterLogosEditor();
+      refreshPublicShell();
+      toast("تم تحديث ترتيب الشعارات");
+    }
     if (root.dataset.sortableList === "experience") {
       data.home.experience = collectContentRows("experience");
       saveData();
@@ -1181,6 +2309,12 @@
       renderSkillsEditor();
       refreshPublicShell();
       toast("تم تحديث ترتيب المهارات");
+    }
+    if (root.dataset.sortableList === "integrations") {
+      collectIntegrations();
+      saveData();
+      renderIntegrationsEditor();
+      toast("تم تحديث ترتيب التكاملات");
     }
   }
 
@@ -1238,18 +2372,7 @@
   function setupTabs() {
     qsa("[data-admin-tab]").forEach(function (button) {
       button.addEventListener("click", function () {
-        var target = button.dataset.adminTab;
-        var adminSection = qs(".admin-section");
-        var navHeight = parseInt(getComputedStyle(document.documentElement).getPropertyValue("--nds-nav-height"), 10) || 72;
-        qsa("[data-admin-tab]").forEach(function (item) { item.dataset.state = ""; });
-        qsa("[data-admin-panel]").forEach(function (panel) { panel.hidden = panel.dataset.adminPanel !== target; });
-        button.dataset.state = "selected";
-        if (adminSection) {
-          window.scrollTo({
-            top: Math.max(0, adminSection.getBoundingClientRect().top + window.scrollY - navHeight - 16),
-            behavior: "smooth"
-          });
-        }
+        activateAdminTab(button.dataset.adminTab, true);
       });
     });
   }
@@ -1419,8 +2542,10 @@
     if (qs("[data-settings-form]")) qs("[data-settings-form]").addEventListener("submit", saveSettings);
     qs("[data-navigation-form]").addEventListener("submit", saveNavigation);
     qs("[data-home-form]").addEventListener("submit", saveHome);
+    if (qs("[data-footer-form]")) qs("[data-footer-form]").addEventListener("submit", saveFooter);
     qs("[data-save-projects]").addEventListener("click", saveProjects);
     qs("[data-save-pages]").addEventListener("click", savePages);
+    if (qs("[data-save-integrations]")) qs("[data-save-integrations]").addEventListener("click", saveIntegrations);
     qsa("[data-preview-target]").forEach(function (button) {
       button.addEventListener("click", function () {
         openPreview(button.dataset.previewTarget || "home");
@@ -1441,10 +2566,54 @@
       renderProjectsEditor();
     });
 
-    qs("[data-add-contact]").addEventListener("click", function () {
+    if (qs("[data-add-contact]")) qs("[data-add-contact]").addEventListener("click", function () {
       data.home.contacts = collectContacts();
       data.home.contacts.push({ id: "", label: "", url: "", iconType: "website", iconPath: "", visible: true });
       renderContactsEditor();
+    });
+
+    if (qs("[data-add-footer-link]")) qs("[data-add-footer-link]").addEventListener("click", function () {
+      data.home.footerLinks = collectFooterLinks({ keepDrafts: true });
+      data.home.footerLinks.push({ label: "", url: "", visible: true });
+      renderFooterLinksEditor();
+    });
+
+    if (qs("[data-add-footer-column]")) qs("[data-add-footer-column]").addEventListener("click", function () {
+      ensureFooterData();
+      data.footer.columns = collectFooterColumns({ keepDrafts: true });
+      if (data.footer.columns.length >= MAX_FOOTER_COLUMNS) {
+        toast("الحد الأقصى 3 أعمدة");
+        renderFooterColumnsEditor();
+        return;
+      }
+      data.footer.columns.push({ id: newEntityId("footer-column"), title: "", visible: true, links: [] });
+      renderFooterColumnsEditor();
+    });
+
+    if (qs("[data-add-footer-icon-group]")) qs("[data-add-footer-icon-group]").addEventListener("click", function () {
+      ensureFooterData();
+      data.footer.iconGroups = collectFooterIconGroups({ keepDrafts: true });
+      if (data.footer.iconGroups.length >= MAX_FOOTER_ICON_GROUPS) {
+        toast("الحد الأقصى مجموعتان");
+        renderFooterIconGroupsEditor();
+        return;
+      }
+      data.footer.iconGroups.push({ id: newEntityId("footer-icon-group"), title: "", visible: true, links: [] });
+      renderFooterIconGroupsEditor();
+    });
+
+    if (qs("[data-add-footer-bottom-link]")) qs("[data-add-footer-bottom-link]").addEventListener("click", function () {
+      ensureFooterData();
+      data.footer.bottomLinks = collectFooterBottomLinks({ keepDrafts: true });
+      data.footer.bottomLinks.push({ label: "", url: "", visible: true });
+      renderFooterBottomLinksEditor();
+    });
+
+    if (qs("[data-add-footer-logo]")) qs("[data-add-footer-logo]").addEventListener("click", function () {
+      ensureFooterData();
+      data.footer.logos = collectFooterLogos({ keepDrafts: true });
+      data.footer.logos.push({ id: newEntityId("footer-logo"), label: "", alt: "", url: "", src: "", visible: true });
+      renderFooterLogosEditor();
     });
 
     if (qs("[data-add-experience]")) qs("[data-add-experience]").addEventListener("click", function () {
@@ -1468,11 +2637,37 @@
     qs("[data-add-page]").addEventListener("click", function () {
       var page;
       collectPages();
-      page = { id: newEntityId("page"), title: "صفحة جديدة", slug: "page-" + Date.now(), content: "", contentMode: "text", visible: true };
+      page = { id: newEntityId("page"), title: "صفحة جديدة", slug: "page-" + Date.now(), content: "", contentMode: "text", visible: true, showInNavigation: true, showInFooter: false };
       data.pages.unshift(page);
       pendingOpenEditor.page = 0;
       renderPagesEditor();
       saveData();
+    });
+
+    if (qs("[data-add-integration]")) qs("[data-add-integration]").addEventListener("click", function () {
+      if (!ensurePermission("integrations")) return;
+      collectIntegrations({ keepDrafts: true });
+      data.integrations.unshift({
+        id: newEntityId("integration"),
+        type: "payment",
+        name: "",
+        provider: "",
+        environment: "test",
+        endpointUrl: "",
+        webhookUrl: "",
+        publicKey: "",
+        secretEnvKey: "",
+        configJson: "",
+        enabled: true
+      });
+      renderIntegrationsEditor();
+    });
+
+    if (qs("[data-add-admin-user]")) qs("[data-add-admin-user]").addEventListener("click", addAdminUserDraft);
+    qsa("[data-admin-tab-link]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        activateAdminTab(button.dataset.adminTabLink || "pages", true);
+      });
     });
 
     document.addEventListener("click", function (event) {
@@ -1480,6 +2675,18 @@
       var deleteProject = event.target.closest("[data-delete-project]");
       var deletePage = event.target.closest("[data-delete-page]");
       var deleteContact = event.target.closest("[data-delete-contact]");
+      var deleteFooterLink = event.target.closest("[data-delete-footer-link]");
+      var deleteFooterColumn = event.target.closest("[data-delete-footer-column]");
+      var deleteFooterColumnLink = event.target.closest("[data-delete-footer-column-link]");
+      var deleteFooterIconGroup = event.target.closest("[data-delete-footer-icon-group]");
+      var deleteFooterIconLink = event.target.closest("[data-delete-footer-icon-link]");
+      var deleteFooterBottomLink = event.target.closest("[data-delete-footer-bottom-link]");
+      var deleteFooterLogo = event.target.closest("[data-delete-footer-logo]");
+      var addFooterColumnLink = event.target.closest("[data-add-footer-column-link]");
+      var addFooterIconLink = event.target.closest("[data-add-footer-icon-link]");
+      var deleteIntegration = event.target.closest("[data-delete-integration]");
+      var saveAdminUserButton = event.target.closest("[data-save-admin-user]");
+      var deleteAdminUserButton = event.target.closest("[data-delete-admin-user]");
       var deleteContentRow = event.target.closest("[data-delete-content-row]");
       var deleteSkill = event.target.closest("[data-delete-skill]");
       var contactToggle = event.target.closest("[data-contact-toggle]");
@@ -1488,14 +2695,21 @@
       var iconTypeOption = event.target.closest("[data-icon-type-option]");
       var optionTrigger = event.target.closest("[data-option-trigger]");
       var optionValue = event.target.closest("[data-option-value]");
+      var selectTrigger = event.target.closest("[data-select-trigger]");
+      var selectValue = event.target.closest("[data-select-value]");
 
       if (iconTypeTrigger) { toggleIconTypeMenu(iconTypeTrigger); return; }
       if (iconTypeOption) { selectIconType(iconTypeOption); return; }
       if (optionTrigger) { toggleOptionMenu(optionTrigger); return; }
       if (optionValue) { selectOptionValue(optionValue); return; }
+      if (selectTrigger) { toggleSelectMenu(selectTrigger); return; }
+      if (selectValue) { selectDropmenuValue(selectValue); return; }
+      if (saveAdminUserButton) { saveAdminUser(saveAdminUserButton); return; }
+      if (deleteAdminUserButton) { deleteAdminUser(deleteAdminUserButton); return; }
       if (!event.target.closest("[data-icon-type-menu]")) closeIconTypeMenus();
       if (!event.target.closest("[data-option-menu]")) closeOptionMenus();
-      if (contactToggle) toggleContactPanel(contactToggle);
+      if (!event.target.closest("[data-select-menu]")) closeSelectMenus();
+      if (contactToggle) { toggleContactPanel(contactToggle); return; }
       if (editorToggle) { toggleEditorPanel(editorToggle); return; }
 
       if (deleteHeroSlide) {
@@ -1512,6 +2726,88 @@
         renderContactsEditor();
         toast("تم حذف وسيلة التواصل");
       }
+      if (deleteFooterLink) {
+        data.home.footerLinks = collectFooterLinks({ keepDrafts: true });
+        data.home.footerLinks.splice(Number(deleteFooterLink.dataset.deleteFooterLink), 1);
+        saveData();
+        renderFooterLinksEditor();
+        refreshPublicShell();
+        toast("تم حذف رابط التذييل");
+      }
+      if (addFooterColumnLink) {
+        var columnIndex = Number(addFooterColumnLink.dataset.addFooterColumnLink);
+        data.footer.columns = collectFooterColumns({ keepDrafts: true });
+        if (data.footer.columns[columnIndex]) {
+          data.footer.columns[columnIndex].links = data.footer.columns[columnIndex].links || [];
+          data.footer.columns[columnIndex].links.push({ label: "", url: "", visible: true });
+        }
+        renderFooterColumnsEditor();
+      }
+      if (addFooterIconLink) {
+        var groupIndex = Number(addFooterIconLink.dataset.addFooterIconLink);
+        data.footer.iconGroups = collectFooterIconGroups({ keepDrafts: true });
+        if (data.footer.iconGroups[groupIndex]) {
+          data.footer.iconGroups[groupIndex].links = data.footer.iconGroups[groupIndex].links || [];
+          data.footer.iconGroups[groupIndex].links.push({
+            label: "",
+            url: "",
+            iconType: isFooterMobileAppGroup(data.footer.iconGroups[groupIndex]) ? nextFooterAppIconType(data.footer.iconGroups[groupIndex]) : "website",
+            iconPath: "",
+            visible: true
+          });
+        }
+        renderFooterIconGroupsEditor();
+      }
+      if (deleteFooterColumn) {
+        data.footer.columns = collectFooterColumns({ keepDrafts: true });
+        data.footer.columns.splice(Number(deleteFooterColumn.dataset.deleteFooterColumn), 1);
+        saveData();
+        renderFooterColumnsEditor();
+        refreshPublicShell();
+        toast("تم حذف عمود التذييل");
+      }
+      if (deleteFooterColumnLink) {
+        var columnParts = String(deleteFooterColumnLink.dataset.deleteFooterColumnLink || "").split(":");
+        data.footer.columns = collectFooterColumns({ keepDrafts: true });
+        if (data.footer.columns[Number(columnParts[0])]) data.footer.columns[Number(columnParts[0])].links.splice(Number(columnParts[1]), 1);
+        saveData();
+        renderFooterColumnsEditor();
+        refreshPublicShell();
+        toast("تم حذف رابط العمود");
+      }
+      if (deleteFooterIconGroup) {
+        data.footer.iconGroups = collectFooterIconGroups({ keepDrafts: true });
+        data.footer.iconGroups.splice(Number(deleteFooterIconGroup.dataset.deleteFooterIconGroup), 1);
+        saveData();
+        renderFooterIconGroupsEditor();
+        refreshPublicShell();
+        toast("تم حذف مجموعة الأيقونات");
+      }
+      if (deleteFooterIconLink) {
+        var iconParts = String(deleteFooterIconLink.dataset.deleteFooterIconLink || "").split(":");
+        data.footer.iconGroups = collectFooterIconGroups({ keepDrafts: true });
+        if (data.footer.iconGroups[Number(iconParts[0])]) data.footer.iconGroups[Number(iconParts[0])].links.splice(Number(iconParts[1]), 1);
+        saveData();
+        renderFooterIconGroupsEditor();
+        refreshPublicShell();
+        toast("تم حذف رابط الأيقونة");
+      }
+      if (deleteFooterBottomLink) {
+        data.footer.bottomLinks = collectFooterBottomLinks({ keepDrafts: true });
+        data.footer.bottomLinks.splice(Number(deleteFooterBottomLink.dataset.deleteFooterBottomLink), 1);
+        saveData();
+        renderFooterBottomLinksEditor();
+        refreshPublicShell();
+        toast("تم حذف الرابط السفلي");
+      }
+      if (deleteFooterLogo) {
+        data.footer.logos = collectFooterLogos({ keepDrafts: true });
+        data.footer.logos.splice(Number(deleteFooterLogo.dataset.deleteFooterLogo), 1);
+        saveData();
+        renderFooterLogosEditor();
+        refreshPublicShell();
+        toast("تم حذف شعار التذييل");
+      }
       if (deleteProject) {
         collectProjects();
         data.projects.splice(Number(deleteProject.dataset.deleteProject), 1);
@@ -1526,6 +2822,13 @@
         renderPagesEditor();
         refreshPublicShell();
         toast("تم حذف الصفحة");
+      }
+      if (deleteIntegration) {
+        collectIntegrations({ keepDrafts: true });
+        data.integrations.splice(getSortableItemIndex(deleteIntegration.closest("[data-integration-index]")), 1);
+        saveData();
+        renderIntegrationsEditor();
+        toast("تم حذف التكامل");
       }
       if (deleteContentRow) {
         var rowItem = deleteContentRow.closest("[data-content-row-type]");
@@ -1546,11 +2849,25 @@
     });
 
     document.addEventListener("change", function (event) {
-      if (!event.target.matches("[data-page-visible]")) return;
+      if (!event.target.matches("[data-page-visible], [data-page-navigation-link], [data-page-footer-link]")) return;
+      var pageItem = event.target.closest("[data-page-index]");
+      if (pageItem && event.target.matches("[data-page-navigation-link], [data-page-footer-link]") && event.target.checked) {
+        qs("[data-page-visible]", pageItem).checked = true;
+      }
+      if (pageItem && event.target.matches("[data-page-footer-link]") && event.target.checked) {
+        var navInput = qs("[data-page-navigation-link]", pageItem);
+        if (navInput) navInput.checked = false;
+      }
       collectPages();
       saveData();
       refreshPublicShell();
-      toast(event.target.checked ? "تم إظهار الصفحة في التنقل" : "تم إخفاء الصفحة من التنقل");
+      if (event.target.matches("[data-page-footer-link]")) {
+        toast(event.target.checked ? "تمت إضافة الصفحة إلى روابط التذييل" : "تمت إزالة الصفحة من روابط التذييل");
+      } else if (event.target.matches("[data-page-navigation-link]")) {
+        toast(event.target.checked ? "تم إظهار الصفحة في الهيدر" : "تم إخفاء الصفحة من الهيدر");
+      } else {
+        toast(event.target.checked ? "تم نشر الصفحة" : "تم إخفاء الصفحة من الواجهة");
+      }
     });
 
     qs("[data-export-json]").addEventListener("click", function () {
@@ -1616,28 +2933,13 @@
   }
 
   function toggleContactPanel(button) {
-    var panel = qs("#" + button.getAttribute("aria-controls"));
-    if (!panel) return;
     var isOpen = button.getAttribute("aria-expanded") === "true";
-    button.setAttribute("aria-expanded", String(!isOpen));
-    panel.dataset.state = isOpen ? "" : "open";
-    button.dataset.state = isOpen ? "" : "open";
+    setContactAccordionState(button, !isOpen);
   }
 
   function toggleEditorPanel(button) {
-    var panel = qs("#" + button.getAttribute("aria-controls"));
     var isOpen = button.getAttribute("aria-expanded") === "true";
-    var heroItem = button.closest("[data-hero-slide-index]");
-    if (heroItem) {
-      button.setAttribute("aria-expanded", String(!isOpen));
-      heroItem.dataset.state = isOpen ? "closed" : "open";
-      button.dataset.state = isOpen ? "" : "open";
-      return;
-    }
-    if (!panel) return;
-    button.setAttribute("aria-expanded", String(!isOpen));
-    panel.dataset.state = isOpen ? "" : "open";
-    button.dataset.state = isOpen ? "" : "open";
+    setEditorAccordionState(button, !isOpen);
   }
 
   function closeIconTypeMenus(exceptMenu) {
@@ -1664,7 +2966,7 @@
     var menu = optionButton.closest("[data-icon-type-menu]");
     if (!menu) return;
     var selected = getIconOption(optionButton.dataset.iconTypeOption);
-    var input = qs('[data-field="contactIconType"]', menu);
+    var input = qs('[data-field$="IconType"]', menu);
     var label = qs("[data-icon-type-label]", menu);
     var trigger = qs("[data-icon-type-trigger]", menu);
     var existingIcon = trigger ? qs(".contact-icon", trigger) : null;
@@ -1709,6 +3011,43 @@
     closeOptionMenus();
   }
 
+  function closeSelectMenus(exceptMenu) {
+    qsa("[data-select-menu]").forEach(function (menu) {
+      if (menu === exceptMenu) return;
+      var trigger = qs("[data-select-trigger]", menu);
+      var menuPanel = qs(".nds-dropmenu-menu", menu);
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+      if (menuPanel) menuPanel.hidden = true;
+    });
+  }
+
+  function toggleSelectMenu(trigger) {
+    var menu = trigger.closest("[data-select-menu]");
+    var menuPanel = menu ? qs(".nds-dropmenu-menu", menu) : null;
+    if (!menuPanel) return;
+    var willOpen = menuPanel.hidden;
+    closeSelectMenus(menu);
+    menuPanel.hidden = !willOpen;
+    trigger.setAttribute("aria-expanded", String(willOpen));
+  }
+
+  function selectDropmenuValue(optionButton) {
+    var menu = optionButton.closest("[data-select-menu]");
+    if (!menu) return;
+    var input = qs("[data-field]", menu);
+    var label = qs("[data-select-label]", menu);
+    var trigger = qs("[data-select-trigger]", menu);
+    if (input) input.value = optionButton.dataset.selectValue || "";
+    if (label) label.textContent = (optionButton.textContent || "").trim();
+    qsa("[data-select-value]", menu).forEach(function (item) {
+      item.dataset.state = item === optionButton ? "selected" : "";
+    });
+    if (input) input.dispatchEvent(new Event("change", { bubbles: true }));
+    if (input && /^(footerLink|footerColumnLink|footerIconLink|footerBottomLink|footerLogo)Page$/.test(input.dataset.field || "")) syncFooterLinkFromPage(menu);
+    if (trigger) trigger.dispatchEvent(new Event("change", { bubbles: true }));
+    closeSelectMenus();
+  }
+
   function isLoggedIn() {
     return Boolean(window.SiteStore && window.SiteStore.currentUser && window.SiteStore.currentUser());
   }
@@ -1729,10 +3068,14 @@
   function initDashboard() {
     if (dashboardReady) return;
     dashboardReady = true;
+    setupAdminSidemenuToggle();
     setupTabs();
     setupEvents();
     setupDragSort();
+    applyPermissionVisibility();
+    if (window.NDS && window.NDS.Sidemenu && window.NDS.Sidemenu.init) window.NDS.Sidemenu.init();
     fillForms();
+    if (hasPermission("users")) loadAdminUsers();
   }
 
   function setupAuth() {

@@ -99,6 +99,178 @@ function cms_pdo(): PDO
     return $pdo;
 }
 
+function cms_db_column_exists(PDO $pdo, string $table, string $column): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*)
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = :table_name
+           AND COLUMN_NAME = :column_name'
+    );
+    $stmt->execute([
+        'table_name' => $table,
+        'column_name' => $column,
+    ]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function cms_admin_permission_keys(): array
+{
+    return [
+        'settings',
+        'home',
+        'footer',
+        'projects',
+        'pages',
+        'navigation',
+        'integrations',
+        'utilities',
+        'uploads',
+        'users',
+    ];
+}
+
+function cms_content_permission_keys(): array
+{
+    return [
+        'settings',
+        'home',
+        'footer',
+        'projects',
+        'pages',
+        'navigation',
+        'integrations',
+    ];
+}
+
+function cms_normalize_admin_permissions(mixed $permissions, bool $allowWildcard = false): array
+{
+    if (is_string($permissions)) {
+        $decoded = json_decode($permissions, true);
+        $permissions = is_array($decoded) ? $decoded : preg_split('/[\s,;]+/', $permissions);
+    }
+    if (!is_array($permissions)) {
+        return [];
+    }
+
+    $allowed = array_flip(cms_admin_permission_keys());
+    $clean = [];
+    foreach ($permissions as $permission) {
+        $key = strtolower(trim((string) $permission));
+        if ($key === '') {
+            continue;
+        }
+        if ($key === '*' && $allowWildcard) {
+            return ['*'];
+        }
+        if (isset($allowed[$key])) {
+            $clean[$key] = true;
+        }
+    }
+
+    return array_keys($clean);
+}
+
+function cms_ensure_admin_user_columns(PDO $pdo): void
+{
+    $columns = [
+        'role' => "VARCHAR(50) NOT NULL DEFAULT 'employee'",
+        'permissions_json' => 'LONGTEXT',
+        'active' => 'TINYINT(1) NOT NULL DEFAULT 1',
+    ];
+
+    foreach ($columns as $column => $definition) {
+        if (!cms_db_column_exists($pdo, 'admin_users', $column)) {
+            $pdo->exec('ALTER TABLE admin_users ADD COLUMN ' . $column . ' ' . $definition);
+        }
+    }
+
+    $ownerCount = (int) $pdo->query("SELECT COUNT(*) FROM admin_users WHERE role = 'owner'")->fetchColumn();
+    if ($ownerCount === 0) {
+        $firstId = (int) $pdo->query('SELECT id FROM admin_users ORDER BY id ASC LIMIT 1')->fetchColumn();
+        if ($firstId > 0) {
+            $stmt = $pdo->prepare("UPDATE admin_users SET role = 'owner', permissions_json = :permissions, active = 1 WHERE id = :id");
+            $stmt->execute([
+                'permissions' => json_encode(['*'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+                'id' => $firstId,
+            ]);
+        }
+    }
+
+    $stmt = $pdo->prepare("UPDATE admin_users SET permissions_json = :permissions WHERE role = 'owner' AND (permissions_json IS NULL OR permissions_json = '')");
+    $stmt->execute(['permissions' => json_encode(['*'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)]);
+}
+
+function cms_admin_payload(array $user): array
+{
+    $role = strtolower((string) ($user['role'] ?? 'employee'));
+    if (!in_array($role, ['owner', 'admin', 'employee'], true)) {
+        $role = 'employee';
+    }
+
+    $permissions = $role === 'owner'
+        ? ['*']
+        : cms_normalize_admin_permissions($user['permissions_json'] ?? $user['permissions'] ?? []);
+
+    return [
+        'id' => (int) ($user['id'] ?? 0),
+        'email' => (string) ($user['email'] ?? ''),
+        'display_name' => (string) ($user['display_name'] ?? ''),
+        'phone' => (string) ($user['phone'] ?? ''),
+        'role' => $role,
+        'permissions' => $permissions,
+        'active' => cms_bool($user['active'] ?? true, true),
+        'created_at' => (string) ($user['created_at'] ?? ''),
+        'updated_at' => (string) ($user['updated_at'] ?? ''),
+    ];
+}
+
+function cms_admin_has_permission(array $user, string $permission): bool
+{
+    $role = strtolower((string) ($user['role'] ?? ''));
+    if ($role === 'owner') {
+        return true;
+    }
+
+    $permissions = $user['permissions'] ?? [];
+    if (!is_array($permissions)) {
+        $permissions = cms_normalize_admin_permissions($permissions);
+    }
+
+    return in_array('*', $permissions, true) || in_array($permission, $permissions, true);
+}
+
+function cms_admin_has_any_permission(array $user, array $permissions): bool
+{
+    foreach ($permissions as $permission) {
+        if (cms_admin_has_permission($user, (string) $permission)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+function cms_require_permission(PDO $pdo, string $permission): array
+{
+    $user = cms_require_admin($pdo);
+    if (!cms_admin_has_permission($user, $permission)) {
+        cms_json_response(['success' => false, 'message' => 'Permission denied.'], 403);
+    }
+    return $user;
+}
+
+function cms_fetch_admin_users(PDO $pdo): array
+{
+    cms_ensure_admin_user_columns($pdo);
+    $rows = $pdo->query('SELECT id, email, display_name, phone, role, permissions_json, active, created_at, updated_at FROM admin_users ORDER BY id ASC')->fetchAll();
+    if (!is_array($rows)) {
+        return [];
+    }
+
+    return array_map(static fn(array $row): array => cms_admin_payload($row), $rows);
+}
+
 function cms_current_admin(PDO $pdo = null): ?array
 {
     cms_start_session();
@@ -108,11 +280,17 @@ function cms_current_admin(PDO $pdo = null): ?array
     }
 
     $pdo = $pdo ?: cms_pdo();
-    $stmt = $pdo->prepare('SELECT id, email, display_name, phone, created_at, updated_at FROM admin_users WHERE id = :id LIMIT 1');
+    cms_ensure_admin_user_columns($pdo);
+    $stmt = $pdo->prepare('SELECT id, email, display_name, phone, role, permissions_json, active, created_at, updated_at FROM admin_users WHERE id = :id LIMIT 1');
     $stmt->execute(['id' => (int) $adminId]);
     $user = $stmt->fetch();
 
-    return is_array($user) ? $user : null;
+    if (!is_array($user) || !cms_bool($user['active'] ?? true, true)) {
+        unset($_SESSION['admin_user_id']);
+        return null;
+    }
+
+    return cms_admin_payload($user);
 }
 
 function cms_require_admin(PDO $pdo = null): array

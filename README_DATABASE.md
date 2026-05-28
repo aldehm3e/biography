@@ -11,7 +11,10 @@ For a simpler customer-facing walkthrough, read `README_INSTALL_BEGINNER.md`.
 - Admin login uses PHP sessions and hashed passwords.
 - Admin login also requires a server-generated math CAPTCHA tied to the PHP session.
 - Brand settings, home content, hero slides, projects, pages, experience, achievements, skills, contacts, notifications, navigation labels, and media paths are stored in normalized database tables.
+- Footer columns, footer icon groups, bottom links, footer logos, interface text overrides, and the footer legal/copyright text are stored in `site_settings.footer_json` and `site_settings.interface_texts_json`.
+- Footer icon groups are independent. The admin UI allows up to two groups, and each group can contain many icon links; icon-only links are valid and are not dropped just because their label or URL is blank.
 - Media uploads go through `api/upload/upload-media.php`.
+- Admin user management uses the `api/auth/list-users.php`, `api/auth/save-user.php`, and `api/auth/delete-user.php` endpoints.
 - Old `localStorage` content can be imported from the admin tools panel, but it is no longer primary storage.
 - `api/config.php`, `install/install.lock`, and runtime upload files are ignored by Git.
 
@@ -171,6 +174,9 @@ Open `admin.html`, log in, then use the admin panels:
 - Pages: add text or HTML pages, set slug, reorder, hide/show, delete
 - Experience, achievements, skills: add, edit, reorder, hide/show, delete
 - Contacts: label, value, URL, icon type, custom icon upload, reorder, hide/show, delete
+- Footer: quick links, up to three footer columns, up to two footer icon groups, footer bottom links beside the copyright text, and footer logos
+- Integrations: payment, messaging, analytics, automation, custom endpoints, and related configuration
+- Users: owner/admin/employee accounts and section permissions
 - Tools: export JSON, import JSON, migrate old localStorage data, reset database content
 - Account: change password, email, phone, logout
 
@@ -218,6 +224,9 @@ C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/auth/me.php
 C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/auth/change-password.php
 C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/auth/change-email.php
 C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/auth/change-phone.php
+C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/auth/list-users.php
+C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/auth/save-user.php
+C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/auth/delete-user.php
 C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/content/get-site.php
 C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/content/save-site.php
 C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l api/content/site-repository.php
@@ -227,3 +236,15 @@ C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe -l install/index.php
 ```
 
 Adjust the PHP path if your Laragon PHP version folder is different.
+
+## Repository Sanity QA
+
+Before handing off a build, run the syntax checks above and import both schema files into a temporary database:
+
+```powershell
+mysql -u root -e "CREATE DATABASE biography_qa CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+mysql -u root biography_qa < install/schema.sql
+mysql -u root -e "DROP DATABASE biography_qa;"
+```
+
+Repeat with `api/install/schema.sql` if that copy changed. For footer changes, also run a small repository-level save/fetch smoke test against a temporary database and confirm two icon groups can each save at least eight icon-only links.

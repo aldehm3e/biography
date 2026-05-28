@@ -24,9 +24,11 @@ After installation, content is managed from the admin panel and saved in the dat
 - projects
 - pages
 - contacts
+- footer columns, footer icon groups, footer bottom links, and footer logos
 - skills
 - achievements
 - experience
+- admin users and permissions
 - public update notifications
 
 Only edit HTML files if you are changing the template, layout, or developer-level structure.
@@ -54,6 +56,8 @@ For hosting:
 ```text
 C:\laragon\www\Biography
 ```
+
+If you are reinstalling after an old test, remove the old project folder and old database first so the installer starts from a clean state.
 
 2. Open Laragon.
 3. Click `Start All`.
@@ -246,6 +250,8 @@ https://your-domain.com/install/
 
 If you also want to remove all old content, empty the database or create a new database before reinstalling.
 
+For a fully fresh Laragon reinstall, remove the old project folder from `C:\laragon\www`, drop the old MySQL database, and remove any old Laragon virtual-host entry such as `Biography.test` if one was created.
+
 ## Backup
 
 Back up both:
@@ -305,8 +311,14 @@ Use the admin panel for:
 - biography
 - projects
 - pages
+- footer columns and footer links
+- footer icon groups, including social icons and app-store icons
+- footer bottom links, such as privacy policy and terms
+- footer logos with independent image and URL fields
 - contacts
 - public update notifications
+- admin users and permissions
+- integrations
 - account password
 - admin email
 - phone number

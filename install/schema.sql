@@ -4,6 +4,9 @@ CREATE TABLE IF NOT EXISTS admin_users (
   password_hash VARCHAR(255) NOT NULL,
   display_name VARCHAR(255),
   phone VARCHAR(50),
+  role VARCHAR(50) NOT NULL DEFAULT 'owner',
+  permissions_json LONGTEXT,
+  active TINYINT(1) NOT NULL DEFAULT 1,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -14,11 +17,22 @@ CREATE TABLE IF NOT EXISTS site_settings (
   brand_name VARCHAR(255),
   brand_slogan VARCHAR(255),
   brand_logo VARCHAR(500),
+  site_icon VARCHAR(500),
   language VARCHAR(10),
   direction VARCHAR(10),
   theme VARCHAR(50),
   phone_number VARCHAR(50),
   email VARCHAR(255),
+  shell_topbar_text VARCHAR(255),
+  shell_topbar_short_text VARCHAR(255),
+  shell_verify_label VARCHAR(100),
+  shell_verify_title VARCHAR(255),
+  shell_verify_description TEXT,
+  shell_security_title VARCHAR(255),
+  shell_security_description TEXT,
+  shell_notice_text VARCHAR(255),
+  interface_texts_json LONGTEXT,
+  footer_json LONGTEXT,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -111,6 +125,8 @@ CREATE TABLE IF NOT EXISTS pages (
   content LONGTEXT,
   sort_order INT DEFAULT 0,
   visible TINYINT(1) DEFAULT 1,
+  show_in_navigation TINYINT(1) DEFAULT 1,
+  show_in_footer TINYINT(1) DEFAULT 0,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
@@ -124,6 +140,29 @@ CREATE TABLE IF NOT EXISTS contacts (
   icon_path VARCHAR(500),
   sort_order INT DEFAULT 0,
   visible TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS footer_links (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  label VARCHAR(255),
+  url VARCHAR(500),
+  sort_order INT DEFAULT 0,
+  visible TINYINT(1) DEFAULT 1
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS integrations (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  integration_type VARCHAR(80),
+  name VARCHAR(255),
+  provider VARCHAR(255),
+  environment VARCHAR(50),
+  endpoint_url VARCHAR(500),
+  webhook_url VARCHAR(500),
+  public_key VARCHAR(500),
+  secret_env_key VARCHAR(255),
+  config_json LONGTEXT,
+  sort_order INT DEFAULT 0,
+  enabled TINYINT(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS site_notifications (

@@ -6,10 +6,10 @@ require_once __DIR__ . '/site-repository.php';
 
 try {
     $pdo = cms_pdo();
-    cms_require_admin($pdo);
+    $user = cms_require_admin($pdo);
     $body = cms_read_json();
     $payload = is_array($body['data'] ?? null) ? $body['data'] : $body;
-    $data = cms_save_site_data($pdo, $payload);
+    $data = cms_save_site_data_for_admin($pdo, $payload, $user);
 
     cms_json_response([
         'success' => true,

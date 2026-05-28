@@ -35,9 +35,42 @@ function cms_detect_mime(string $tmpName): string
     return is_string($mime) ? $mime : '';
 }
 
+function cms_svg_is_safe(string $tmpName): bool
+{
+    $content = file_get_contents($tmpName);
+    if ($content === false) {
+        return false;
+    }
+
+    $lower = strtolower($content);
+    foreach ([
+        '<script',
+        '<foreignobject',
+        '<iframe',
+        '<object',
+        '<embed',
+        'javascript:',
+        'data:text/html',
+        'onload=',
+        'onerror=',
+        'onclick=',
+        'onmouseover=',
+        'onfocus=',
+    ] as $needle) {
+        if (str_contains($lower, $needle)) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 try {
     $pdo = cms_pdo();
-    cms_require_admin($pdo);
+    $user = cms_require_admin($pdo);
+    if (!cms_admin_has_permission($user, 'uploads') && !cms_admin_has_any_permission($user, cms_content_permission_keys())) {
+        cms_json_response(['success' => false, 'message' => 'Permission denied.'], 403);
+    }
     $config = cms_config();
     $maxBytes = (int) ($config['app']['max_upload_bytes'] ?? 52428800);
 
@@ -58,7 +91,7 @@ try {
 
     $original = basename((string) ($file['name'] ?? 'upload'));
     $extension = strtolower(pathinfo($original, PATHINFO_EXTENSION));
-    $imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'svg'];
+    $imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'ico'];
     $videoExtensions = ['mp4', 'webm'];
     if (!in_array($extension, array_merge($imageExtensions, $videoExtensions), true)) {
         cms_json_response(['success' => false, 'message' => 'File extension is not allowed.'], 422);
@@ -70,7 +103,7 @@ try {
     }
 
     $mime = cms_detect_mime($tmpName);
-    $imageMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml'];
+    $imageMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'];
     $videoMimes = ['video/mp4', 'video/webm'];
     $isImage = in_array($extension, $imageExtensions, true);
     $isVideo = in_array($extension, $videoExtensions, true);
@@ -81,6 +114,13 @@ try {
         if ($validMime) {
             $mime = 'image/svg+xml';
         }
+    }
+    if ($extension === 'svg' && $validMime && !cms_svg_is_safe($tmpName)) {
+        cms_json_response(['success' => false, 'message' => 'SVG file contains unsafe content.'], 422);
+    }
+    if ($extension === 'ico' && !$validMime && $mime === 'application/octet-stream') {
+        $validMime = true;
+        $mime = 'image/x-icon';
     }
     if (!$validMime || (!$isImage && !$isVideo)) {
         cms_json_response(['success' => false, 'message' => 'File MIME type is not allowed.'], 422);

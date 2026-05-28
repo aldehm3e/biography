@@ -49,8 +49,16 @@
     return Boolean(String(value || "").trim());
   }
 
+  function asArray(items) {
+    if (Array.isArray(items)) return items;
+    if (items && typeof items === "object") {
+      return Object.keys(items).map(function (key) { return items[key]; });
+    }
+    return [];
+  }
+
   function visibleItems(items) {
-    return (items || []).filter(function (item) { return item.visible !== false; });
+    return asArray(items).filter(function (item) { return item && item.visible !== false; });
   }
 
   function visibleHeroSlides(home) {
@@ -121,10 +129,26 @@
     return data.navigation[key] || fallbackNavigationLabel(key, fallback);
   }
 
+  function uiText(data, key, fallback) {
+    data = data || appState.data || {};
+    data.texts = data.texts || {};
+    var defaults = window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.texts;
+    return data.texts[key] || (defaults && defaults[key]) || fallback || "";
+  }
+
   function brandTitle(data) {
     data = data || {};
     data.settings = data.settings || {};
     return data.settings.brandName || siteTitle(data);
+  }
+
+  function imageMimeForPath(path) {
+    var normalized = String(path || "").split("?")[0].split("#")[0].toLowerCase();
+    if (normalized.endsWith(".png")) return "image/png";
+    if (normalized.endsWith(".jpg") || normalized.endsWith(".jpeg")) return "image/jpeg";
+    if (normalized.endsWith(".webp")) return "image/webp";
+    if (normalized.endsWith(".ico")) return "image/x-icon";
+    return "image/svg+xml";
   }
 
   function updateDocumentTitle(data, detailTitle) {
@@ -135,7 +159,7 @@
       if (page === "projects") title = navigationLabel(data, "projectsLabel", "مشاريعنا") + " | " + baseTitle;
       if (page === "pages") title = navigationLabel(data, "pagesLabel", "الصفحات") + " | " + baseTitle;
       if (page === "admin") title = navigationLabel(data, "adminLabel", "الإدارة") + " | " + baseTitle;
-      if (page === "notifications") title = "الإشعارات | " + baseTitle;
+      if (page === "notifications") title = uiText(data, "notificationsLabel", "الإشعارات") + " | " + baseTitle;
     } else if (detailTitle !== baseTitle) {
       title = detailTitle + " | " + baseTitle;
     }
@@ -154,19 +178,100 @@
     setText("[data-home-page-label]", navigationLabel(data, "homeLabel", "الرئيسية"));
     setText("[data-projects-page-label]", navigationLabel(data, "projectsLabel", "مشاريعنا"));
     setText("[data-pages-page-label]", navigationLabel(data, "pagesLabel", "الصفحات"));
-    qsa(".brand-logo, .nds-footer-logos img").forEach(function (image) {
-      image.src = data.settings.brandLogo || "assets/vendor/nds/images/palm_swords.svg";
+    setText("[data-admin-page-label]", navigationLabel(data, "adminLabel", "الإدارة"));
+    setText("[data-shell-topbar-text]", data.settings.shellTopbarText || "موقع شخصي قابل للإدارة عبر نظام محتوى محلي.");
+    setText("[data-shell-topbar-short-text]", data.settings.shellTopbarShortText || "موقع شخصي قابل للإدارة.");
+    setText("[data-shell-verify-label]", data.settings.shellVerifyLabel || "كيف تتحقق؟");
+    setText("[data-shell-verify-title]", data.settings.shellVerifyTitle || "تحقق من رابط الموقع قبل إدخال أي بيانات.");
+    setText("[data-shell-verify-description]", data.settings.shellVerifyDescription || "استخدم الرابط الرسمي الذي يقدمه مالك الموقع، وتجنب الروابط المختصرة أو غير المعروفة.");
+    setText("[data-shell-security-title]", data.settings.shellSecurityTitle || "الاتصال الآمن يستخدم بروتوكول HTTPS.");
+    setText("[data-shell-security-description]", data.settings.shellSecurityDescription || "تأكد من ظهور القفل في المتصفح عند استخدام نسخة منشورة على الاستضافة.");
+    setText("[data-shell-notice-text]", data.settings.shellNoticeText || "هذا موقع شخصي مستقل وغير تابع لأي جهة حكومية.");
+    var brandLogo = data.settings.brandLogo || "assets/vendor/nds/images/palm_swords.svg";
+    var siteIcon = data.settings.siteIcon || data.settings.brandLogo || "assets/images/site-mark.svg";
+    qsa(".brand-logo").forEach(function (image) {
+      image.src = brandLogo;
+    });
+    qsa("[data-site-mark]").forEach(function (image) {
+      image.src = siteIcon;
+    });
+    qsa("link[rel~='icon'], [data-site-favicon]").forEach(function (link) {
+      link.href = siteIcon;
+      link.type = imageMimeForPath(siteIcon);
     });
     updateDocumentTitle(data);
+  }
+
+  function setInputPlaceholder(selector, value) {
+    qsa(selector).forEach(function (input) {
+      input.placeholder = value || "";
+    });
+  }
+
+  function applyInterfaceTexts(data) {
+    var pairs = [
+      ["[data-home-empty] .nds-card-title", "homeEmptyTitle", "لم تتم إضافة محتوى بعد"],
+      ["[data-home-empty] .nds-card-description", "homeEmptyDescription", "يمكنك إضافة المحتوى من لوحة الإدارة."],
+      ["[data-home-empty] .nds-btn .nds-label", "homeEmptyButton", "فتح لوحة الإدارة"],
+      ["[data-admin-home-panel-title]", "adminHomePanelTitle", "محتوى الصفحة الرئيسية"],
+      ["[data-admin-home-panel-description]", "adminHomePanelDescription", "كل الحقول اختيارية، ولن يظهر المحتوى العام إلا بعد حفظ بياناتك."],
+      ["[data-admin-home-save-button]", "adminHomeSaveButton", "حفظ الرئيسية"],
+      [".biography-section .nds-section-subtitle", "biographySubtitle", "السيرة الذاتية"],
+      [".biography-section .nds-section-title", "biographyTitle", "نبذة مختصرة"],
+      [".professional-section .nds-section-subtitle", "professionalSubtitle", "المحتوى المهني"],
+      [".professional-section .nds-section-title", "professionalTitle", "الخبرات والإنجازات"],
+      [".professional-section .content-grid > div:first-child .section-minor-title", "experienceHeading", "الخبرات"],
+      [".professional-section .content-grid > div:nth-child(2) .section-minor-title", "achievementsHeading", "الإنجازات"],
+      ["[data-skills-section] .nds-section-subtitle", "skillsSubtitle", "المهارات"],
+      ["[data-skills-section] .nds-section-title", "skillsTitle", "مجالات الخبرة"],
+      [".nds-footer-content .nds-footer-column:first-child .nds-footer-heading", "footerLinksHeading", "روابط سريعة"],
+      [".nds-footer-icons .nds-footer-heading", "footerSocialHeading", "وسائل التواصل"],
+      ["[data-footer-social-empty]", "footerSocialEmpty", "لم تتم إضافة وسائل تواصل بعد"],
+      ["body[data-page='projects'] .nds-hero-section .nds-section-description", "projectsDescription", "تظهر المشاريع هنا بعد إضافتها من لوحة الإدارة، وتبقى منظمة حتى عند زيادة العدد."],
+      ["[data-projects-empty] .nds-card-title", "projectsEmptyTitle", "لم تتم إضافة مشاريع بعد"],
+      ["[data-projects-empty] .nds-card-description", "projectsEmptyDescription", "يمكنك إضافة المشاريع من لوحة الإدارة."],
+      ["[data-projects-empty] .nds-btn .nds-label", "projectsEmptyButton", "إضافة مشروع"],
+      ["[data-projects-content] .nds-section-subtitle", "projectsListSubtitle", "قائمة المشاريع"],
+      ["[data-projects-content] .nds-section-title", "projectsListTitle", "الأعمال المضافة"],
+      ["body[data-page='pages'] .nds-hero-section .nds-section-description", "pagesDescription", "كل صفحة تضيفها من لوحة الإدارة تظهر هنا كبطاقة مستقلة ومنظمة."],
+      ["[data-pages-empty] .nds-card-title", "pagesEmptyTitle", "لم تتم إضافة صفحات بعد"],
+      ["[data-pages-empty] .nds-card-description", "pagesEmptyDescription", "يمكنك إضافة الصفحات من لوحة الإدارة."],
+      ["[data-pages-empty] .nds-btn .nds-label", "pagesEmptyButton", "إضافة صفحة"],
+      ["[data-pages-content] .nds-section-subtitle", "pagesListSubtitle", "قائمة الصفحات"],
+      ["[data-pages-content] .nds-section-title", "pagesListTitle", "الصفحات المضافة"],
+      ["[data-notifications-page-label]", "notificationsLabel", "الإشعارات"],
+      ["body[data-page='notifications'] .nds-hero-section .nds-section-description", "notificationsDescription", "كل التحديثات التي تمت من لوحة الإدارة تظهر هنا."],
+      ["[data-notifications-empty] .nds-card-title", "notificationsEmptyTitle", "لا توجد إشعارات بعد"],
+      ["[data-notifications-empty] .nds-card-description", "notificationsEmptyDescription", "ستظهر هنا تحديثات الصفحة الرئيسية والمشاريع والصفحات بعد حفظها من لوحة الإدارة."]
+    ];
+    pairs.forEach(function (item) {
+      setText(item[0], uiText(data, item[1], item[2]));
+    });
+    qsa("[data-ui-text]").forEach(function (element) {
+      var key = element.dataset.uiText;
+      if (key) element.textContent = uiText(data, key, element.dataset.uiTextFallback || element.textContent);
+    });
+    setInputPlaceholder(".site-search-input, .site-search-box .nds-search-input", uiText(data, "searchPlaceholder", "البحث في الموقع..."));
+    setText(".site-header-search .nds-search-btn .nds-label, .site-search-dropdown > .nds-nav-link .nds-label, .site-search-dropdown .nds-search-btn .nds-label", uiText(data, "searchLabel", "بحث"));
+    qsa(".site-header-search .nds-search-btn, .site-search-dropdown .nds-search-btn, .site-search-dropdown > .nds-nav-link").forEach(function (button) {
+      var label = uiText(data, "searchLabel", "بحث");
+      button.setAttribute("aria-label", label);
+      button.setAttribute("title", label);
+    });
   }
 
   function renderShared(data) {
     applyDocumentSettings(data);
     applyShellText(data);
+    applyInterfaceTexts(data);
     renderAccountMenu(data);
     renderNavigation(data);
     renderNotifications();
-    renderFooter(data);
+    try {
+      renderFooter(data);
+    } catch (error) {
+      console.error("Footer render failed", error);
+    }
     updateClock();
   }
 
@@ -221,7 +326,7 @@
     if (hasText(avatarSrc)) {
       return '<span class="nds-avatar ' + (compact ? "nds-sm" : "nds-md") + ' admin-trigger-avatar" aria-hidden="true"><img src="' + escapeHtml(avatarSrc) + '" alt=""></span>';
     }
-    return '<span class="nds-avatar ' + (compact ? "nds-sm" : "nds-md") + ' admin-trigger-avatar account-initials-avatar" aria-hidden="true">' + escapeHtml(accountInitials(name)) + '</span>';
+    return '<span class="nds-avatar ' + (compact ? "nds-sm" : "nds-md") + ' admin-trigger-avatar" aria-hidden="true"><i class="nds-icon nds-icon-avatar nav-admin-icon" aria-hidden="true"></i></span>';
   }
 
   function accountActionsMarkup(label) {
@@ -233,19 +338,19 @@
       '</a>',
       '<button type="button" class="nds-btn nds-subtle nds-dropdown-item" data-account-action="password">',
       '<i class="nds-icon nds-hgi-lock-password" aria-hidden="true"></i>',
-      '<span class="nds-label">تغيير كلمة المرور</span>',
+      '<span class="nds-label">' + escapeHtml(uiText(appState.data, "changePasswordLabel", "تغيير كلمة المرور")) + '</span>',
       '</button>',
       '<button type="button" class="nds-btn nds-subtle nds-dropdown-item" data-account-action="email">',
       '<i class="nds-icon nds-hgi-mail-01" aria-hidden="true"></i>',
-      '<span class="nds-label">تغيير البريد الإلكتروني</span>',
+      '<span class="nds-label">' + escapeHtml(uiText(appState.data, "changeEmailLabel", "تغيير البريد الإلكتروني")) + '</span>',
       '</button>',
       '<button type="button" class="nds-btn nds-subtle nds-dropdown-item" data-account-action="phone">',
       '<i class="nds-icon nds-hgi-smart-phone-01" aria-hidden="true"></i>',
-      '<span class="nds-label">تغيير رقم الجوال</span>',
+      '<span class="nds-label">' + escapeHtml(uiText(appState.data, "changePhoneLabel", "تغيير رقم الجوال")) + '</span>',
       '</button>',
       '<button type="button" class="nds-btn nds-subtle nds-destructive nds-dropdown-item" data-account-action="logout" data-admin-persona-logout>',
       '<i class="nds-icon nds-hgi-door-01" aria-hidden="true"></i>',
-      '<span class="nds-label">تسجيل الخروج</span>',
+      '<span class="nds-label">' + escapeHtml(uiText(appState.data, "logoutLabel", "تسجيل الخروج")) + '</span>',
       '</button>'
     ].join("");
   }
@@ -266,15 +371,15 @@
     var isAuthenticated = isAdminAuthenticated();
     var name = accountDisplayName(data);
     var role = data.home.title || "Administrator";
-    var portalLabel = "الإدارة";
+    var portalLabel = uiText(data, "adminPortalLabel", "الإدارة");
     item.className = "nds-nav-item nds-dropdown admin-persona-dropdown account-menu-item";
     item.dataset.accountMenu = "desktop";
 
     if (!isAuthenticated) {
       item.innerHTML = [
-        '<button class="nds-nav-link nds-btn nds-subtle account-login-trigger" type="button" data-login-trigger aria-label="تسجيل الدخول" title="تسجيل الدخول">',
+        '<button class="nds-nav-link nds-btn nds-subtle account-login-trigger" type="button" data-login-trigger aria-label="' + escapeHtml(uiText(data, "loginLabel", "تسجيل الدخول")) + '" title="' + escapeHtml(uiText(data, "loginLabel", "تسجيل الدخول")) + '">',
         '<i class="nds-icon nds-icon-avatar" aria-hidden="true"></i>',
-        '<span class="nds-label">تسجيل الدخول</span>',
+        '<span class="nds-label">' + escapeHtml(uiText(data, "loginLabel", "تسجيل الدخول")) + '</span>',
         '</button>'
       ].join("");
       return;
@@ -318,6 +423,7 @@
     dedupeHeaderActions();
     Array.prototype.slice.call(minimal.children).forEach(function (item) {
       if (item === toggler || item.dataset.mobileAdminShortcut || item.dataset.mobileThemeShortcut || item.dataset.mobileNotificationsRoot) return;
+      if (item.classList && (item.classList.contains("site-search-dropdown") || item.classList.contains("nds-search"))) return;
       item.remove();
     });
     qsa("[data-mobile-header-date]", minimal).forEach(function (item) { item.remove(); });
@@ -331,12 +437,12 @@
         minimal.append(adminItem);
       }
     }
-    var portalLabel = "الإدارة";
+    var portalLabel = uiText(data, "adminPortalLabel", "الإدارة");
     var isAuthenticated = isAdminAuthenticated();
     var accountName = accountDisplayName(data);
     var accountRole = data && data.home ? data.home.title || "Administrator" : "Administrator";
     var accountConfig = currentAuthConfig();
-    if (!isAuthenticated) portalLabel = "تسجيل الدخول";
+    if (!isAuthenticated) portalLabel = uiText(data, "loginLabel", "تسجيل الدخول");
     adminItem.className = isAuthenticated ? "nds-nav-item nds-dropdown mobile-admin-shortcut mobile-account-dropdown" : "nds-nav-item mobile-admin-shortcut";
     if (toggler) minimal.insertBefore(adminItem, toggler);
     adminItem.innerHTML = isAuthenticated ? [
@@ -383,7 +489,7 @@
     themeItem.innerHTML = [
       '<button class="nds-nav-link nds-btn nds-subtle nds-indicator theme-toggle" type="button" data-theme-toggle>',
       '<i class="nds-icon nds-hgi-moon-02" aria-hidden="true"></i>',
-      '<span class="nds-label">تبديل الوضع الليلي</span>',
+      '<span class="nds-label">' + escapeHtml(uiText(data, "themeToggleLabel", "تبديل الوضع الليلي")) + '</span>',
       '</button>'
     ].join("");
 
@@ -403,9 +509,9 @@
     var unreadCount = items.filter(function (item) { return !item.read; }).length;
     var isOpen = (notificationItem.dataset.state || "").indexOf("open") !== -1;
     notificationItem.innerHTML = [
-      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator notification-trigger" type="button" title="الإشعارات" data-state="' + (isOpen ? "active" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" data-notifications-trigger>',
+      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator notification-trigger" type="button" title="' + escapeHtml(uiText(data, "notificationsLabel", "الإشعارات")) + '" data-state="' + (isOpen ? "active" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" data-notifications-trigger>',
       '<i class="nds-icon nds-hgi-notification-02 nav-notification-icon" aria-hidden="true">' + (unreadCount ? '<span class="nds-badge">' + Math.min(unreadCount, 99) + '</span>' : '') + '</i>',
-      '<span class="nds-label">الإشعارات</span>',
+      '<span class="nds-label">' + escapeHtml(uiText(data, "notificationsLabel", "الإشعارات")) + '</span>',
       '</button>',
       notificationsDropdownMarkup(items, "40vw")
     ].join("");
@@ -415,6 +521,8 @@
   }
 
   function dedupeHeaderActions() {
+    qsa(".site-header [data-pab-ph]").forEach(function (item) { item.remove(); });
+    qsa(".site-header .nds-PAB").forEach(function (item) { item.classList.remove("nds-PAB"); });
     [
       "[data-mobile-admin-shortcut]",
       "[data-mobile-theme-shortcut]",
@@ -441,6 +549,10 @@
     var navPanel = qs("[data-nav-panel]");
     if (!navPanel || window.matchMedia("(max-width: 960px)").matches) return;
     navPanel.hidden = false;
+    updateHeaderNavScrollState(qs("[data-nav-list]", navPanel));
+    window.setTimeout(function () {
+      updateHeaderNavScrollState(qs("[data-nav-list]", navPanel));
+    }, 120);
   }
 
   function baseNavigationItems(data) {
@@ -451,7 +563,9 @@
   }
 
   function pageNavigationItems(data) {
-    return publicPageItems(data).map(function (item) {
+    return publicPageItems(data).filter(function (item) {
+      return item.showInNavigation !== false;
+    }).map(function (item) {
       return {
         label: item.title || item.slug,
         href: "index.html#/page/" + encodeURIComponent(item.slug),
@@ -462,7 +576,25 @@
 
   function publicPageItems(data) {
     return visibleItems((data && data.pages) || []).filter(function (item) {
-      return hasText(item.title || item.slug) && hasText(item.content);
+      return hasText(item.title || item.slug);
+    });
+  }
+
+  function routablePageItems(data) {
+    return ((data && data.pages) || []).filter(function (item) {
+      return item && (item.visible !== false || item.showInFooter === true) && hasText(item.title || item.slug);
+    });
+  }
+
+  function footerPageItems(data) {
+    return ((data && data.pages) || []).filter(function (item) {
+      return item && item.showInFooter === true && hasText(item.title || item.slug);
+    }).map(function (item) {
+      return {
+        label: item.title || item.slug,
+        href: "index.html#/page/" + encodeURIComponent(item.slug),
+        key: "footer-page:" + item.slug
+      };
     });
   }
 
@@ -481,7 +613,7 @@
   }
 
   function createNavLink(item, page, currentSlug) {
-    var link = el("a", "nds-nav-link nds-btn nds-subtle");
+    var link = el("a", "nds-nav-link nds-btn nds-subtle nds-indicator");
     link.href = item.href;
     link.dataset.navKey = item.key;
     if (isCurrentNav(item, page, currentSlug)) link.dataset.state = "current";
@@ -536,70 +668,516 @@
 
   function setupHeaderNavScroller(list) {
     var panel = list.closest("[data-nav-panel]");
-    if (!panel || panel.dataset.navScroller === "ready") return;
+    if (!panel) return;
+    if (panel.dataset.navScroller === "ready") {
+      updateHeaderNavScrollState(list);
+      return;
+    }
     var content = list.closest(".nds-collapse-content") || panel;
     panel.dataset.navScroller = "ready";
     content.insertBefore(navScrollButton("prev"), list);
     var showMore = qs(".nds-show-more", content);
     content.insertBefore(navScrollButton("next"), showMore || null);
-    updateMobileNavScrollControl(list);
+    list.addEventListener("scroll", function () {
+      updateHeaderNavScrollState(list);
+    }, { passive: true });
+    window.addEventListener("resize", function () {
+      updateHeaderNavScrollState(list);
+    }, { passive: true });
+    updateHeaderNavScrollState(list);
+  }
+
+  function updateHeaderNavScrollState(list) {
+    if (!list) return;
+    var panel = list.closest("[data-nav-panel]");
+    if (!panel) return;
+    var prev = qs("[data-nav-scroll='prev']", panel);
+    var next = qs("[data-nav-scroll='next'].nav-scroll-next", panel);
+    if (!prev || !next) return;
+
+    if (window.matchMedia("(max-width: 960px)").matches) {
+      prev.hidden = true;
+      next.hidden = true;
+      updateMobileNavScrollControl(list);
+      return;
+    }
+
+    var maxScroll = Math.max(0, list.scrollWidth - list.clientWidth);
+    var position = Math.min(maxScroll, Math.abs(list.scrollLeft));
+    var hasOverflow = maxScroll > 8;
+    var atStart = position <= 8;
+    var atEnd = position >= maxScroll - 8;
+
+    prev.hidden = !hasOverflow;
+    next.hidden = !hasOverflow;
+    prev.disabled = !hasOverflow || atStart;
+    next.disabled = !hasOverflow || atEnd;
+    list.dataset.state = [
+      hasOverflow ? "has-more" : "",
+      atStart ? "at-start" : "",
+      atEnd && hasOverflow ? "at-end" : ""
+    ].filter(Boolean).join(" ");
   }
 
   function renderFooter(data) {
-    renderFooterLinks(data);
-    renderFooterSocial(data);
-    renderFooterMeta();
+    renderFooterContent(data);
+    renderFooterBottom(data);
   }
 
-  function renderFooterMeta() {
-    qsa(".nds-footer-meta").forEach(function (meta) {
-      if (!qs("[data-footer-version]", meta)) {
-        var version = el("span", "footer-version", "Biography v1.0");
+  function normalizeFooterLinkUrl(url) {
+    var value = String(url || "").trim();
+    if (!value || /^(javascript|data):/i.test(value)) return "#";
+    if (/^(https?:|mailto:|tel:|sms:|#|\/|\.\/|\.\.\/)/i.test(value)) return value;
+    if (/^www\./i.test(value)) return "https://" + value;
+    if (/^(?!.*\s)(?:[a-z0-9-]+\.)+[a-z]{2,}(?::\d+)?(?:[/?#].*)?$/i.test(value) && !/\.(html?|php|aspx?|jsp)(?:[?#]|$)/i.test(value)) {
+      return "https://" + value;
+    }
+    return value;
+  }
+
+  function normalizeFooterLink(item) {
+    item = item || {};
+    return {
+      label: item.label || item.title || item.name || "",
+      href: item.href || item.url || "",
+      iconType: item.iconType || "",
+      iconPath: item.iconPath || "",
+      visible: item.visible
+    };
+  }
+
+  function footerLegacyLinks(data) {
+    var customLinks = visibleItems((data.home && data.home.footerLinks) || []).filter(function (item) {
+      return hasText(item.label) && hasText(item.url);
+    }).map(function (item) {
+      return {
+        label: item.label,
+        href: item.url
+      };
+    });
+    return customLinks;
+  }
+
+  function uniqueFooterLinks(links, allowLabelOnly) {
+    var seen = {};
+    return (links || []).map(normalizeFooterLink).filter(function (item) {
+      return item.visible !== false && hasText(item.label) && (allowLabelOnly || hasText(item.href));
+    }).filter(function (item) {
+      var href = normalizeFooterLinkUrl(item.href);
+      var key = (hasText(item.href) ? href : "__text__") + "|" + item.label;
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+  }
+
+  function footerColumns(data) {
+    var footer = data.footer || {};
+    var columns = [];
+    var legacyLinks = uniqueFooterLinks(footerLegacyLinks(data));
+
+    if (legacyLinks.length) {
+      columns.push({
+        title: uiText(data, "footerLinksHeading", "روابط سريعة"),
+        links: legacyLinks
+      });
+    }
+
+    visibleItems(footer.columns || []).slice(0, 3).forEach(function (column) {
+      var links = uniqueFooterLinks(column.links || [], true);
+      if (!hasText(column.title) || !links.length) return;
+      columns.push({
+        title: column.title,
+        links: links
+      });
+    });
+
+    return columns;
+  }
+
+  function footerIconGroups(data) {
+    var footer = data.footer || {};
+    var groups = [];
+
+    visibleItems(footer.iconGroups || []).slice(0, 2).forEach(function (group) {
+      var links = footerIconGroupLinks(group.links || [], group.title);
+      if (!hasText(group.title) || !links.length) return;
+      if (isFooterMobileAppGroup(group)) {
+        links = links.map(function (link, index) {
+          var appLink = Object.assign({}, link);
+          appLink.iconType = footerAppGroupIconType(appLink, index);
+          return appLink;
+        });
+      } else {
+        links = links.map(function (link) {
+          var socialLink = Object.assign({}, link);
+          socialLink.iconType = footerNonAppIconType(socialLink);
+          return socialLink;
+        });
+      }
+      groups.push({
+        title: group.title,
+        links: links
+      });
+    });
+
+    return groups;
+  }
+
+  function footerIconGroupLinks(links, groupTitle) {
+    var seen = {};
+    return (links || []).map(normalizeFooterLink).filter(function (item) {
+      return item.visible !== false
+        && (hasText(item.label) || hasText(item.iconType) || hasText(item.iconPath));
+    }).map(function (item) {
+      if (!hasText(item.href)) item.href = "#";
+      if (!hasText(item.label)) {
+        item.label = footerIconLabel(item.iconType) || groupTitle || "رابط";
+      }
+      return item;
+    }).filter(function (item) {
+      var href = normalizeFooterLinkUrl(item.href);
+      var key = href + "|" + item.label + "|" + item.iconType + "|" + item.iconPath;
+      if (seen[key]) return false;
+      seen[key] = true;
+      return true;
+    });
+  }
+
+  function applyFooterLinkTarget(link, href) {
+    if (/^https?:\/\//i.test(href)) {
+      link.target = "_blank";
+      link.rel = "noopener noreferrer";
+      link.classList.add("nds-external");
+    }
+  }
+
+  function createFooterTextLink(item) {
+    if (!hasText(item.href)) {
+      var text = el("span", "nds-footer-link");
+      if (item.iconPath || item.iconType) text.append(footerIconElement(item));
+      text.append(el("span", "nds-label", item.label));
+      return text;
+    }
+    var link = el("a", "nds-link nds-footer-link");
+    var href = normalizeContactUrl(normalizeFooterLinkUrl(item.href), item.iconType);
+    link.href = href;
+    applyFooterLinkTarget(link, href);
+    if (item.iconPath || item.iconType) link.append(footerIconElement(item));
+    link.append(el("span", "nds-label", item.label));
+    return link;
+  }
+
+  function createFooterColumn(column) {
+    var wrapper = el("div", "nds-footer-column");
+    var heading = el("h3", "nds-footer-heading", column.title);
+    var list = el("ul", "nds-footer-list");
+    wrapper.append(heading);
+    column.links.forEach(function (item) {
+      var li = el("li");
+      li.append(createFooterTextLink(item));
+      list.append(li);
+    });
+    wrapper.append(list);
+    return wrapper;
+  }
+
+  function isFooterAppIcon(type) {
+    return ["appstore", "android", "googleplay", "huawei"].indexOf(String(type || "").toLowerCase()) !== -1;
+  }
+
+  function isFooterMobileAppGroup(group) {
+    var title = String(group && group.title || "");
+    return /\bmobile\b|\bapps?\b|app\s*store|google\s*play/i.test(title)
+      || title.indexOf("\u062a\u0637\u0628\u064a\u0642") !== -1
+      || title.indexOf("\u0627\u0644\u062c\u0648\u0627\u0644") !== -1;
+  }
+
+  function footerAppGroupIconType(link, index) {
+    var type = String(link && link.iconType || "").toLowerCase();
+    var appTypes = ["appstore", "googleplay", "huawei"];
+    if (isFooterAppIcon(type)) return type;
+    if (!type || type === "website") return appTypes[index] || appTypes[appTypes.length - 1];
+    return type;
+  }
+
+  function inferFooterIconType(item) {
+    var text = [
+      item && (item.label || item.title || item.name),
+      item && (item.href || item.url)
+    ].filter(Boolean).join(" ").toLowerCase();
+    if (/linkedin/.test(text)) return "linkedin";
+    if (/facebook|fb\.com/.test(text)) return "facebook";
+    if (/instagram/.test(text)) return "instagram";
+    if (/youtube|youtu\.be/.test(text)) return "youtube";
+    if (/github/.test(text)) return "github";
+    if (/(^|\W)x\.com|twitter/.test(text)) return "x";
+    if (/mailto:|@/.test(text)) return "email";
+    if (/tel:|phone|هاتف|جوال/.test(text)) return "phone";
+    if (/maps|map|location|عنوان|موقع/.test(text)) return "location";
+    return "";
+  }
+
+  function footerNonAppIconType(item) {
+    var type = String(item && item.iconType || "").toLowerCase();
+    var inferred = inferFooterIconType(item || {});
+    if (type === "website" && inferred) return inferred;
+    if (type && !isFooterAppIcon(type)) return type;
+    return inferred || "website";
+  }
+
+  function footerIconLabel(type) {
+    var labels = {
+      linkedin: "LinkedIn",
+      facebook: "Facebook",
+      instagram: "Instagram",
+      youtube: "YouTube",
+      github: "GitHub",
+      x: "X",
+      email: "Email",
+      website: "Website",
+      phone: "Phone",
+      location: "Location",
+      appstore: "Apple App Store",
+      android: "Google Play",
+      googleplay: "Google Play",
+      huawei: "Huawei AppGallery"
+    };
+    return labels[String(type || "").toLowerCase()] || "";
+  }
+
+  function footerIconElement(item) {
+    if (hasText(item.iconPath)) {
+      var image = document.createElement("img");
+      image.className = "footer-icon-img";
+      image.src = item.iconPath;
+      image.alt = "";
+      image.setAttribute("aria-hidden", "true");
+      return image;
+    }
+
+    if (isFooterAppIcon(item.iconType)) {
+      var appIcon = footerAppIcon(item.iconType);
+      appIcon.classList.add("contact-icon");
+      return appIcon;
+    }
+
+    var icon = document.createElement("i");
+    icon.className = "contact-icon " + footerIconClass(item.iconType);
+    icon.setAttribute("aria-hidden", "true");
+    return icon;
+  }
+
+  function footerIconClass(type) {
+    type = String(type || "").toLowerCase();
+    var icons = {
+      linkedin: "nds-icon nds-hgi-linkedin-02",
+      facebook: "nds-icon nds-hgi-facebook-02",
+      instagram: "nds-icon nds-hgi-instagram",
+      youtube: "nds-icon nds-hgi-youtube",
+      github: "nds-icon nds-hgi-github",
+      x: "nds-icon nds-hgi-new-twitter",
+      email: "nds-icon nds-hgi-mail-01",
+      website: "nds-icon nds-hgi-globe",
+      phone: "nds-icon nds-hgi-headphones",
+      location: "nds-icon nds-hgi-location-01"
+    };
+    return icons[type] || icons.website;
+  }
+
+  function footerSvgIcon(type) {
+    var safeType = String(type || "website").toLowerCase().replace(/[^a-z0-9-]/g, "") || "website";
+    var icons = {
+      linkedin: "<path d='M4.5 9.5H4C3.05719 9.5 2.58579 9.5 2.29289 9.79289C2 10.0858 2 10.5572 2 11.5V20C2 20.9428 2 21.4142 2.29289 21.7071C2.58579 22 3.05719 22 4 22H4.5C5.44281 22 5.91421 22 6.20711 21.7071C6.5 21.4142 6.5 20.9428 6.5 20V11.5C6.5 10.5572 6.5 10.0858 6.20711 9.79289C5.91421 9.5 5.44281 9.5 4.5 9.5Z' stroke='currentColor' stroke-width='1.5'/><path d='M6.5 4.25C6.5 5.49264 5.49264 6.5 4.25 6.5C3.00736 6.5 2 5.49264 2 4.25C2 3.00736 3.00736 2 4.25 2C5.49264 2 6.5 3.00736 6.5 4.25Z' stroke='currentColor' stroke-width='1.5'/><path d='M12.326 9.5H11.5C10.5572 9.5 10.0858 9.5 9.79289 9.79289C9.5 10.0858 9.5 10.5572 9.5 11.5V20C9.5 20.9428 9.5 21.4142 9.79289 21.7071C10.0858 22 10.5572 22 11.5 22H12C12.9428 22 13.4142 22 13.7071 21.7071C14 21.4142 14 20.9428 14 20L14.0001 16.5001C14.0001 14.8433 14.5281 13.5001 16.0879 13.5001C16.8677 13.5001 17.5 14.1717 17.5 15.0001V19.5001C17.5 20.4429 17.5 20.9143 17.7929 21.2072C18.0857 21.5001 18.5572 21.5001 19.5 21.5001H19.9987C20.9413 21.5001 21.4126 21.5001 21.7055 21.2073C21.9984 20.9145 21.9985 20.4432 21.9987 19.5006L22.0001 14.0002C22.0001 11.515 19.6364 9.50024 17.2968 9.50024C15.9649 9.50024 14.7767 10.1531 14.0001 11.174C14 10.5439 14 10.2289 13.8632 9.995C13.7765 9.84686 13.6531 9.72353 13.505 9.63687C13.2711 9.5 12.9561 9.5 12.326 9.5Z' stroke='currentColor' stroke-linejoin='round' stroke-width='1.5'/>",
+      facebook: "<path d='M6.18182 10.3333C5.20406 10.3333 5 10.5252 5 11.4444V13.1111C5 14.0304 5.20406 14.2222 6.18182 14.2222H8.54545V20.8889C8.54545 21.8081 8.74951 22 9.72727 22H12.0909C13.0687 22 13.2727 21.8081 13.2727 20.8889V14.2222H15.9267C16.6683 14.2222 16.8594 14.0867 17.0631 13.4164L17.5696 11.7497C17.9185 10.6014 17.7035 10.3333 16.4332 10.3333H13.2727V7.55556C13.2727 6.94191 13.8018 6.44444 14.4545 6.44444H17.8182C18.7959 6.44444 19 6.25259 19 5.33333V3.11111C19 2.19185 18.7959 2 17.8182 2H14.4545C11.191 2 8.54545 4.48731 8.54545 7.55556V10.3333H6.18182Z' stroke='currentColor' fill-rule='evenodd' stroke-linejoin='round' stroke-width='1.5'/>",
+      instagram: "<rect x='3' y='3' width='18' height='18' rx='5' stroke='currentColor' stroke-width='1.5'/><circle cx='12' cy='12' r='4' stroke='currentColor' stroke-width='1.5'/><circle cx='17' cy='7' r='1.25' fill='currentColor'/>",
+      youtube: "<path d='M12 20.5C13.8097 20.5 15.5451 20.3212 17.1534 19.9934C19.1623 19.5839 20.1668 19.3791 21.0834 18.2006C22 17.0221 22 15.6693 22 12.9635V11.0365C22 8.33073 22 6.97787 21.0834 5.79937C20.1668 4.62088 19.1623 4.41613 17.1534 4.00662C15.5451 3.67877 13.8097 3.5 12 3.5C10.1903 3.5 8.45489 3.67877 6.84656 4.00662C4.83766 4.41613 3.83321 4.62088 2.9166 5.79937C2 6.97787 2 8.33073 2 11.0365V12.9635C2 15.6693 2 17.0221 2.9166 18.2006C3.83321 19.3791 4.83766 19.5839 6.84656 19.9934C8.45489 20.3212 10.1903 20.5 12 20.5Z' stroke='currentColor' stroke-width='1.5'/><path d='M15.9621 12.3129C15.8137 12.9187 15.0241 13.3538 13.4449 14.2241C11.7272 15.1705 10.8684 15.6438 10.1728 15.4615C9.9372 15.3997 9.7202 15.2911 9.53799 15.1438C9 14.7089 9 13.8059 9 12C9 10.1941 9 9.29112 9.53799 8.85618C9.7202 8.70886 9.9372 8.60029 10.1728 8.53854C10.8684 8.35621 11.7272 8.82945 13.4449 9.77593C15.0241 10.6462 15.8137 11.0813 15.9621 11.6871C16.0126 11.8933 16.0126 12.1067 15.9621 12.3129Z' stroke='currentColor' stroke-linejoin='round' stroke-width='1.5'/>",
+      github: "<path d='M12 2.8a9.3 9.3 0 0 0-2.9 18.1c.5.1.7-.2.7-.5v-1.8c-2.9.6-3.5-1.2-3.5-1.2-.5-1.2-1.1-1.5-1.1-1.5-.9-.6.1-.6.1-.6 1 .1 1.6 1.1 1.6 1.1.9 1.5 2.4 1.1 2.9.8.1-.7.4-1.1.7-1.4-2.3-.3-4.7-1.2-4.7-5.2 0-1.1.4-2.1 1.1-2.8-.1-.3-.5-1.4.1-2.8 0 0 .9-.3 2.9 1.1.8-.2 1.7-.3 2.6-.3s1.8.1 2.6.3c2-1.4 2.9-1.1 2.9-1.1.6 1.4.2 2.5.1 2.8.7.8 1.1 1.7 1.1 2.8 0 4-2.4 4.9-4.7 5.2.4.3.7 1 .7 2v2.9c0 .3.2.6.7.5A9.3 9.3 0 0 0 12 2.8Z' fill='currentColor'/>",
+      x: "<path d='M3 21L10.5484 13.4516M21 3L13.4516 10.5484M13.4516 10.5484L8 3H3L10.5484 13.4516M13.4516 10.5484L21 21H16L10.5484 13.4516' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5'/>",
+      email: "<path d='M4 6.5H20V17.5H4V6.5Z' stroke='currentColor' stroke-linejoin='round' stroke-width='1.5'/><path d='M4.5 7L12 12.25L19.5 7' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5'/>",
+      website: "<path d='M10 13.229C10.1416 13.4609 10.3097 13.6804 10.5042 13.8828C11.7117 15.1395 13.5522 15.336 14.9576 14.4722C15.218 14.3121 15.4634 14.1157 15.6872 13.8828L18.9266 10.5114C20.3578 9.02184 20.3578 6.60676 18.9266 5.11718C17.4953 3.6276 15.1748 3.62761 13.7435 5.11718L13.03 5.85978' stroke='currentColor' stroke-linecap='round' stroke-width='1.5'/><path d='M10.9703 18.14L10.2565 18.8828C8.82526 20.3724 6.50471 20.3724 5.07345 18.8828C3.64218 17.3932 3.64218 14.9782 5.07345 13.4886L8.31287 10.1172C9.74413 8.62761 12.0647 8.6276 13.4959 10.1172C13.6904 10.3195 13.8584 10.539 14 10.7708' stroke='currentColor' stroke-linecap='round' stroke-width='1.5'/>",
+      phone: "<path d='M20.0849 17C20.5849 15.5 21 13.4368 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 13.4368 3.41512 15.5 3.91512 17' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5'/><path d='M8.97651 19.6043L7.23857 14.6127C7.05341 14.1466 6.4617 13.9131 5.97493 14.0297C4.46441 14.5333 3.6462 16.1718 4.14742 17.6895L4.58543 19.0158C5.08664 20.5334 6.71747 21.3555 8.22799 20.8519C8.68896 20.6556 9.10449 20.0897 8.97651 19.6043Z' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5'/><path d='M15.0235 19.6043L16.7614 14.6127C16.9466 14.1466 17.5383 13.9131 18.0251 14.0297C19.5356 14.5333 20.3538 16.1718 19.8526 17.6895L19.4146 19.0158C18.9134 20.5334 17.2825 21.3555 15.772 20.8519C15.311 20.6556 14.8955 20.0897 15.0235 19.6043Z' stroke='currentColor' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5'/>",
+      location: "<path d='M12 22C12 22 19 15.5 19 9.8C19 5.95 15.866 3 12 3C8.13401 3 5 5.95 5 9.8C5 15.5 12 22 12 22Z' stroke='currentColor' stroke-linejoin='round' stroke-width='1.5'/><circle cx='12' cy='10' r='2.5' stroke='currentColor' stroke-width='1.5'/>"
+    };
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    svg.classList.add("contact-icon", "footer-icon-svg", "footer-icon-" + safeType);
+    svg.setAttribute("width", "24");
+    svg.setAttribute("height", "24");
+    svg.setAttribute("viewBox", "0 0 24 24");
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    svg.innerHTML = icons[safeType] || icons.website;
+    return svg;
+  }
+
+  function footerAppIcon(type) {
+    var icon = document.createElement("i");
+    icon.className = footerAppIconClass(type);
+    icon.setAttribute("aria-hidden", "true");
+    return icon;
+  }
+
+  function footerAppIconClass(type) {
+    var icons = {
+      appstore: "nds-icon nds-icon-apple",
+      android: "nds-icon nds-icon-google-play",
+      googleplay: "nds-icon nds-icon-google-play",
+      huawei: "nds-icon nds-icon-huawei"
+    };
+    return icons[String(type || "").toLowerCase()] || icons.appstore;
+  }
+
+  function footerAppIconSvg(type) {
+    var svg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    var paths;
+    if (type === "appstore") {
+      svg.setAttribute("width", "22");
+      svg.setAttribute("height", "26");
+      svg.setAttribute("viewBox", "0 0 22 26");
+      paths = [
+        "M18.3067 13.8343C18.3177 12.8377 18.5918 11.8628 19.1072 10.9962C19.6116 10.1296 20.3464 9.4038 21.2236 8.8838C20.6644 8.1147 19.9296 7.4756 19.0743 7.0315C18.2189 6.5874 17.2649 6.3382 16.289 6.3057C14.2054 6.0999 12.1986 7.5081 11.1349 7.5081C10.0713 7.5081 8.42631 6.3274 6.67181 6.3599C5.53131 6.3924 4.42381 6.7174 3.45881 7.2806C2.48281 7.8548 1.68231 8.6564 1.13401 9.6096C-1.25659 13.6068 0.530909 19.478 2.82281 22.7169C3.97421 24.2985 5.31201 26.0642 7.06661 25.9992C8.78821 25.9342 9.42431 24.9484 11.4968 24.9484C13.5694 24.9484 14.1506 25.9992 15.938 25.9667C17.7803 25.9342 18.9427 24.3743 20.0503 22.7819C20.8727 21.6553 21.5087 20.4096 21.9254 19.088C20.8508 18.6547 19.9406 17.9181 19.3046 16.9865C18.6576 16.0549 18.3177 14.9609 18.3177 13.8343H18.3067Z",
+        "M14.9292 4.1705C15.9381 3.0114 16.4315 1.5165 16.3109 0C14.7757 0.1517 13.3611 0.8666 12.3412 1.9823C11.8478 2.524 11.464 3.1631 11.2227 3.8564C10.9815 4.5496 10.8828 5.2754 10.9266 6.0012C11.6942 6.0012 12.4509 5.8495 13.1418 5.5354C13.8326 5.2213 14.4467 4.7555 14.9292 4.1813V4.1705Z"
+      ];
+    } else if (type === "huawei") {
+      svg.setAttribute("width", "26");
+      svg.setAttribute("height", "26");
+      svg.setAttribute("viewBox", "0 0 26 26");
+      paths = [
+        "M18.27 0H7.15C1.9 0 0 1.97 0 7.31V18.67C0 24.03 1.93 25.98 7.15 25.98H18.27C23.52 25.98 25.42 24.01 25.42 18.67V7.31C25.45 1.97 23.52 0 18.27 0ZM5.03 13.01H5.7V16.4H5.03V15.03H3.5V16.4H2.83V13.01H3.5V14.38H5.03V13.01ZM8.84 14.94C8.84 15.48 8.57 15.79 8.09 15.79C7.61 15.79 7.34 15.49 7.34 14.92V13H6.67V14.95C6.67 15.9 7.18 16.46 8.09 16.46C9 16.46 9.54 15.92 9.54 14.92V13H8.87V14.95H8.84V14.94ZM16.63 15.33L15.88 13H15.32L14.57 15.33L13.85 13H13.13L14.28 16.39H14.84L15.59 14.15L16.34 16.39H16.9L18.05 13H17.35L16.63 15.33ZM19.29 14.94H20.52V14.31H19.29V13.62H21.09V12.99H18.65V16.38H21.17V15.75H19.32V14.93H19.29V14.94ZM21.94 16.4H22.61V13.01H21.94V16.4ZM10.85 15.68L10.56 16.39H9.86L11.31 13H11.9L13.35 16.39H12.65L12.36 15.68H10.85ZM11.09 15.09H12.11L11.6 13.89L11.09 15.09ZM12.72 8.68C10.39 8.68 8.49 6.73 8.49 4.35H9.08C9.08 6.4 10.71 8.07 12.72 8.07C14.73 8.07 16.36 6.4 16.36 4.35H16.95C16.95 6.73 15.05 8.68 12.72 8.68Z"
+      ];
+    } else {
+      svg.setAttribute("width", "23");
+      svg.setAttribute("height", "26");
+      svg.setAttribute("viewBox", "0 0 23 26");
+      paths = [
+        "M1.2079 0L13.4575 12.1642L16.8128 8.809L1.9643 0.2318C1.7203 0.0854001 1.4519 0.0122 1.2079 0ZM0.183 0.5612C0.0731996 0.7565 0 0.9883 0 1.2445V24.8775C0 25.0727 0.0366003 25.2435 0.1098 25.39L12.6401 12.9451L0.183 0.5612ZM17.8376 9.3825L14.2506 12.9573L17.8376 16.5077L22.2177 13.9944C22.84 13.6283 22.9254 13.1769 22.9254 12.9329C22.9254 12.5303 22.6692 12.152 22.2299 11.9202C21.8517 11.725 19.0821 10.1023 17.8254 9.3702L17.8376 9.3825ZM13.4575 13.7504L1.1103 26C1.3177 26 1.5373 25.939 1.7447 25.8292C2.2328 25.5486 12.0178 19.8874 12.0178 19.8874L16.8494 17.1178L13.4697 13.7626L13.4575 13.7504Z"
+      ];
+    }
+    svg.setAttribute("fill", "none");
+    svg.setAttribute("aria-hidden", "true");
+    svg.setAttribute("focusable", "false");
+    paths.forEach(function (value) {
+      var path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+      path.setAttribute("d", value);
+      path.setAttribute("fill", "currentColor");
+      svg.append(path);
+    });
+    return svg;
+  }
+
+  function createFooterIconGroupContainer(groups) {
+    var column = el("div", "nds-footer-column nds-footer-icons");
+    groups.forEach(function (group) {
+      var groupEl = el("div", "nds-footer-icon-group");
+      var row = el("div", "nds-footer-icon-row");
+      groupEl.append(el("h3", "nds-footer-heading", group.title));
+      group.links.forEach(function (item) {
+        var href = normalizeContactUrl(normalizeFooterLinkUrl(item.href), item.iconType);
+        var isAppIcon = isFooterAppIcon(item.iconType);
+        var link = el("a", "nds-btn nds-secondary-outline " + (isAppIcon ? "nds-xl " : "") + "nds-icon-only footer-social-link");
+        link.href = href;
+        link.setAttribute("aria-label", item.label || group.title);
+        applyFooterLinkTarget(link, href);
+        link.append(footerIconElement(item));
+        row.append(link);
+      });
+      groupEl.append(row);
+      column.append(groupEl);
+    });
+    return column;
+  }
+
+  function renderFooterContent(data) {
+    var columns = footerColumns(data);
+    var iconGroups = footerIconGroups(data);
+    qsa(".nds-footer-content").forEach(function (root) {
+      root.innerHTML = "";
+      columns.forEach(function (column) {
+        root.append(createFooterColumn(column));
+      });
+      if (iconGroups.length) root.append(createFooterIconGroupContainer(iconGroups));
+      if (!columns.length && !iconGroups.length) {
+        var fallback = el("div", "nds-footer-column");
+        fallback.append(el("h3", "nds-footer-heading", uiText(data, "footerLinksHeading", "روابط سريعة")));
+        fallback.append(el("p", "nds-footer-empty", uiText(data, "footerSocialEmpty", "لم تتم إضافة روابط تذييل بعد")));
+        root.append(fallback);
+      }
+    });
+  }
+
+  function renderFooterBottom(data) {
+    var footer = data.footer || {};
+    var bottomLinks = uniqueFooterLinks(footer.bottomLinks || [], true);
+    var logos = visibleItems(footer.logos || []).filter(function (logo) {
+      return hasText(logo.src || logo.image || logo.logo);
+    });
+    var siteTitle = data.settings.siteName || data.settings.brandName || "السيرة الذاتية";
+    var copyrightText = footer.copyrightText || ("جميع الحقوق محفوظة " + siteTitle + " © " + new Date().getFullYear());
+    var legalText = typeof footer.legalText === "string" ? footer.legalText : uiText(data, "footerDisclaimer", "تنويه: هذا الموقع شخصي وغير تابع لأي جهة حكومية، ولا يمثل إلا وجهة نظر صاحبه.");
+    var versionText = uiText(data, "footerVersion", "Biography v1.0");
+
+    qsa(".nds-footer-bottom").forEach(function (root) {
+      var meta = el("div", "nds-footer-meta");
+      var legal = el("div", "nds-footer-legal");
+      var copyright = el("div", "nds-footer-copyright");
+      var policy = el("div", "nds-footer-policy");
+      var logoRoot = el("div", "nds-footer-logos");
+
+      root.innerHTML = "";
+      copyright.append(el("span", "", copyrightText));
+      legal.append(copyright);
+
+      bottomLinks.forEach(function (item, index) {
+        policy.append(createFooterTextLink(item));
+        if (index < bottomLinks.length - 1) {
+          var separator = el("span", "footer-policy-separator", "-");
+          separator.setAttribute("aria-hidden", "true");
+          policy.append(separator);
+        }
+      });
+      if (bottomLinks.length) legal.append(policy);
+
+      if (hasText(versionText)) {
+        var version = el("span", "footer-version", versionText);
         version.dataset.footerVersion = "true";
         meta.append(version);
       }
-      if (!qs("[data-footer-disclaimer]", meta)) {
-        var disclaimer = el("span", "footer-disclaimer", "تنويه: هذا الموقع شخصي وغير تابع لأي جهة حكومية، ولا يمثل إلا وجهة نظر صاحبه.");
-        disclaimer.dataset.footerDisclaimer = "true";
-        meta.append(disclaimer);
-      }
-    });
-  }
+      if (hasText(legalText)) legal.append(el("span", "footer-disclaimer", legalText));
+      meta.append(legal);
 
-  function renderFooterLinks(data) {
-    var list = qs("[data-footer-links]");
-    if (!list) return;
-    list.innerHTML = "";
-    allNavigationItems(data).slice(0, 4).forEach(function (item) {
-      var li = el("li");
-      var link = el("a", "nds-link nds-footer-link");
-      link.href = item.href;
-      link.append(el("span", "nds-label", item.label));
-      li.append(link);
-      list.append(li);
-    });
-  }
-
-  function renderFooterSocial(data) {
-    var root = qs("[data-footer-social]");
-    var empty = qs("[data-footer-social-empty]");
-    if (!root) return;
-    var contacts = (data.home.contacts || []).filter(function (item) {
-      return item.visible !== false && hasText(item.url);
-    });
-    root.innerHTML = "";
-    if (empty) empty.hidden = contacts.length > 0;
-    contacts.forEach(function (item) {
-      var label = contactLabel(item);
-      var link = el("a", "nds-btn nds-secondary-outline nds-icon-only footer-social-link");
-      link.href = normalizeContactUrl(item.url, item.iconType);
-      link.setAttribute("aria-label", label);
-      if (/^https?:\/\//i.test(link.href)) {
-        link.target = "_blank";
-        link.rel = "noopener noreferrer";
+      if (!logos.length) {
+        logos = [{
+          src: data.settings.brandLogo || "assets/vendor/nds/images/palm_swords.svg",
+          alt: siteTitle,
+          url: "index.html",
+          label: siteTitle
+        }];
       }
-      link.append(contactIcon(item));
-      root.append(link);
+      logos.forEach(function (logo) {
+        var src = logo.src || logo.image || logo.logo;
+        var image = document.createElement("img");
+        image.className = "nds-oncolor";
+        image.src = src;
+        image.alt = logo.alt || logo.label || "";
+        image.loading = "lazy";
+        image.width = Number(logo.width) || 72;
+        image.height = Number(logo.height) || 40;
+        if (hasText(logo.url)) {
+          var link = el("a", "nds-link");
+          var href = normalizeFooterLinkUrl(logo.url);
+          link.href = href;
+          link.setAttribute("aria-label", logo.label || logo.alt || siteTitle);
+          applyFooterLinkTarget(link, href);
+          link.append(image);
+          logoRoot.append(link);
+        } else {
+          logoRoot.append(image);
+        }
+      });
+
+      root.append(meta);
+      root.append(logoRoot);
     });
   }
 
@@ -1629,15 +2207,15 @@
       '<div class="nds-flex nds-row">',
       '<a href="#" class="nds-btn nds-subtle nds-sm" data-notification-read>',
       '<i class="nds-icon nds-hgi-checkmark-circle-01" aria-hidden="true"></i>',
-      '<span class="nds-label">تحديد كمقروء</span>',
+      '<span class="nds-label">' + escapeHtml(uiText(appState.data, "notificationMarkReadLabel", "تحديد كمقروء")) + '</span>',
       '</a>',
       '<a href="' + escapeHtml(item.href || "admin.html") + '" class="nds-btn nds-subtle nds-sm" data-notification-view>',
       '<i class="nds-icon nds-hgi-eye" aria-hidden="true"></i>',
-      '<span class="nds-label">عرض</span>',
+      '<span class="nds-label">' + escapeHtml(uiText(appState.data, "notificationViewLabel", "عرض")) + '</span>',
       '</a>',
       '<a href="#" class="nds-btn nds-destructive nds-sm" data-notification-dismiss>',
       '<i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i>',
-      '<span class="nds-label">حذف</span>',
+      '<span class="nds-label">' + escapeHtml(uiText(appState.data, "notificationDeleteLabel", "حذف")) + '</span>',
       '</a>',
       '</div>',
       '</li>',
@@ -1683,7 +2261,7 @@
       '<hr class="nds-divider">',
       '<a href="notifications.html" class="nds-btn nds-subtle nds-full">',
       '<i class="nds-icon nds-hgi-notification-02" aria-hidden="true"></i>',
-      '<span class="nds-label">عرض كل الإشعارات</span>',
+      '<span class="nds-label">' + escapeHtml(uiText(appState.data, "notificationsViewAllLabel", "عرض كل الإشعارات")) + '</span>',
       '</a>',
       '</div>',
       '</div>',
@@ -1764,7 +2342,7 @@
       '<span class="nds-featured-icon nds-sm">',
       '<i class="nds-icon nds-hgi-notification-02" aria-hidden="true"></i>',
       '</span>',
-      '<span class="nds-label">لا توجد إشعارات بعد</span>',
+      '<span class="nds-label">' + escapeHtml(uiText(appState.data, "notificationsEmptyTitle", "لا توجد إشعارات بعد")) + '</span>',
       '</div>',
       '</li>'
     ].join("");
@@ -1789,10 +2367,10 @@
     var unreadCount = items.filter(function (item) { return !item.read; }).length;
     existing.dataset.state = existing.dataset.state || "";
     existing.innerHTML = [
-      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator notification-trigger" type="button" title="الإشعارات" data-state="' + (existing.dataset.state.indexOf("open") !== -1 ? "active" : "") + '" aria-expanded="' + (existing.dataset.state.indexOf("open") !== -1 ? "true" : "false") + '" data-notifications-trigger>',
+      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator notification-trigger" type="button" title="' + escapeHtml(uiText(appState.data, "notificationsLabel", "الإشعارات")) + '" data-state="' + (existing.dataset.state.indexOf("open") !== -1 ? "active" : "") + '" aria-expanded="' + (existing.dataset.state.indexOf("open") !== -1 ? "true" : "false") + '" data-notifications-trigger>',
       '<i class="nds-icon nds-hgi-notification-02 nav-notification-icon" aria-hidden="true">' + (unreadCount ? '<span class="nds-badge">' + Math.min(unreadCount, 99) + '</span>' : '') + '</i>',
       '</button>',
-      notificationsDropdownMarkup(items, "40vw")
+      notificationsDropdownMarkup(items, "min(820px, calc(100vw - 48px))")
     ].join("");
     refreshNotificationComponents(existing);
     restoreRememberedNotificationDropdown();
@@ -2039,6 +2617,91 @@
 
     document.addEventListener("keydown", function (event) {
       if (event.key === "Escape") closeNavDropmenus();
+    });
+  }
+
+  function normalizeSiteSearchText(value) {
+    return String(value || "")
+      .toLowerCase()
+      .replace(/[إأآا]/g, "ا")
+      .replace(/[ىئ]/g, "ي")
+      .replace(/ة/g, "ه")
+      .replace(/[^\u0600-\u06FFa-z0-9]+/gi, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function siteSearchCandidates(data) {
+    data = data || {};
+    data.home = data.home || {};
+    data.settings = data.settings || {};
+    var candidates = [];
+    allNavigationItems(data).forEach(function (item) {
+      candidates.push({ href: item.href, text: item.label + " " + item.key });
+    });
+    visibleItems(data.projects || []).forEach(function (project, index) {
+      candidates.push({
+        href: "project.html?id=" + index,
+        text: [project.title, project.description, project.category, project.status, project.date].join(" ")
+      });
+    });
+    publicPageItems(data).forEach(function (page) {
+      candidates.push({
+        href: "index.html#/page/" + encodeURIComponent(page.slug),
+        text: [page.title, page.slug, page.content].join(" ")
+      });
+    });
+    candidates.push({
+      href: "index.html",
+      text: [
+        data.settings.siteName,
+        data.settings.brandName,
+        data.settings.brandSlogan,
+        data.home.ownerName,
+        data.home.title,
+        data.home.intro,
+        data.home.biography
+      ].join(" ")
+    });
+    return candidates;
+  }
+
+  function setupSiteSearch() {
+    document.addEventListener("click", function (event) {
+      var trigger = event.target.closest(".site-search-dropdown > .nds-nav-link");
+      if (!trigger) return;
+      var root = trigger.closest(".site-search-dropdown");
+      window.setTimeout(function () {
+        var input = root ? qs(".site-search-input", root) : null;
+        if (input && root.dataset.state && root.dataset.state.indexOf("open") !== -1) input.focus();
+      }, 180);
+    });
+
+    document.addEventListener("submit", function (event) {
+      var form = event.target.closest("[data-site-search-form]");
+      if (!form) return;
+      event.preventDefault();
+      var queryInput = qs('[name="q"]', form);
+      var query = normalizeSiteSearchText(queryInput ? queryInput.value : "");
+      if (!query) {
+        showToast("اكتب كلمة للبحث داخل الموقع", "info");
+        if (queryInput) queryInput.focus();
+        return;
+      }
+      var terms = query.split(/\s+/).filter(Boolean);
+      var data = appState.data || (window.SiteStore && window.SiteStore.current ? window.SiteStore.current() : {});
+      var match = siteSearchCandidates(data).find(function (candidate) {
+        var haystack = normalizeSiteSearchText(candidate.text);
+        return terms.every(function (term) { return haystack.indexOf(term) !== -1; });
+      });
+      if (match) {
+        if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.dismissOverlays) {
+          window.NDS.Mainnav.dismissOverlays();
+        }
+        window.location.href = match.href;
+      } else {
+        showToast("لم يتم العثور على نتيجة مطابقة", "info");
+      }
     });
   }
 
@@ -2304,7 +2967,9 @@
 
   function updateHeaderDateTime() {
     var nodes = qsa("[data-date-time]");
-    if (!nodes.length) return;
+    var dateNodes = qsa("[data-date-part]");
+    var timeNodes = qsa("[data-time-part]");
+    if (!nodes.length && !dateNodes.length && !timeNodes.length) return;
     var now = new Date();
     var dateLabel = new Intl.DateTimeFormat("ar-SA-u-ca-islamic-umalqura", {
       timeZone: "Asia/Riyadh",
@@ -2337,6 +3002,14 @@
         '<span class="site-datetime-item"><i class="nds-icon nds-hgi-clock-01" aria-hidden="true"></i><span>' + timeLabel + '</span></span>'
       ].join("");
     });
+    dateNodes.forEach(function (node) {
+      node.title = dateLabel;
+      node.innerHTML = '<i class="nds-icon nds-hgi-calendar-03" aria-hidden="true"></i><span class="text">' + dateLabel + '</span>';
+    });
+    timeNodes.forEach(function (node) {
+      node.title = timeLabel;
+      node.innerHTML = '<i class="nds-icon nds-hgi-clock-01" aria-hidden="true"></i><span class="text">' + timeLabel + '</span>';
+    });
   }
 
   function getPageSlug() {
@@ -2359,7 +3032,7 @@
     if (homeView) homeView.hidden = false;
     if (pageView) pageView.hidden = true;
 
-    var home = data.home;
+    var home = data.home || {};
     var hasContent = hasHomeContent(home);
     var hasHero = hasHomeHeroContent(home);
     var hasBody = hasHomeBodyContent(home);
@@ -2367,12 +3040,21 @@
     var content = qs("[data-home-content]");
     var hero = qs("[data-home-hero]");
     var bioSection = qs(".biography-section");
+    var professionalSection = qs(".professional-section");
+    var skillsSection = qs("[data-skills-section]");
+    var visibleExperience = visibleItems(home.experience || []);
+    var visibleAchievements = visibleItems(home.achievements || []);
+    var visibleSkills = visibleItems(home.skills || []).filter(function (item) {
+      return hasText(typeof item === "string" ? item : item.name);
+    });
 
     if (hero) hero.hidden = !hasHero;
     if (empty) empty.hidden = hasContent;
     if (content) content.hidden = !hasBody;
     var avatarSrc = ownerAvatarSrc(data);
     if (bioSection) bioSection.hidden = ![home.ownerName, home.title, home.intro, home.biography, avatarSrc].some(hasText);
+    if (professionalSection) professionalSection.hidden = !(visibleExperience.length || visibleAchievements.length);
+    if (skillsSection) skillsSection.hidden = !visibleSkills.length;
 
     setText("[data-owner-name]", home.ownerName);
     setText("[data-owner-title]", home.title);
@@ -2390,9 +3072,9 @@
     }
 
     renderHeroSlides(home);
-    renderListCards("[data-experience-list]", home.experience, "الخبرات");
-    renderListCards("[data-achievements-list]", home.achievements, "الإنجازات");
-    renderChips("[data-skills-list]", home.skills);
+    renderListCards("[data-experience-list]", visibleExperience, "الخبرات");
+    renderListCards("[data-achievements-list]", visibleAchievements, "الإنجازات");
+    renderChips("[data-skills-list]", visibleSkills);
   }
 
   function renderHeroSlides(home) {
@@ -2580,7 +3262,7 @@
   }
 
   function renderExtraPage(data, slug) {
-    var page = visibleItems(data.pages || []).find(function (item) { return item.slug === slug; });
+    var page = routablePageItems(data).find(function (item) { return item.slug === slug; });
     var titleNodes = qsa("[data-extra-page-title]");
     var body = qs("[data-extra-page-content]");
     if (!titleNodes.length || !body) return;
@@ -2589,14 +3271,14 @@
     if (!page) {
       titleNodes.forEach(function (node) { node.textContent = "الصفحة غير موجودة"; });
       updateDocumentTitle(data, "الصفحة غير موجودة");
-      body.append(emptyState("لم يتم العثور على الصفحة المطلوبة", "يمكنك العودة إلى الصفحة الرئيسية أو إنشاء الصفحة من لوحة الإدارة."));
+      body.append(emptyState(uiText(data, "extraPageNotFoundTitle", "لم يتم العثور على الصفحة المطلوبة"), uiText(data, "extraPageNotFoundDescription", "يمكنك العودة إلى الصفحة الرئيسية أو إنشاء الصفحة من لوحة الإدارة.")));
       return;
     }
 
     titleNodes.forEach(function (node) { node.textContent = page.title || ""; });
     updateDocumentTitle(data, page.title || navigationLabel(data, "pagesLabel", "الصفحات"));
     if (!hasText(page.content)) {
-      body.append(emptyState("لم تتم إضافة محتوى لهذه الصفحة بعد", "يمكن تعديل هذه الصفحة من لوحة الإدارة."));
+      body.append(emptyState(uiText(data, "extraPageEmptyTitle", "لم تتم إضافة محتوى لهذه الصفحة بعد"), uiText(data, "extraPageEmptyDescription", "يمكن تعديل هذه الصفحة من لوحة الإدارة.")));
       return;
     }
 
@@ -2712,10 +3394,11 @@
     items = visibleItems(items || []);
     root.innerHTML = "";
     if (!items.length) {
-      root.append(emptyState("لم تتم إضافة " + label + " بعد", "يمكن إضافة العناصر من لوحة الإدارة."));
+      root.append(emptyState(uiText(appState.data, "homeListEmptyPrefix", "لم تتم إضافة ") + label + uiText(appState.data, "homeListEmptySuffix", " بعد"), uiText(appState.data, "homeListEmptyDescription", "يمكن إضافة العناصر من لوحة الإدارة.")));
       return;
     }
     items.forEach(function (item) {
+      if (!item) return;
       var card = el("article", "nds-card nds-stroke nds-full compact-card");
       var content = el("div", "nds-card-content");
       var title = el("h3", "nds-card-title", item.title || "");
@@ -2740,11 +3423,11 @@
     var root = qs(selector);
     if (!root) return;
     items = visibleItems(items || []).map(function (item) {
-      return typeof item === "string" ? item : item.name;
+      return typeof item === "string" ? item : item && item.name;
     }).filter(hasText);
     root.innerHTML = "";
     if (!items.length) {
-      root.append(emptyState("لم تتم إضافة مجالات خبرة بعد", "يمكن إضافة المهارات من لوحة الإدارة."));
+      root.append(emptyState(uiText(appState.data, "skillsEmptyTitle", "لم تتم إضافة مجالات خبرة بعد"), uiText(appState.data, "skillsEmptyDescription", "يمكن إضافة المهارات من لوحة الإدارة.")));
       return;
     }
     items.forEach(function (item) {
@@ -2760,6 +3443,15 @@
       image.alt = "";
       image.setAttribute("aria-hidden", "true");
       return image;
+    }
+
+    if (isFooterAppIcon(item.iconType)) {
+      var appIcon = footerAppIcon(item.iconType);
+      appIcon.classList.add("contact-icon", "contact-icon-" + (item.iconType || "website"));
+      appIcon.querySelectorAll("path").forEach(function (path) {
+        path.setAttribute("fill", "currentColor");
+      });
+      return appIcon;
     }
 
     var icon = document.createElement("i");
@@ -2780,13 +3472,14 @@
     var icons = {
       linkedin: "nds-hgi-linkedin-02",
       facebook: "nds-hgi-facebook-02",
-      instagram: "hgi hgi-stroke hgi-instagram",
+      instagram: "nds-hgi-instagram",
       youtube: "nds-hgi-youtube",
-      github: "hgi hgi-stroke hgi-github",
+      github: "nds-hgi-github",
       x: "nds-hgi-new-twitter",
       email: "nds-hgi-mail-01",
       website: "nds-hgi-globe",
-      phone: "nds-hgi-smart-phone-01"
+      phone: "nds-hgi-smart-phone-01",
+      location: "nds-hgi-location-01"
     };
     var iconClass = icons[type] || icons.website;
     return iconClass.indexOf("hgi ") === 0 ? iconClass : "nds-icon " + iconClass;
@@ -2825,14 +3518,14 @@
   function renderProjectFilters(projects) {
     var root = qs("[data-project-filters]");
     if (!root) return;
-    var categories = ["all"].concat(Array.from(new Set(projects.map(function (project) { return project.category || "عام"; }))));
+    var categories = ["all"].concat(Array.from(new Set(projects.map(function (project) { return project.category || uiText(appState.data, "projectFilterGeneral", "عام"); }))));
     root.innerHTML = "";
     categories.forEach(function (category) {
       var button = el("button", "nds-btn nds-secondary-outline nds-md");
       button.type = "button";
       button.dataset.projectFilter = category;
       button.dataset.state = category === appState.projectFilter ? "selected" : "";
-      button.append(el("span", "nds-label", category === "all" ? "الكل" : category));
+      button.append(el("span", "nds-label", category === "all" ? uiText(appState.data, "projectFilterAll", "الكل") : category));
       root.append(button);
     });
   }
@@ -2863,7 +3556,7 @@
       var actions = el("div", "project-actions");
       var details = el("a", "nds-btn nds-primary nds-md");
       details.href = "project.html?id=" + encodeURIComponent(String(entry.index));
-      details.append(el("span", "nds-label", "تفاصيل المشروع"));
+      details.append(el("span", "nds-label", uiText(appState.data, "projectDetailsButton", "تفاصيل المشروع")));
       actions.append(details);
       content.append(actions);
       card.append(content);
@@ -2881,14 +3574,14 @@
     body.innerHTML = "";
 
     if (!project) {
-      titleNodes.forEach(function (node) { node.textContent = "المشروع غير موجود"; });
-      updateDocumentTitle(data, "المشروع غير موجود");
-      body.append(emptyState("لم يتم العثور على المشروع المطلوب", "يمكنك العودة إلى صفحة مشاريعنا واختيار مشروع آخر."));
+      titleNodes.forEach(function (node) { node.textContent = uiText(data, "projectNotFoundTitle", "المشروع غير موجود"); });
+      updateDocumentTitle(data, uiText(data, "projectNotFoundTitle", "المشروع غير موجود"));
+      body.append(emptyState(uiText(data, "projectNotFoundEmptyTitle", "لم يتم العثور على المشروع المطلوب"), uiText(data, "projectNotFoundEmptyDescription", "يمكنك العودة إلى صفحة مشاريعنا واختيار مشروع آخر.")));
       return;
     }
 
-    titleNodes.forEach(function (node) { node.textContent = project.title || "تفاصيل المشروع"; });
-    updateDocumentTitle(data, project.title || "تفاصيل المشروع");
+    titleNodes.forEach(function (node) { node.textContent = project.title || uiText(data, "projectDetailFallbackTitle", "تفاصيل المشروع"); });
+    updateDocumentTitle(data, project.title || uiText(data, "projectDetailFallbackTitle", "تفاصيل المشروع"));
     var detail = el("article", "project-detail nds-card nds-stroke");
     var content = el("div", "nds-card-content project-detail-content");
     if (hasText(project.image)) {
@@ -2900,24 +3593,24 @@
       content.append(media);
     }
     var text = el("div", "project-detail-text");
-    text.append(el("h1", "nds-card-title", project.title || "تفاصيل المشروع"));
+    text.append(el("h1", "nds-card-title", project.title || uiText(data, "projectDetailFallbackTitle", "تفاصيل المشروع")));
     if (hasText(project.description)) text.append(el("p", "nds-card-description content-paragraph", project.description));
     var facts = el("dl", "project-detail-facts");
-    addProjectFact(facts, "الحالة", project.status);
-    addProjectFact(facts, "التاريخ", project.date);
-    addProjectFact(facts, "التصنيف", project.category);
+    addProjectFact(facts, uiText(data, "projectFactStatus", "الحالة"), project.status);
+    addProjectFact(facts, uiText(data, "projectFactDate", "التاريخ"), project.date);
+    addProjectFact(facts, uiText(data, "projectFactCategory", "التصنيف"), project.category);
     if (facts.children.length) text.append(facts);
     var actions = el("div", "project-actions");
     var back = el("a", "nds-btn nds-secondary-outline nds-md");
     back.href = "projects.html";
-    back.append(el("span", "nds-label", "العودة للمشاريع"));
+    back.append(el("span", "nds-label", uiText(data, "projectBackButton", "العودة للمشاريع")));
     actions.append(back);
     if (hasText(project.url)) {
       var visit = el("a", "nds-btn nds-primary nds-md");
       visit.href = normalizeExternalUrl(project.url);
       visit.target = "_blank";
       visit.rel = "noopener noreferrer";
-      visit.append(el("span", "nds-label", "زيارة رابط المشروع"));
+      visit.append(el("span", "nds-label", uiText(data, "projectVisitButton", "زيارة رابط المشروع")));
       actions.append(visit);
     }
     text.append(actions);
@@ -2957,13 +3650,13 @@
     pages.forEach(function (page) {
       var card = el("article", "nds-card nds-stroke nds-full page-card compact-card");
       var content = el("div", "nds-card-content");
-      content.append(el("h2", "nds-card-title", page.title || page.slug || "صفحة"));
+      content.append(el("h2", "nds-card-title", page.title || page.slug || uiText(appState.data, "pageCardFallbackTitle", "صفحة")));
       if (hasText(page.content)) {
         content.append(el("p", "nds-card-description", textPreview(page.content)));
       }
       var link = el("a", "nds-btn nds-primary nds-md");
       link.href = "index.html#/page/" + encodeURIComponent(page.slug);
-      link.append(el("span", "nds-label", "فتح الصفحة"));
+      link.append(el("span", "nds-label", uiText(appState.data, "pageOpenButton", "فتح الصفحة")));
       content.append(link);
       card.append(content);
       root.append(card);
@@ -3010,15 +3703,15 @@
       read.type = "button";
       read.dataset.notificationRead = "true";
       read.disabled = Boolean(item.read);
-      read.innerHTML = '<i class="nds-icon nds-hgi-checkmark-circle-01" aria-hidden="true"></i><span class="nds-label">' + (item.read ? "مقروء" : "تحديد كمقروء") + '</span>';
+      read.innerHTML = '<i class="nds-icon nds-hgi-checkmark-circle-01" aria-hidden="true"></i><span class="nds-label">' + escapeHtml(item.read ? uiText(appState.data, "notificationReadLabel", "مقروء") : uiText(appState.data, "notificationMarkReadLabel", "تحديد كمقروء")) + '</span>';
       var view = el("a", "nds-btn nds-subtle nds-sm");
       view.href = item.href || "admin.html";
       view.dataset.notificationView = "true";
-      view.innerHTML = '<i class="nds-icon nds-hgi-eye" aria-hidden="true"></i><span class="nds-label">عرض</span>';
+      view.innerHTML = '<i class="nds-icon nds-hgi-eye" aria-hidden="true"></i><span class="nds-label">' + escapeHtml(uiText(appState.data, "notificationViewLabel", "عرض")) + '</span>';
       var dismiss = el("button", "nds-btn nds-destructive nds-sm");
       dismiss.type = "button";
       dismiss.dataset.notificationDismiss = "true";
-      dismiss.innerHTML = '<i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i><span class="nds-label">حذف</span>';
+      dismiss.innerHTML = '<i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i><span class="nds-label">' + escapeHtml(uiText(appState.data, "notificationDeleteLabel", "حذف")) + '</span>';
       actions.append(read, view, dismiss);
       content.append(actions);
       card.append(content);
@@ -3134,6 +3827,7 @@
       if (document.body.dataset.page === "pages") renderPagesPage(appState.data);
       if (document.body.dataset.page === "notifications") renderNotificationsPage();
       if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.init) window.NDS.Mainnav.init();
+      if (window.NDS && window.NDS.Sidemenu && window.NDS.Sidemenu.init) window.NDS.Sidemenu.init();
       updateHeaderActions(appState.data);
       revealHeaderShell();
       document.documentElement.dataset.siteLoading = "false";
@@ -3154,6 +3848,7 @@
     if (cachedData) applyShellText(cachedData);
     setupNavToggle();
     setupDropmenus();
+    setupSiteSearch();
     setupThemeToggle();
     setupHeaderNavScrollEvents();
     setupClock();

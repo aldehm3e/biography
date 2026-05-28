@@ -118,15 +118,22 @@ function install_cms(string $schemaPath, string $configPath, string $lockPath): 
     ]);
 
     run_schema($pdo, $schemaPath);
+    cms_ensure_admin_user_columns($pdo);
     cms_ensure_notifications_table($pdo);
+    cms_ensure_site_settings_columns($pdo);
 
     $pdo->beginTransaction();
     try {
-        $stmt = $pdo->prepare('INSERT INTO admin_users (email, password_hash, display_name) VALUES (:email, :password_hash, :display_name)');
+        $stmt = $pdo->prepare(
+            'INSERT INTO admin_users (email, password_hash, display_name, role, permissions_json, active)
+             VALUES (:email, :password_hash, :display_name, :role, :permissions_json, 1)'
+        );
         $stmt->execute([
             'email' => $input['email'],
             'password_hash' => password_hash($input['password'], PASSWORD_DEFAULT),
             'display_name' => $input['display_name'],
+            'role' => 'owner',
+            'permissions_json' => json_encode(['*'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
         ]);
 
         if ($input['seed_json'] !== '') {

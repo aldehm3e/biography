@@ -16,14 +16,56 @@
   </script>
   <title>مشاريعنا</title>
   <!-- Reusable NDS frontend toolkit is vendored locally under assets/vendor/nds/. -->
-  <link rel="icon" type="image/svg+xml" href="assets/images/site-mark.svg">
-  <link rel="stylesheet" href="css/nds-icons-full.css">
+  <link rel="icon" type="image/svg+xml" href="assets/images/site-mark.svg" data-site-favicon>
+  <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
   <link rel="stylesheet" href="css/nds-local-components.css">
-  <link rel="stylesheet" href="css/custom.css?v=nds-notifications-20260526-itembadge">
+  <link rel="stylesheet" href="css/custom.css?v=nds-footer-bottom-links-20260528">
 </head>
 <body data-page="projects">
   <header class="site-header">
+    <div class="nds-topbar nds-content-wrapper" role="region" aria-label="شريط المعلومات">
+      <button class="nds-btn nds-menu-btn nds-digitalStamp-tab" type="button" aria-expanded="false" aria-controls="nds-digitalStamp">
+        <img class="nds-flag" src="assets/vendor/nds/icons/SAflag.min.svg" width="20" height="14" loading="lazy" alt="علم المملكة العربية السعودية">
+        <span class="nds-digitalStamp-lg-text nds-truncate" id="big-screen-text" data-shell-topbar-text>موقع شخصي قابل للإدارة عبر نظام محتوى محلي.</span>
+        <span class="nds-digitalStamp-sm-text nds-truncate" id="small-screen-text" data-shell-topbar-short-text>موقع شخصي قابل للإدارة.</span>
+        <span id="nds-digitalStamp-verify-text" class="nds-link nds-primary" data-shell-verify-label>كيف تتحقق؟</span>
+      </button>
+      <div class="nds-topbar-info">
+        <span id="nds-date" class="nds-text-icon" data-date-part aria-live="polite"></span>
+        <span id="nds-realTimeClock" class="nds-text-icon" data-time-part aria-live="polite"></span>
+      </div>
+    </div>
+    <div id="nds-digitalStamp" role="region" aria-label="معلومات التحقق من الموقع">
+      <div class="nds-content-wrapper">
+        <div class="nds-digitalStamp-notices">
+          <div class="nds-digitalStamp-card">
+            <div class="nds-digitalStamp-icon">
+              <i class="nds-icon nds-hgi-link-04" aria-hidden="true"></i>
+            </div>
+            <div class="nds-digitalStamp-content">
+              <div class="nds-digitalStamp-heading" data-shell-verify-title>تحقق من رابط الموقع قبل إدخال أي بيانات.</div>
+              <div class="nds-digitalStamp-description" data-shell-verify-description>استخدم الرابط الرسمي الذي يقدمه مالك الموقع، وتجنب الروابط المختصرة أو غير المعروفة.</div>
+            </div>
+          </div>
+          <div class="nds-digitalStamp-card">
+            <div class="nds-digitalStamp-icon">
+              <i class="nds-icon nds-hgi-square-lock-01" aria-hidden="true"></i>
+            </div>
+            <div class="nds-digitalStamp-content">
+              <div class="nds-digitalStamp-heading" data-shell-security-title>الاتصال الآمن يستخدم بروتوكول HTTPS.</div>
+              <div class="nds-digitalStamp-description" data-shell-security-description>تأكد من ظهور القفل في المتصفح عند استخدام نسخة منشورة على الاستضافة.</div>
+            </div>
+          </div>
+        </div>
+        <div class="nds-digitalStamp-register">
+          <img src="assets/images/site-mark.svg" width="31" height="31" alt="" loading="lazy" aria-hidden="true" data-site-mark>
+          <div>
+            <span data-shell-notice-text>هذا موقع شخصي مستقل وغير تابع لأي جهة حكومية.</span>
+          </div>
+        </div>
+      </div>
+    </div>
     <nav class="nds-main-nav nds-content-wrapper" id="ndsMainNav" aria-label="التنقل الرئيسي">
       <div class="site-container nds-nav-container">
         <a class="nds-brand nds-link" href="index.html" aria-label="الرئيسية">
@@ -33,14 +75,14 @@
             <span class="nds-brand-slogan">موقع شخصي</span>
           </span>
         </a>
-        <ul class="nds-nav-minimal">
+        <ul class="nds-nav-minimal" hidden>
           <li class="nds-mainNav-toggler nds-nav-item">
             <button class="nds-nav-link nds-btn nds-subtle nds-indicator" type="button" data-nav-toggle aria-label="فتح التنقل" aria-expanded="false" aria-controls="ndsNavCollapse">
               <i class="nds-icon nds-hgi-menu-01" aria-hidden="true"></i>
             </button>
           </li>
         </ul>
-        <div class="nds-collapse" id="ndsNavCollapse" data-nav-panel>
+        <div class="nds-collapse" id="ndsNavCollapse" data-nav-panel hidden>
           <div class="nds-collapse-content">
             <ul class="nds-nav-primary" data-nav-list>
               <li class="nds-nav-item">
@@ -59,7 +101,31 @@
                 <i class="nds-icon nds-hgi-arrow-down-01" aria-hidden="true"></i>
               </button>
             </div>
-            <ul class="header-actions nds-nav-actions" aria-label="أدوات الموقع">
+            <ul class="header-actions nds-nav-actions nds-nav-secondary" aria-label="أدوات الموقع">
+              <li class="nds-nav-item nds-dropdown nds-icon-only nds-search site-search-dropdown">
+                <button class="nds-nav-link nds-btn nds-subtle nds-indicator" type="button" title="بحث" aria-label="بحث">
+                  <i class="nds-icon nds-hgi-search-01" aria-hidden="true"></i>
+                  <span class="nds-label">بحث</span>
+                </button>
+                <div class="nds-dropdown-menu nds-fit">
+                  <div class="nds-dropdown-content">
+                    <div class="site-search-panel">
+                      <form class="nds-form-container nds-search-box site-search-box" role="search" data-site-search-form>
+                        <div class="nds-search-content">
+                          <div class="nds-form-control">
+                            <i class="nds-icon nds-hgi-search-01" aria-hidden="true"></i>
+                            <input type="text" class="nds-search-input site-search-input" name="q" placeholder="البحث في الموقع..." autocomplete="off" aria-label="البحث في الموقع">
+                          </div>
+                          <button type="submit" class="nds-btn nds-primary nds-search-btn" aria-label="بحث" title="بحث">
+                            <i class="nds-icon nds-hgi-search-01" aria-hidden="true"></i>
+                            <span class="nds-label">بحث</span>
+                          </button>
+                        </div>
+                      </form>
+                    </div>
+                  </div>
+                </div>
+              </li>
               <li class="nds-nav-item nds-dropdown nds-icon-only notification-dropdown" data-notifications-root>
                 <button class="nds-nav-link nds-btn nds-subtle nds-indicator notification-trigger" type="button" data-notifications-trigger aria-haspopup="true" aria-expanded="false" aria-label="الإشعارات" title="الإشعارات">
                   <i class="nds-icon nds-hgi-notification-02 nav-notification-icon" aria-hidden="true"></i>
@@ -82,7 +148,7 @@
                   </div>
                 </div>
               </li>
-              <li class="nds-nav-item nds-dropdown nds-icon-only nds-PAB admin-persona-dropdown">
+              <li class="nds-nav-item nds-dropdown nds-icon-only admin-persona-dropdown">
                 <a class="nds-nav-link nds-btn nds-subtle nds-indicator nav-admin-link header-admin-link" href="admin.html" aria-haspopup="true" aria-expanded="false" aria-label="الإدارة" title="الإدارة">
                   <span class="nds-avatar nds-sm admin-trigger-avatar" aria-hidden="true">
                     <img data-admin-trigger-avatar alt="" hidden>
@@ -171,32 +237,32 @@
     </section>
   </main>
 
-  <footer class="site-footer nds-footer nds-green" role="contentinfo" aria-label="تذييل الموقع">
-    <div class="site-container nds-footer-shell">
-      <nav class="nds-footer-content" aria-label="روابط التذييل">
-        <div class="nds-footer-column">
-          <h2 class="nds-footer-heading">روابط سريعة</h2>
-          <ul class="nds-footer-list" data-footer-links></ul>
-        </div>
-        <div class="nds-footer-column nds-footer-icons">
-          <h2 class="nds-footer-heading">وسائل التواصل</h2>
+  <footer class="site-footer nds-footer nds-content-wrapper nds-green" role="contentinfo" aria-label="تذييل الموقع">
+    <nav class="nds-footer-content" aria-label="تنقل التذييل">
+      <div class="nds-footer-column">
+        <h3 class="nds-footer-heading">روابط سريعة</h3>
+        <ul class="nds-footer-list" data-footer-links></ul>
+      </div>
+      <div class="nds-footer-column nds-footer-icons">
+        <div class="nds-footer-icon-group">
+          <h3 class="nds-footer-heading">وسائل التواصل</h3>
           <div class="nds-footer-icon-row" data-footer-social></div>
           <p class="nds-footer-empty" data-footer-social-empty>لم تتم إضافة وسائل تواصل بعد</p>
         </div>
-      </nav>
-      <hr class="nds-divider nds-lg">
-      <div class="nds-footer-bottom">
-        <div class="nds-footer-meta">
-          <span><span data-site-title>السيرة الذاتية</span> &copy; <span data-current-year></span></span>
-        </div>
-        <div class="nds-footer-logos">
-          <img class="nds-oncolor" src="assets/vendor/nds/images/palm_swords.svg" loading="lazy" width="40" height="40" alt="" aria-hidden="true">
-        </div>
+      </div>
+    </nav>
+    <hr class="nds-divider nds-lg">
+    <div class="nds-footer-bottom">
+      <div class="nds-footer-meta">
+        <span><span data-site-title>السيرة الذاتية</span> &copy; <span data-current-year></span></span>
+      </div>
+      <div class="nds-footer-logos">
+        <img class="nds-oncolor" src="assets/vendor/nds/images/palm_swords.svg" loading="lazy" width="40" height="40" alt="" aria-hidden="true">
       </div>
     </div>
   </footer>
 
-  <script src="js/default-data.js"></script>
+  <script src="js/default-data.js?v=nds-footer-copycat-20260528"></script>
   <script src="js/store.js"></script>
   <script src="assets/vendor/nds/components/js/nds-core.js"></script>
   <script src="assets/vendor/nds/components/js/nds-backdrop.js"></script>
@@ -208,6 +274,6 @@
   <script src="assets/vendor/nds/components/js/nds-forms.js"></script>
   <script src="assets/vendor/nds/components/js/nds-alert.js"></script>
   <script src="js/nds-local-components.js"></script>
-  <script src="js/app.js?v=nds-notifications-20260526-globalfeed"></script>
+  <script src="js/app.js?v=nds-admin-avatar-icon-20260528"></script>
 </body>
 </html>

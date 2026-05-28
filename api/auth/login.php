@@ -23,11 +23,12 @@ try {
     }
 
     $pdo = cms_pdo();
+    cms_ensure_admin_user_columns($pdo);
     $stmt = $pdo->prepare('SELECT * FROM admin_users WHERE email = :email LIMIT 1');
     $stmt->execute(['email' => $email]);
     $user = $stmt->fetch();
 
-    if (!$user || !password_verify($password, (string) $user['password_hash'])) {
+    if (!$user || !cms_bool($user['active'] ?? true, true) || !password_verify($password, (string) $user['password_hash'])) {
         cms_json_response(['success' => false, 'message' => 'Invalid email or password.'], 401);
     }
 
@@ -36,12 +37,7 @@ try {
 
     cms_json_response([
         'success' => true,
-        'user' => [
-            'id' => (int) $user['id'],
-            'email' => (string) $user['email'],
-            'display_name' => (string) ($user['display_name'] ?? ''),
-            'phone' => (string) ($user['phone'] ?? ''),
-        ],
+        'user' => cms_admin_payload($user),
     ]);
 } catch (Throwable $error) {
     cms_json_response(['success' => false, 'message' => 'Unable to log in.'], 500);

@@ -22,6 +22,9 @@ This README is the project memory for future work. Read it before changing the s
 - Hero slides can display their own overlay title, subtitle, and description on top of each image/video.
 - Hero media and extra pages can be reordered by drag-and-drop in the admin editor.
 - New hero media and new extra pages are inserted at the top of their editor lists.
+- Footer management is database-backed: quick links, up to three columns, up to two icon groups, bottom links, logos, legal text, and copyright text.
+- Footer icon groups are independent; each group can contain many icon links, and icon-only entries are valid.
+- Admin users and section permissions are managed from the admin panel by users with the users permission.
 
 ## 2026-05-24 Database CMS Update
 
@@ -66,7 +69,7 @@ For first-time installation, read `README_INSTALL_BEGINNER.md`. For detailed dat
 
 ## 2026-05-28 Installer Transaction Fix
 
-The installer previously could fail with `There is no active transaction` after creating some database tables. Root cause: the installer opened a transaction and then `cms_save_site_data()` called `cms_ensure_notifications_table()`, which runs `CREATE TABLE IF NOT EXISTS`. MySQL/MariaDB can implicitly end the active transaction around DDL, so the later commit had no active transaction left.
+The installer previously could fail with `There is no active transaction` after creating some database tables. Root cause: the installer opened a transaction while site-data save/fetch paths could still call `cms_ensure_notifications_table()`, which runs `CREATE TABLE IF NOT EXISTS`. MySQL/MariaDB can implicitly end the active transaction around DDL, so the later commit had no active transaction left.
 
 Fix:
 
@@ -75,6 +78,41 @@ Fix:
 - The installer commit is guarded with `inTransaction()` so a future implicit transaction close cannot crash the final installation step.
 
 If this error happened during a fresh install, drop the partially created database, recreate it, and run `install/` again.
+
+## 2026-05-28 Repository Sanity QA
+
+Latest sanity pass:
+
+- JavaScript syntax checked with `node --check` across all `.js` files in the repository.
+- PHP syntax checked with Laragon PHP across all `.php` files in the repository.
+- `install/schema.sql` imported successfully into a temporary MySQL database.
+- `api/install/schema.sql` imported successfully into a temporary MySQL database.
+- `api/content/site-repository.php` was smoke-tested against a temporary MySQL database using save/fetch for footer columns, footer bottom links, footer logos, and two independent footer icon groups.
+- Footer icon-group smoke test confirmed two groups can each save eight icon-only links.
+- Public HTML files were scanned for local `src` and `href` references, and every local reference resolved.
+- No Unicode replacement characters were found in the repository.
+- Temporary QA databases were dropped after the checks.
+
+Use this command set for repeat syntax checks on Windows with Laragon:
+
+```powershell
+Get-ChildItem -Recurse -Filter *.js | ForEach-Object { node --check $_.FullName }
+
+$php = "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe"
+Get-ChildItem -Recurse -Filter *.php | ForEach-Object { & $php -l $_.FullName }
+```
+
+## 2026-05-28 NDS Shell And Editable UI Texts
+
+- Public pages and `admin.html` now use the NDS-style top bar, verification panel, main navigation, and footer shell.
+- The top bar spans the full desktop viewport while the inner content remains aligned to the site width.
+- The admin dashboard uses an NDS side menu, keeps RTL direction on desktop and mobile, and hides the extra bottom divider/show-more control.
+- Header/top-bar verification text is editable from Admin > Settings.
+- The tab favicon and top-bar verification mark are editable from Admin > Settings via `siteIcon`; if empty, they fall back to the main logo and then `assets/images/site-mark.svg`.
+- The IU/NDS-style verification arrow is rendered on the top-bar stamp trigger and rotates when the panel opens.
+- Fixed page labels and empty-state messages are editable from Admin > Settings > `نصوص الواجهة والصفحات`.
+- Admin home-panel labels and the biography label can also be driven by editable interface text settings.
+- Existing databases auto-add the new `site_settings` columns, including `site_icon` and `interface_texts_json`, when the content API runs.
 
 ## 2026-05-24 NDS Header, Persona, Dark Mode, and QA Sanity
 

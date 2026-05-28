@@ -1,6 +1,84 @@
 <?php
 declare(strict_types=1);
 
+function cms_default_interface_texts(): array
+{
+    return [
+        'searchLabel' => 'بحث',
+        'searchPlaceholder' => 'البحث في الموقع...',
+        'loginLabel' => 'تسجيل الدخول',
+        'logoutLabel' => 'تسجيل الخروج',
+        'adminPortalLabel' => 'الإدارة',
+        'themeToggleLabel' => 'تبديل الوضع الليلي',
+        'changePasswordLabel' => 'تغيير كلمة المرور',
+        'changeEmailLabel' => 'تغيير البريد الإلكتروني',
+        'changePhoneLabel' => 'تغيير رقم الجوال',
+        'footerLinksHeading' => 'روابط سريعة',
+        'footerSocialHeading' => 'وسائل التواصل',
+        'footerSocialEmpty' => 'لم تتم إضافة وسائل تواصل بعد',
+        'footerVersion' => 'Biography v1.0',
+        'footerDisclaimer' => 'تنويه: هذا الموقع شخصي وغير تابع لأي جهة حكومية، ولا يمثل إلا وجهة نظر صاحبه.',
+        'homeEmptyTitle' => 'لم تتم إضافة محتوى بعد',
+        'homeEmptyDescription' => 'يمكنك إضافة المحتوى من لوحة الإدارة.',
+        'homeEmptyButton' => 'فتح لوحة الإدارة',
+        'adminHomePanelTitle' => 'محتوى الصفحة الرئيسية',
+        'adminHomePanelDescription' => 'كل الحقول اختيارية، ولن يظهر المحتوى العام إلا بعد حفظ بياناتك.',
+        'adminHomeSaveButton' => 'حفظ الرئيسية',
+        'biographySubtitle' => 'السيرة الذاتية',
+        'biographyTitle' => 'نبذة مختصرة',
+        'professionalSubtitle' => 'المحتوى المهني',
+        'professionalTitle' => 'الخبرات والإنجازات',
+        'experienceHeading' => 'الخبرات',
+        'achievementsHeading' => 'الإنجازات',
+        'skillsSubtitle' => 'المهارات',
+        'skillsTitle' => 'مجالات الخبرة',
+        'skillsEmptyTitle' => 'لم تتم إضافة مجالات خبرة بعد',
+        'skillsEmptyDescription' => 'يمكن إضافة المهارات من لوحة الإدارة.',
+        'homeListEmptyPrefix' => 'لم تتم إضافة ',
+        'homeListEmptySuffix' => ' بعد',
+        'homeListEmptyDescription' => 'يمكن إضافة العناصر من لوحة الإدارة.',
+        'projectsDescription' => 'تظهر المشاريع هنا بعد إضافتها من لوحة الإدارة، وتبقى منظمة حتى عند زيادة العدد.',
+        'projectsEmptyTitle' => 'لم تتم إضافة مشاريع بعد',
+        'projectsEmptyDescription' => 'يمكنك إضافة المشاريع من لوحة الإدارة.',
+        'projectsEmptyButton' => 'إضافة مشروع',
+        'projectsListSubtitle' => 'قائمة المشاريع',
+        'projectsListTitle' => 'الأعمال المضافة',
+        'projectDetailsButton' => 'تفاصيل المشروع',
+        'projectFilterAll' => 'الكل',
+        'projectFilterGeneral' => 'عام',
+        'projectNotFoundTitle' => 'المشروع غير موجود',
+        'projectNotFoundEmptyTitle' => 'لم يتم العثور على المشروع المطلوب',
+        'projectNotFoundEmptyDescription' => 'يمكنك العودة إلى صفحة مشاريعنا واختيار مشروع آخر.',
+        'projectDetailFallbackTitle' => 'تفاصيل المشروع',
+        'projectFactStatus' => 'الحالة',
+        'projectFactDate' => 'التاريخ',
+        'projectFactCategory' => 'التصنيف',
+        'projectBackButton' => 'العودة للمشاريع',
+        'projectVisitButton' => 'زيارة رابط المشروع',
+        'pagesDescription' => 'كل صفحة تضيفها من لوحة الإدارة تظهر هنا كبطاقة مستقلة ومنظمة.',
+        'pagesEmptyTitle' => 'لم تتم إضافة صفحات بعد',
+        'pagesEmptyDescription' => 'يمكنك إضافة الصفحات من لوحة الإدارة.',
+        'pagesEmptyButton' => 'إضافة صفحة',
+        'pagesListSubtitle' => 'قائمة الصفحات',
+        'pagesListTitle' => 'الصفحات المضافة',
+        'pageCardFallbackTitle' => 'صفحة',
+        'pageOpenButton' => 'فتح الصفحة',
+        'extraPageNotFoundTitle' => 'لم يتم العثور على الصفحة المطلوبة',
+        'extraPageNotFoundDescription' => 'يمكنك العودة إلى الصفحة الرئيسية أو إنشاء الصفحة من لوحة الإدارة.',
+        'extraPageEmptyTitle' => 'لم تتم إضافة محتوى لهذه الصفحة بعد',
+        'extraPageEmptyDescription' => 'يمكن تعديل هذه الصفحة من لوحة الإدارة.',
+        'notificationsLabel' => 'الإشعارات',
+        'notificationsDescription' => 'كل التحديثات التي تمت من لوحة الإدارة تظهر هنا.',
+        'notificationsEmptyTitle' => 'لا توجد إشعارات بعد',
+        'notificationsEmptyDescription' => 'ستظهر هنا تحديثات الصفحة الرئيسية والمشاريع والصفحات بعد حفظها من لوحة الإدارة.',
+        'notificationsViewAllLabel' => 'عرض كل الإشعارات',
+        'notificationReadLabel' => 'مقروء',
+        'notificationMarkReadLabel' => 'تحديد كمقروء',
+        'notificationViewLabel' => 'عرض',
+        'notificationDeleteLabel' => 'حذف',
+    ];
+}
+
 function cms_default_site_data(): array
 {
     return [
@@ -9,11 +87,20 @@ function cms_default_site_data(): array
             'brandName' => '',
             'brandSlogan' => 'موقع شخصي',
             'brandLogo' => '',
+            'siteIcon' => '',
             'language' => 'ar',
             'direction' => 'rtl',
             'theme' => 'light',
             'phoneNumber' => '',
             'email' => '',
+            'shellTopbarText' => 'موقع شخصي قابل للإدارة عبر نظام محتوى محلي.',
+            'shellTopbarShortText' => 'موقع شخصي قابل للإدارة.',
+            'shellVerifyLabel' => 'كيف تتحقق؟',
+            'shellVerifyTitle' => 'تحقق من رابط الموقع قبل إدخال أي بيانات.',
+            'shellVerifyDescription' => 'استخدم الرابط الرسمي الذي يقدمه مالك الموقع، وتجنب الروابط المختصرة أو غير المعروفة.',
+            'shellSecurityTitle' => 'الاتصال الآمن يستخدم بروتوكول HTTPS.',
+            'shellSecurityDescription' => 'تأكد من ظهور القفل في المتصفح عند استخدام نسخة منشورة على الاستضافة.',
+            'shellNoticeText' => 'هذا موقع شخصي مستقل وغير تابع لأي جهة حكومية.',
         ],
         'navigation' => [
             'homeLabel' => 'الرئيسية',
@@ -22,6 +109,7 @@ function cms_default_site_data(): array
             'adminLabel' => 'الإدارة',
             'items' => [],
         ],
+        'texts' => cms_default_interface_texts(),
         'home' => [
             'ownerName' => '',
             'title' => '',
@@ -39,9 +127,39 @@ function cms_default_site_data(): array
             'achievements' => [],
             'skills' => [],
             'contacts' => [],
+            'footerLinks' => [],
+        ],
+        'footer' => [
+            'columns' => [
+                [
+                    'id' => 'footer-column-quick',
+                    'title' => 'روابط سريعة',
+                    'visible' => true,
+                    'links' => [],
+                ],
+            ],
+            'iconGroups' => [
+                [
+                    'id' => 'footer-icons-social',
+                    'title' => 'تابعنا',
+                    'visible' => true,
+                    'links' => [],
+                ],
+                [
+                    'id' => 'footer-icons-app',
+                    'title' => 'تطبيق الجوال',
+                    'visible' => true,
+                    'links' => [],
+                ],
+            ],
+            'bottomLinks' => [],
+            'logos' => [],
+            'copyrightText' => '',
+            'legalText' => '',
         ],
         'projects' => [],
         'pages' => [],
+        'integrations' => [],
         'notifications' => [],
     ];
 }
@@ -51,6 +169,10 @@ function cms_fetch_site_data(PDO $pdo): array
     $data = cms_default_site_data();
     if (!$pdo->inTransaction()) {
         cms_ensure_notifications_table($pdo);
+        cms_ensure_footer_links_table($pdo);
+        cms_ensure_integrations_table($pdo);
+        cms_ensure_site_settings_columns($pdo);
+        cms_ensure_pages_columns($pdo);
     }
 
     $settings = $pdo->query('SELECT * FROM site_settings WHERE id = 1 LIMIT 1')->fetch();
@@ -60,12 +182,29 @@ function cms_fetch_site_data(PDO $pdo): array
             'brandName' => (string) ($settings['brand_name'] ?? ''),
             'brandSlogan' => (string) ($settings['brand_slogan'] ?? ''),
             'brandLogo' => (string) ($settings['brand_logo'] ?? ''),
+            'siteIcon' => (string) ($settings['site_icon'] ?? ''),
             'language' => (string) ($settings['language'] ?? 'ar'),
             'direction' => (string) ($settings['direction'] ?? 'rtl'),
             'theme' => (string) ($settings['theme'] ?? 'light'),
             'phoneNumber' => (string) ($settings['phone_number'] ?? ''),
             'email' => (string) ($settings['email'] ?? ''),
+            'shellTopbarText' => (string) ($settings['shell_topbar_text'] ?? $data['settings']['shellTopbarText']),
+            'shellTopbarShortText' => (string) ($settings['shell_topbar_short_text'] ?? $data['settings']['shellTopbarShortText']),
+            'shellVerifyLabel' => (string) ($settings['shell_verify_label'] ?? $data['settings']['shellVerifyLabel']),
+            'shellVerifyTitle' => (string) ($settings['shell_verify_title'] ?? $data['settings']['shellVerifyTitle']),
+            'shellVerifyDescription' => (string) ($settings['shell_verify_description'] ?? $data['settings']['shellVerifyDescription']),
+            'shellSecurityTitle' => (string) ($settings['shell_security_title'] ?? $data['settings']['shellSecurityTitle']),
+            'shellSecurityDescription' => (string) ($settings['shell_security_description'] ?? $data['settings']['shellSecurityDescription']),
+            'shellNoticeText' => (string) ($settings['shell_notice_text'] ?? $data['settings']['shellNoticeText']),
         ]);
+        $storedTexts = json_decode((string) ($settings['interface_texts_json'] ?? ''), true);
+        if (is_array($storedTexts)) {
+            $data['texts'] = array_merge($data['texts'], cms_normalize_interface_texts($storedTexts, $data['texts']));
+        }
+        $storedFooter = json_decode((string) ($settings['footer_json'] ?? ''), true);
+        if (is_array($storedFooter)) {
+            $data['footer'] = cms_normalize_footer($storedFooter, $data['footer']);
+        }
     }
 
     $navStmt = $pdo->query('SELECT label, url, item_type, sort_order, visible FROM navigation_items ORDER BY sort_order, id');
@@ -143,6 +282,15 @@ function cms_fetch_site_data(PDO $pdo): array
         ];
     }
 
+    $footerLinks = $pdo->query('SELECT * FROM footer_links ORDER BY sort_order, id')->fetchAll();
+    foreach ($footerLinks as $link) {
+        $data['home']['footerLinks'][] = [
+            'label' => (string) ($link['label'] ?? ''),
+            'url' => (string) ($link['url'] ?? ''),
+            'visible' => (bool) ($link['visible'] ?? 1),
+        ];
+    }
+
     $projects = $pdo->query('SELECT * FROM projects ORDER BY sort_order, id')->fetchAll();
     foreach ($projects as $project) {
         $data['projects'][] = [
@@ -168,6 +316,24 @@ function cms_fetch_site_data(PDO $pdo): array
             'contentMode' => (string) ($page['content_mode'] ?? 'text'),
             'content' => (string) ($page['content'] ?? ''),
             'visible' => (bool) ($page['visible'] ?? 1),
+            'showInNavigation' => (bool) ($page['show_in_navigation'] ?? ($page['visible'] ?? 1)),
+            'showInFooter' => (bool) ($page['show_in_footer'] ?? 0),
+        ];
+    }
+
+    $integrations = $pdo->query('SELECT * FROM integrations ORDER BY sort_order, id')->fetchAll();
+    foreach ($integrations as $integration) {
+        $data['integrations'][] = [
+            'type' => (string) ($integration['integration_type'] ?? 'custom'),
+            'name' => (string) ($integration['name'] ?? ''),
+            'provider' => (string) ($integration['provider'] ?? ''),
+            'environment' => (string) ($integration['environment'] ?? 'test'),
+            'endpointUrl' => (string) ($integration['endpoint_url'] ?? ''),
+            'webhookUrl' => (string) ($integration['webhook_url'] ?? ''),
+            'publicKey' => (string) ($integration['public_key'] ?? ''),
+            'secretEnvKey' => (string) ($integration['secret_env_key'] ?? ''),
+            'configJson' => (string) ($integration['config_json'] ?? ''),
+            'enabled' => (bool) ($integration['enabled'] ?? 1),
         ];
     }
 
@@ -218,11 +384,98 @@ function cms_ensure_notifications_table(PDO $pdo): void
     );
 }
 
+function cms_ensure_footer_links_table(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS footer_links (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            label VARCHAR(255),
+            url VARCHAR(500),
+            sort_order INT DEFAULT 0,
+            visible TINYINT(1) DEFAULT 1
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
+function cms_ensure_integrations_table(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS integrations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            integration_type VARCHAR(80),
+            name VARCHAR(255),
+            provider VARCHAR(255),
+            environment VARCHAR(50),
+            endpoint_url VARCHAR(500),
+            webhook_url VARCHAR(500),
+            public_key VARCHAR(500),
+            secret_env_key VARCHAR(255),
+            config_json LONGTEXT,
+            sort_order INT DEFAULT 0,
+            enabled TINYINT(1) DEFAULT 1
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
+function cms_column_exists(PDO $pdo, string $table, string $column): bool
+{
+    $stmt = $pdo->prepare(
+        'SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name AND COLUMN_NAME = :column_name'
+    );
+    $stmt->execute([
+        'table_name' => $table,
+        'column_name' => $column,
+    ]);
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+function cms_ensure_site_settings_columns(PDO $pdo): void
+{
+    $columns = [
+        'shell_topbar_text' => 'VARCHAR(255)',
+        'site_icon' => 'VARCHAR(500)',
+        'shell_topbar_short_text' => 'VARCHAR(255)',
+        'shell_verify_label' => 'VARCHAR(100)',
+        'shell_verify_title' => 'VARCHAR(255)',
+        'shell_verify_description' => 'TEXT',
+        'shell_security_title' => 'VARCHAR(255)',
+        'shell_security_description' => 'TEXT',
+        'shell_notice_text' => 'VARCHAR(255)',
+        'interface_texts_json' => 'LONGTEXT',
+        'footer_json' => 'LONGTEXT',
+    ];
+
+    foreach ($columns as $column => $definition) {
+        if (!cms_column_exists($pdo, 'site_settings', $column)) {
+            $pdo->exec('ALTER TABLE site_settings ADD COLUMN ' . $column . ' ' . $definition);
+        }
+    }
+}
+
+function cms_ensure_pages_columns(PDO $pdo): void
+{
+    $columns = [
+        'show_in_navigation' => 'TINYINT(1) DEFAULT 1',
+        'show_in_footer' => 'TINYINT(1) DEFAULT 0',
+    ];
+
+    foreach ($columns as $column => $definition) {
+        if (!cms_column_exists($pdo, 'pages', $column)) {
+            $pdo->exec('ALTER TABLE pages ADD COLUMN ' . $column . ' ' . $definition);
+        }
+    }
+}
+
 function cms_save_site_data(PDO $pdo, array $input): array
 {
     $data = cms_normalize_site_data($input);
     if (!$pdo->inTransaction()) {
         cms_ensure_notifications_table($pdo);
+        cms_ensure_footer_links_table($pdo);
+        cms_ensure_integrations_table($pdo);
+        cms_ensure_site_settings_columns($pdo);
+        cms_ensure_pages_columns($pdo);
     }
     $started = !$pdo->inTransaction();
     if ($started) {
@@ -240,6 +493,8 @@ function cms_save_site_data(PDO $pdo, array $input): array
         cms_replace_projects($pdo, $data['projects']);
         cms_replace_pages($pdo, $data['pages']);
         cms_replace_contacts($pdo, $data['home']['contacts']);
+        cms_replace_footer_links($pdo, $data['home']['footerLinks']);
+        cms_replace_integrations($pdo, $data['integrations']);
         cms_replace_notifications($pdo, $data['notifications']);
 
         if ($started) {
@@ -255,12 +510,69 @@ function cms_save_site_data(PDO $pdo, array $input): array
     return cms_fetch_site_data($pdo);
 }
 
+function cms_save_site_data_for_admin(PDO $pdo, array $input, array $user): array
+{
+    if (cms_admin_has_permission($user, 'settings')
+        && cms_admin_has_permission($user, 'home')
+        && cms_admin_has_permission($user, 'footer')
+        && cms_admin_has_permission($user, 'projects')
+        && cms_admin_has_permission($user, 'pages')
+        && cms_admin_has_permission($user, 'navigation')
+        && cms_admin_has_permission($user, 'integrations')
+    ) {
+        return cms_save_site_data($pdo, $input);
+    }
+
+    $allowedSections = cms_content_permission_keys();
+    if (!cms_admin_has_any_permission($user, $allowedSections)) {
+        cms_json_response(['success' => false, 'message' => 'Permission denied.'], 403);
+    }
+
+    $incoming = cms_normalize_site_data($input);
+    $current = cms_fetch_site_data($pdo);
+
+    if (cms_admin_has_permission($user, 'settings')) {
+        $current['settings'] = $incoming['settings'];
+        $current['texts'] = $incoming['texts'];
+    }
+    if (cms_admin_has_permission($user, 'home')) {
+        $current['home'] = $incoming['home'];
+    }
+    if (cms_admin_has_permission($user, 'footer')) {
+        $current['footer'] = $incoming['footer'];
+        $current['home']['contacts'] = $incoming['home']['contacts'];
+        $current['home']['footerLinks'] = $incoming['home']['footerLinks'];
+        $current['texts']['footerLinksHeading'] = $incoming['texts']['footerLinksHeading'];
+        $current['texts']['footerSocialHeading'] = $incoming['texts']['footerSocialHeading'];
+        $current['texts']['footerSocialEmpty'] = $incoming['texts']['footerSocialEmpty'];
+        $current['texts']['footerVersion'] = $incoming['texts']['footerVersion'];
+        $current['texts']['footerDisclaimer'] = $incoming['texts']['footerDisclaimer'];
+    }
+    if (cms_admin_has_permission($user, 'projects')) {
+        $current['projects'] = $incoming['projects'];
+    }
+    if (cms_admin_has_permission($user, 'pages')) {
+        $current['pages'] = $incoming['pages'];
+    }
+    if (cms_admin_has_permission($user, 'navigation')) {
+        $current['navigation'] = $incoming['navigation'];
+    }
+    if (cms_admin_has_permission($user, 'integrations')) {
+        $current['integrations'] = $incoming['integrations'];
+    }
+
+    $current['notifications'] = $incoming['notifications'];
+
+    return cms_save_site_data($pdo, $current);
+}
+
 function cms_normalize_site_data(array $input): array
 {
     $default = cms_default_site_data();
     $settings = is_array($input['settings'] ?? null) ? $input['settings'] : [];
     $navigation = is_array($input['navigation'] ?? null) ? $input['navigation'] : [];
     $home = is_array($input['home'] ?? null) ? $input['home'] : [];
+    $footer = is_array($input['footer'] ?? null) ? $input['footer'] : [];
 
     $data = $default;
     $data['settings'] = [
@@ -268,11 +580,20 @@ function cms_normalize_site_data(array $input): array
         'brandName' => cms_string($settings['brandName'] ?? $settings['brand_name'] ?? '', 255),
         'brandSlogan' => cms_string($settings['brandSlogan'] ?? $settings['brand_slogan'] ?? 'موقع شخصي', 255),
         'brandLogo' => cms_safe_path($settings['brandLogo'] ?? $settings['brand_logo'] ?? ''),
+        'siteIcon' => cms_safe_path($settings['siteIcon'] ?? $settings['site_icon'] ?? ''),
         'language' => cms_string($settings['language'] ?? 'ar', 10) ?: 'ar',
         'direction' => in_array(($settings['direction'] ?? 'rtl'), ['rtl', 'ltr'], true) ? (string) $settings['direction'] : 'rtl',
         'theme' => in_array(($settings['theme'] ?? 'light'), ['light', 'dark'], true) ? (string) $settings['theme'] : 'light',
         'phoneNumber' => cms_string($settings['phoneNumber'] ?? $settings['phone_number'] ?? '', 50),
         'email' => filter_var($settings['email'] ?? '', FILTER_VALIDATE_EMAIL) ? (string) $settings['email'] : cms_string($settings['email'] ?? '', 255),
+        'shellTopbarText' => cms_string($settings['shellTopbarText'] ?? $settings['shell_topbar_text'] ?? $default['settings']['shellTopbarText'], 255) ?: $default['settings']['shellTopbarText'],
+        'shellTopbarShortText' => cms_string($settings['shellTopbarShortText'] ?? $settings['shell_topbar_short_text'] ?? $default['settings']['shellTopbarShortText'], 255) ?: $default['settings']['shellTopbarShortText'],
+        'shellVerifyLabel' => cms_string($settings['shellVerifyLabel'] ?? $settings['shell_verify_label'] ?? $default['settings']['shellVerifyLabel'], 100) ?: $default['settings']['shellVerifyLabel'],
+        'shellVerifyTitle' => cms_string($settings['shellVerifyTitle'] ?? $settings['shell_verify_title'] ?? $default['settings']['shellVerifyTitle'], 255) ?: $default['settings']['shellVerifyTitle'],
+        'shellVerifyDescription' => cms_string($settings['shellVerifyDescription'] ?? $settings['shell_verify_description'] ?? $default['settings']['shellVerifyDescription']),
+        'shellSecurityTitle' => cms_string($settings['shellSecurityTitle'] ?? $settings['shell_security_title'] ?? $default['settings']['shellSecurityTitle'], 255) ?: $default['settings']['shellSecurityTitle'],
+        'shellSecurityDescription' => cms_string($settings['shellSecurityDescription'] ?? $settings['shell_security_description'] ?? $default['settings']['shellSecurityDescription']),
+        'shellNoticeText' => cms_string($settings['shellNoticeText'] ?? $settings['shell_notice_text'] ?? $default['settings']['shellNoticeText'], 255) ?: $default['settings']['shellNoticeText'],
     ];
 
     $data['navigation'] = [
@@ -282,6 +603,7 @@ function cms_normalize_site_data(array $input): array
         'adminLabel' => cms_string($navigation['adminLabel'] ?? 'الإدارة', 255) ?: 'الإدارة',
         'items' => [],
     ];
+    $data['texts'] = cms_normalize_interface_texts($input['texts'] ?? [], $default['texts']);
 
     $data['home'] = [
         'ownerName' => cms_string($home['ownerName'] ?? $home['owner_name'] ?? '', 255),
@@ -300,13 +622,31 @@ function cms_normalize_site_data(array $input): array
         'achievements' => cms_normalize_content_rows($home['achievements'] ?? []),
         'skills' => cms_normalize_skills($home['skills'] ?? []),
         'contacts' => cms_normalize_contacts($home['contacts'] ?? []),
+        'footerLinks' => cms_normalize_footer_links($home['footerLinks'] ?? $home['footer_links'] ?? []),
     ];
 
     $data['projects'] = cms_normalize_projects($input['projects'] ?? []);
     $data['pages'] = cms_normalize_pages($input['pages'] ?? []);
+    $data['footer'] = cms_normalize_footer($footer, $default['footer']);
+    $data['integrations'] = cms_normalize_integrations($input['integrations'] ?? []);
     $data['notifications'] = cms_normalize_notifications($input['notifications'] ?? []);
 
     return $data;
+}
+
+function cms_normalize_interface_texts(mixed $items, array $defaults): array
+{
+    if (!is_array($items)) {
+        return $defaults;
+    }
+    $output = $defaults;
+    foreach ($defaults as $key => $fallback) {
+        if (array_key_exists($key, $items)) {
+            $value = cms_string($items[$key] ?? '', 1000);
+            $output[$key] = $value !== '' ? $value : (string) $fallback;
+        }
+    }
+    return $output;
 }
 
 function cms_safe_path(mixed $value): string
@@ -442,6 +782,8 @@ function cms_normalize_pages(mixed $items): array
             'contentMode' => $mode,
             'content' => cms_string($item['content'] ?? ''),
             'visible' => cms_bool($item['visible'] ?? true),
+            'showInNavigation' => cms_bool($item['showInNavigation'] ?? $item['show_in_navigation'] ?? $item['visible'] ?? true),
+            'showInFooter' => cms_bool($item['showInFooter'] ?? $item['show_in_footer'] ?? false),
         ];
         if ($page['title'] !== '' || $page['content'] !== '') {
             $output[] = $page;
@@ -525,6 +867,146 @@ function cms_normalize_contacts(mixed $items): array
     return $output;
 }
 
+function cms_normalize_footer_links(mixed $items): array
+{
+    if (!is_array($items)) {
+        return [];
+    }
+    $output = [];
+    foreach (array_values($items) as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $link = [
+            'label' => cms_string($item['label'] ?? '', 255),
+            'url' => cms_string($item['url'] ?? $item['href'] ?? '', 500),
+            'visible' => cms_bool($item['visible'] ?? true),
+        ];
+        if ($link['label'] !== '' || $link['url'] !== '') {
+            $output[] = $link;
+        }
+    }
+    return $output;
+}
+
+function cms_normalize_footer_managed_links(mixed $items, bool $withIcons = false): array
+{
+    if (!is_array($items)) {
+        return [];
+    }
+    $output = [];
+    foreach (array_values($items) as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $link = [
+            'label' => cms_string($item['label'] ?? $item['title'] ?? '', 255),
+            'url' => cms_string($item['url'] ?? $item['href'] ?? '', 500),
+            'visible' => cms_bool($item['visible'] ?? true),
+        ];
+        if ($withIcons) {
+            $link['iconType'] = cms_string($item['iconType'] ?? $item['icon_type'] ?? 'website', 100) ?: 'website';
+            $link['iconPath'] = cms_safe_path($item['iconPath'] ?? $item['icon_path'] ?? '');
+        }
+        if ($link['label'] !== '' || $link['url'] !== '' || ($withIcons && ($link['iconType'] !== '' || $link['iconPath'] !== ''))) {
+            $output[] = $link;
+        }
+    }
+    return $output;
+}
+
+function cms_normalize_footer(mixed $footer, array $defaults): array
+{
+    if (!is_array($footer)) {
+        return $defaults;
+    }
+    $output = $defaults;
+    $output['columns'] = [];
+    foreach (array_values($footer['columns'] ?? []) as $column) {
+        if (!is_array($column)) {
+            continue;
+        }
+        $normalized = [
+            'id' => cms_string($column['id'] ?? '', 120),
+            'title' => cms_string($column['title'] ?? '', 255),
+            'visible' => cms_bool($column['visible'] ?? true),
+            'links' => cms_normalize_footer_managed_links($column['links'] ?? []),
+        ];
+        if ($normalized['title'] !== '' || $normalized['links'] !== []) {
+            $output['columns'][] = $normalized;
+        }
+    }
+    $output['iconGroups'] = [];
+    foreach (array_values($footer['iconGroups'] ?? $footer['icon_groups'] ?? []) as $group) {
+        if (!is_array($group)) {
+            continue;
+        }
+        $normalized = [
+            'id' => cms_string($group['id'] ?? '', 120),
+            'title' => cms_string($group['title'] ?? '', 255),
+            'visible' => cms_bool($group['visible'] ?? true),
+            'links' => cms_normalize_footer_managed_links($group['links'] ?? [], true),
+        ];
+        if ($normalized['title'] !== '' || $normalized['links'] !== []) {
+            $output['iconGroups'][] = $normalized;
+        }
+    }
+    $output['bottomLinks'] = cms_normalize_footer_managed_links($footer['bottomLinks'] ?? $footer['bottom_links'] ?? []);
+    $output['logos'] = [];
+    foreach (array_values($footer['logos'] ?? []) as $logo) {
+        if (!is_array($logo)) {
+            continue;
+        }
+        $normalized = [
+            'id' => cms_string($logo['id'] ?? '', 120),
+            'label' => cms_string($logo['label'] ?? '', 255),
+            'alt' => cms_string($logo['alt'] ?? '', 255),
+            'url' => cms_string($logo['url'] ?? '', 500),
+            'src' => cms_safe_path($logo['src'] ?? $logo['image'] ?? $logo['logo'] ?? ''),
+            'visible' => cms_bool($logo['visible'] ?? true),
+        ];
+        if ($normalized['label'] !== '' || $normalized['alt'] !== '' || $normalized['url'] !== '' || $normalized['src'] !== '') {
+            $output['logos'][] = $normalized;
+        }
+    }
+    $output['copyrightText'] = cms_string($footer['copyrightText'] ?? $footer['copyright_text'] ?? '', 500);
+    $output['legalText'] = cms_string($footer['legalText'] ?? $footer['legal_text'] ?? '', 1000);
+    return $output;
+}
+
+function cms_normalize_integrations(mixed $items): array
+{
+    if (!is_array($items)) {
+        return [];
+    }
+    $allowedTypes = ['payment', 'analytics', 'api', 'chat', 'email', 'custom'];
+    $allowedEnvironments = ['test', 'live', 'sandbox'];
+    $output = [];
+    foreach (array_values($items) as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $type = cms_string($item['type'] ?? $item['integration_type'] ?? 'custom', 80) ?: 'custom';
+        $environment = cms_string($item['environment'] ?? 'test', 50) ?: 'test';
+        $integration = [
+            'type' => in_array($type, $allowedTypes, true) ? $type : 'custom',
+            'name' => cms_string($item['name'] ?? '', 255),
+            'provider' => cms_string($item['provider'] ?? '', 255),
+            'environment' => in_array($environment, $allowedEnvironments, true) ? $environment : 'test',
+            'endpointUrl' => cms_string($item['endpointUrl'] ?? $item['endpoint_url'] ?? '', 500),
+            'webhookUrl' => cms_string($item['webhookUrl'] ?? $item['webhook_url'] ?? '', 500),
+            'publicKey' => cms_string($item['publicKey'] ?? $item['public_key'] ?? '', 500),
+            'secretEnvKey' => cms_string($item['secretEnvKey'] ?? $item['secret_env_key'] ?? '', 255),
+            'configJson' => cms_string($item['configJson'] ?? $item['config_json'] ?? ''),
+            'enabled' => cms_bool($item['enabled'] ?? true),
+        ];
+        if ($integration['name'] !== '' || $integration['provider'] !== '' || $integration['endpointUrl'] !== '' || $integration['webhookUrl'] !== '' || $integration['publicKey'] !== '' || $integration['secretEnvKey'] !== '' || $integration['configJson'] !== '') {
+            $output[] = $integration;
+        }
+    }
+    return $output;
+}
+
 function cms_unique_slug(array &$used, mixed $slug, string $fallback): string
 {
     $base = cms_slug($slug ?: $fallback);
@@ -550,23 +1032,44 @@ function cms_slug(mixed $value): string
 
 function cms_save_settings(PDO $pdo, array $data): void
 {
+    $interfaceTextsJson = json_encode($data['texts'] ?? cms_default_interface_texts(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $footerJson = json_encode($data['footer'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $stmt = $pdo->prepare(
-        'INSERT INTO site_settings (id, site_name, brand_name, brand_slogan, brand_logo, language, direction, theme, phone_number, email)
-         VALUES (1, :site_name, :brand_name, :brand_slogan, :brand_logo, :language, :direction, :theme, :phone_number, :email)
+        'INSERT INTO site_settings (id, site_name, brand_name, brand_slogan, brand_logo, site_icon, language, direction, theme, phone_number, email,
+         shell_topbar_text, shell_topbar_short_text, shell_verify_label, shell_verify_title, shell_verify_description,
+         shell_security_title, shell_security_description, shell_notice_text, interface_texts_json, footer_json)
+         VALUES (1, :site_name, :brand_name, :brand_slogan, :brand_logo, :site_icon, :language, :direction, :theme, :phone_number, :email,
+         :shell_topbar_text, :shell_topbar_short_text, :shell_verify_label, :shell_verify_title, :shell_verify_description,
+         :shell_security_title, :shell_security_description, :shell_notice_text, :interface_texts_json, :footer_json)
          ON DUPLICATE KEY UPDATE site_name = VALUES(site_name), brand_name = VALUES(brand_name), brand_slogan = VALUES(brand_slogan),
-         brand_logo = VALUES(brand_logo), language = VALUES(language), direction = VALUES(direction), theme = VALUES(theme),
-         phone_number = VALUES(phone_number), email = VALUES(email)'
+         brand_logo = VALUES(brand_logo), site_icon = VALUES(site_icon), language = VALUES(language), direction = VALUES(direction), theme = VALUES(theme),
+         phone_number = VALUES(phone_number), email = VALUES(email), shell_topbar_text = VALUES(shell_topbar_text),
+         shell_topbar_short_text = VALUES(shell_topbar_short_text), shell_verify_label = VALUES(shell_verify_label),
+         shell_verify_title = VALUES(shell_verify_title), shell_verify_description = VALUES(shell_verify_description),
+         shell_security_title = VALUES(shell_security_title), shell_security_description = VALUES(shell_security_description),
+         shell_notice_text = VALUES(shell_notice_text), interface_texts_json = VALUES(interface_texts_json), footer_json = VALUES(footer_json)'
     );
     $stmt->execute([
         'site_name' => $data['settings']['siteName'],
         'brand_name' => $data['settings']['brandName'],
         'brand_slogan' => $data['settings']['brandSlogan'],
         'brand_logo' => $data['settings']['brandLogo'],
+        'site_icon' => $data['settings']['siteIcon'],
         'language' => $data['settings']['language'],
         'direction' => $data['settings']['direction'],
         'theme' => $data['settings']['theme'],
         'phone_number' => $data['settings']['phoneNumber'],
         'email' => $data['settings']['email'],
+        'shell_topbar_text' => $data['settings']['shellTopbarText'],
+        'shell_topbar_short_text' => $data['settings']['shellTopbarShortText'],
+        'shell_verify_label' => $data['settings']['shellVerifyLabel'],
+        'shell_verify_title' => $data['settings']['shellVerifyTitle'],
+        'shell_verify_description' => $data['settings']['shellVerifyDescription'],
+        'shell_security_title' => $data['settings']['shellSecurityTitle'],
+        'shell_security_description' => $data['settings']['shellSecurityDescription'],
+        'shell_notice_text' => $data['settings']['shellNoticeText'],
+        'interface_texts_json' => $interfaceTextsJson === false ? '{}' : $interfaceTextsJson,
+        'footer_json' => $footerJson === false ? '{}' : $footerJson,
     ]);
 }
 
@@ -687,8 +1190,8 @@ function cms_replace_pages(PDO $pdo, array $pages): void
 {
     $pdo->exec('DELETE FROM pages');
     $stmt = $pdo->prepare(
-        'INSERT INTO pages (title, slug, content_mode, content, sort_order, visible)
-         VALUES (:title, :slug, :content_mode, :content, :sort_order, :visible)'
+        'INSERT INTO pages (title, slug, content_mode, content, sort_order, visible, show_in_navigation, show_in_footer)
+         VALUES (:title, :slug, :content_mode, :content, :sort_order, :visible, :show_in_navigation, :show_in_footer)'
     );
     foreach ($pages as $index => $page) {
         $stmt->execute([
@@ -698,6 +1201,8 @@ function cms_replace_pages(PDO $pdo, array $pages): void
             'content' => $page['content'],
             'sort_order' => $index,
             'visible' => cms_bool_int($page['visible']),
+            'show_in_navigation' => cms_bool_int($page['showInNavigation'] ?? true),
+            'show_in_footer' => cms_bool_int($page['showInFooter']),
         ]);
     }
 }
@@ -718,6 +1223,47 @@ function cms_replace_contacts(PDO $pdo, array $contacts): void
             'icon_path' => $contact['iconPath'],
             'sort_order' => $index,
             'visible' => cms_bool_int($contact['visible']),
+        ]);
+    }
+}
+
+function cms_replace_footer_links(PDO $pdo, array $links): void
+{
+    $pdo->exec('DELETE FROM footer_links');
+    $stmt = $pdo->prepare(
+        'INSERT INTO footer_links (label, url, sort_order, visible)
+         VALUES (:label, :url, :sort_order, :visible)'
+    );
+    foreach ($links as $index => $link) {
+        $stmt->execute([
+            'label' => $link['label'],
+            'url' => $link['url'],
+            'sort_order' => $index,
+            'visible' => cms_bool_int($link['visible']),
+        ]);
+    }
+}
+
+function cms_replace_integrations(PDO $pdo, array $integrations): void
+{
+    $pdo->exec('DELETE FROM integrations');
+    $stmt = $pdo->prepare(
+        'INSERT INTO integrations (integration_type, name, provider, environment, endpoint_url, webhook_url, public_key, secret_env_key, config_json, sort_order, enabled)
+         VALUES (:integration_type, :name, :provider, :environment, :endpoint_url, :webhook_url, :public_key, :secret_env_key, :config_json, :sort_order, :enabled)'
+    );
+    foreach ($integrations as $index => $integration) {
+        $stmt->execute([
+            'integration_type' => $integration['type'],
+            'name' => $integration['name'],
+            'provider' => $integration['provider'],
+            'environment' => $integration['environment'],
+            'endpoint_url' => $integration['endpointUrl'],
+            'webhook_url' => $integration['webhookUrl'],
+            'public_key' => $integration['publicKey'],
+            'secret_env_key' => $integration['secretEnvKey'],
+            'config_json' => $integration['configJson'],
+            'sort_order' => $index,
+            'enabled' => cms_bool_int($integration['enabled']),
         ]);
     }
 }

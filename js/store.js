@@ -13,7 +13,10 @@
     changePassword: "api/auth/change-password.php",
     changeEmail: "api/auth/change-email.php",
     changePhone: "api/auth/change-phone.php",
-    uploadMedia: "api/upload/upload-media.php"
+    uploadMedia: "api/upload/upload-media.php",
+    listUsers: "api/auth/list-users.php",
+    saveUser: "api/auth/save-user.php",
+    deleteUser: "api/auth/delete-user.php"
   };
 
   var currentData = null;
@@ -76,14 +79,34 @@
     cleanData.home.achievements = normalizeArray(cleanData.home.achievements);
     cleanData.home.skills = normalizeArray(cleanData.home.skills);
     cleanData.home.contacts = normalizeArray(cleanData.home.contacts);
+    cleanData.home.footerLinks = normalizeArray(cleanData.home.footerLinks);
+    cleanData.footer = normalizeFooter(cleanData.footer);
     cleanData.projects = normalizeArray(cleanData.projects);
     cleanData.pages = normalizeArray(cleanData.pages);
+    cleanData.integrations = normalizeArray(cleanData.integrations);
     cleanData.notifications = normalizeArray(cleanData.notifications);
     return cleanData;
   }
 
   function normalizeArray(value) {
     return Array.isArray(value) ? value : [];
+  }
+
+  function normalizeFooter(footer) {
+    footer = footer && typeof footer === "object" ? footer : {};
+    footer.columns = normalizeArray(footer.columns).map(function (column) {
+      column = column && typeof column === "object" ? column : {};
+      column.links = normalizeArray(column.links);
+      return column;
+    });
+    footer.iconGroups = normalizeArray(footer.iconGroups).map(function (group) {
+      group = group && typeof group === "object" ? group : {};
+      group.links = normalizeArray(group.links);
+      return group;
+    });
+    footer.bottomLinks = normalizeArray(footer.bottomLinks);
+    footer.logos = normalizeArray(footer.logos);
+    return footer;
   }
 
   function fallbackData() {
@@ -306,6 +329,33 @@
       formData.append("file", file);
       formData.append("type", type || "image");
       return uploadJson(API.uploadMedia, formData, onProgress);
+    },
+
+    listUsers: function () {
+      return requestJson(API.listUsers).then(function (payload) {
+        return {
+          users: payload.users || [],
+          permissions: payload.permissions || []
+        };
+      });
+    },
+
+    saveUser: function (user) {
+      return requestJson(API.saveUser, {
+        method: "POST",
+        body: JSON.stringify(user || {})
+      }).then(function (payload) {
+        return payload.users || [];
+      });
+    },
+
+    deleteUser: function (id) {
+      return requestJson(API.deleteUser, {
+        method: "POST",
+        body: JSON.stringify({ id: id })
+      }).then(function (payload) {
+        return payload.users || [];
+      });
     },
 
     clone: clone
