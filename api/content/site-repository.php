@@ -49,7 +49,9 @@ function cms_default_site_data(): array
 function cms_fetch_site_data(PDO $pdo): array
 {
     $data = cms_default_site_data();
-    cms_ensure_notifications_table($pdo);
+    if (!$pdo->inTransaction()) {
+        cms_ensure_notifications_table($pdo);
+    }
 
     $settings = $pdo->query('SELECT * FROM site_settings WHERE id = 1 LIMIT 1')->fetch();
     if ($settings) {

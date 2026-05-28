@@ -138,7 +138,9 @@ function install_cms(string $schemaPath, string $configPath, string $lockPath): 
         } else {
             cms_save_site_data($pdo, cms_default_site_data());
         }
-        $pdo->commit();
+        if ($pdo->inTransaction()) {
+            $pdo->commit();
+        }
     } catch (Throwable $error) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();

@@ -71,7 +71,8 @@ The installer previously could fail with `There is no active transaction` after 
 Fix:
 
 - `install/index.php` now ensures the notifications table immediately after schema import and before starting the installer transaction.
-- `api/content/site-repository.php` now only runs `cms_ensure_notifications_table()` when no transaction is already active.
+- `api/content/site-repository.php` now only runs `cms_ensure_notifications_table()` during save/fetch when no transaction is already active.
+- The installer commit is guarded with `inTransaction()` so a future implicit transaction close cannot crash the final installation step.
 
 If this error happened during a fresh install, drop the partially created database, recreate it, and run `install/` again.
 
