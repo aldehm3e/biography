@@ -13,6 +13,7 @@ function cms_default_interface_texts(): array
         'changePasswordLabel' => 'تغيير كلمة المرور',
         'changeEmailLabel' => 'تغيير البريد الإلكتروني',
         'changePhoneLabel' => 'تغيير رقم الجوال',
+        'sharePageLabel' => 'مشاركة الصفحة',
         'footerLinksHeading' => 'روابط سريعة',
         'footerSocialHeading' => 'وسائل التواصل',
         'footerSocialEmpty' => 'لم تتم إضافة وسائل تواصل بعد',
@@ -117,9 +118,6 @@ function cms_default_site_data(): array
             'intro' => '',
             'avatar' => '',
             'biography' => '',
-            'heroTitle' => '',
-            'heroSubtitle' => '',
-            'heroIntro' => '',
             'heroImage' => '',
             'heroVideo' => '',
             'heroSlides' => [],
@@ -167,13 +165,7 @@ function cms_default_site_data(): array
 function cms_fetch_site_data(PDO $pdo): array
 {
     $data = cms_default_site_data();
-    if (!$pdo->inTransaction()) {
-        cms_ensure_notifications_table($pdo);
-        cms_ensure_footer_links_table($pdo);
-        cms_ensure_integrations_table($pdo);
-        cms_ensure_site_settings_columns($pdo);
-        cms_ensure_pages_columns($pdo);
-    }
+    cms_ensure_content_schema($pdo);
 
     $settings = $pdo->query('SELECT * FROM site_settings WHERE id = 1 LIMIT 1')->fetch();
     if ($settings) {
@@ -236,9 +228,9 @@ function cms_fetch_site_data(PDO $pdo): array
             'intro' => (string) ($main['intro'] ?? ''),
             'avatar' => (string) ($main['avatar_path'] ?? ''),
             'biography' => (string) ($main['biography'] ?? ''),
-            'heroTitle' => (string) ($main['hero_title'] ?? ''),
-            'heroSubtitle' => (string) ($main['hero_subtitle'] ?? ''),
-            'heroIntro' => (string) ($main['hero_intro'] ?? ''),
+            'heroTitle' => '',
+            'heroSubtitle' => '',
+            'heroIntro' => '',
             'heroImage' => (string) ($main['hero_image'] ?? ''),
             'heroVideo' => (string) ($main['hero_video'] ?? ''),
         ]);
@@ -313,8 +305,13 @@ function cms_fetch_site_data(PDO $pdo): array
         $data['pages'][] = [
             'title' => (string) ($page['title'] ?? ''),
             'slug' => (string) ($page['slug'] ?? ''),
+            'parentSlug' => (string) ($page['parent_slug'] ?? ''),
             'contentMode' => (string) ($page['content_mode'] ?? 'text'),
             'content' => (string) ($page['content'] ?? ''),
+            'image' => (string) ($page['image_path'] ?? ''),
+            'imagePath' => (string) ($page['image_path'] ?? ''),
+            'video' => (string) ($page['video_path'] ?? ''),
+            'videoPath' => (string) ($page['video_path'] ?? ''),
             'visible' => (bool) ($page['visible'] ?? 1),
             'showInNavigation' => (bool) ($page['show_in_navigation'] ?? ($page['visible'] ?? 1)),
             'showInFooter' => (bool) ($page['show_in_footer'] ?? 0),
@@ -456,6 +453,9 @@ function cms_ensure_site_settings_columns(PDO $pdo): void
 function cms_ensure_pages_columns(PDO $pdo): void
 {
     $columns = [
+        'parent_slug' => 'VARCHAR(255)',
+        'image_path' => 'VARCHAR(500)',
+        'video_path' => 'VARCHAR(500)',
         'show_in_navigation' => 'TINYINT(1) DEFAULT 1',
         'show_in_footer' => 'TINYINT(1) DEFAULT 0',
     ];
@@ -467,16 +467,30 @@ function cms_ensure_pages_columns(PDO $pdo): void
     }
 }
 
+function cms_ensure_content_schema(PDO $pdo): void
+{
+    static $checked = [];
+    if ($pdo->inTransaction()) {
+        return;
+    }
+
+    $key = spl_object_id($pdo);
+    if (isset($checked[$key])) {
+        return;
+    }
+
+    cms_ensure_notifications_table($pdo);
+    cms_ensure_footer_links_table($pdo);
+    cms_ensure_integrations_table($pdo);
+    cms_ensure_site_settings_columns($pdo);
+    cms_ensure_pages_columns($pdo);
+    $checked[$key] = true;
+}
+
 function cms_save_site_data(PDO $pdo, array $input): array
 {
     $data = cms_normalize_site_data($input);
-    if (!$pdo->inTransaction()) {
-        cms_ensure_notifications_table($pdo);
-        cms_ensure_footer_links_table($pdo);
-        cms_ensure_integrations_table($pdo);
-        cms_ensure_site_settings_columns($pdo);
-        cms_ensure_pages_columns($pdo);
-    }
+    cms_ensure_content_schema($pdo);
     $started = !$pdo->inTransaction();
     if ($started) {
         $pdo->beginTransaction();
@@ -512,13 +526,14 @@ function cms_save_site_data(PDO $pdo, array $input): array
 
 function cms_save_site_data_for_admin(PDO $pdo, array $input, array $user): array
 {
-    if (cms_admin_has_permission($user, 'settings')
+    if (cms_admin_has_permission($user, 'utilities')
+        || (cms_admin_has_permission($user, 'settings')
         && cms_admin_has_permission($user, 'home')
         && cms_admin_has_permission($user, 'footer')
         && cms_admin_has_permission($user, 'projects')
         && cms_admin_has_permission($user, 'pages')
         && cms_admin_has_permission($user, 'navigation')
-        && cms_admin_has_permission($user, 'integrations')
+        && cms_admin_has_permission($user, 'integrations'))
     ) {
         return cms_save_site_data($pdo, $input);
     }
@@ -575,6 +590,8 @@ function cms_normalize_site_data(array $input): array
     $footer = is_array($input['footer'] ?? null) ? $input['footer'] : [];
 
     $data = $default;
+    $direction = (string) ($settings['direction'] ?? 'rtl');
+    $theme = (string) ($settings['theme'] ?? 'light');
     $data['settings'] = [
         'siteName' => cms_string($settings['siteName'] ?? $settings['site_name'] ?? '', 255),
         'brandName' => cms_string($settings['brandName'] ?? $settings['brand_name'] ?? '', 255),
@@ -582,8 +599,8 @@ function cms_normalize_site_data(array $input): array
         'brandLogo' => cms_safe_path($settings['brandLogo'] ?? $settings['brand_logo'] ?? ''),
         'siteIcon' => cms_safe_path($settings['siteIcon'] ?? $settings['site_icon'] ?? ''),
         'language' => cms_string($settings['language'] ?? 'ar', 10) ?: 'ar',
-        'direction' => in_array(($settings['direction'] ?? 'rtl'), ['rtl', 'ltr'], true) ? (string) $settings['direction'] : 'rtl',
-        'theme' => in_array(($settings['theme'] ?? 'light'), ['light', 'dark'], true) ? (string) $settings['theme'] : 'light',
+        'direction' => in_array($direction, ['rtl', 'ltr'], true) ? $direction : 'rtl',
+        'theme' => in_array($theme, ['light', 'dark'], true) ? $theme : 'light',
         'phoneNumber' => cms_string($settings['phoneNumber'] ?? $settings['phone_number'] ?? '', 50),
         'email' => filter_var($settings['email'] ?? '', FILTER_VALIDATE_EMAIL) ? (string) $settings['email'] : cms_string($settings['email'] ?? '', 255),
         'shellTopbarText' => cms_string($settings['shellTopbarText'] ?? $settings['shell_topbar_text'] ?? $default['settings']['shellTopbarText'], 255) ?: $default['settings']['shellTopbarText'],
@@ -612,9 +629,9 @@ function cms_normalize_site_data(array $input): array
         'intro' => cms_string($home['intro'] ?? ''),
         'avatar' => cms_safe_path($home['avatar'] ?? $home['avatarPath'] ?? ''),
         'biography' => cms_string($home['biography'] ?? ''),
-        'heroTitle' => cms_string($home['heroTitle'] ?? '', 255),
-        'heroSubtitle' => cms_string($home['heroSubtitle'] ?? '', 255),
-        'heroIntro' => cms_string($home['heroIntro'] ?? ''),
+        'heroTitle' => '',
+        'heroSubtitle' => '',
+        'heroIntro' => '',
         'heroImage' => cms_safe_path($home['heroImage'] ?? ''),
         'heroVideo' => cms_safe_path($home['heroVideo'] ?? ''),
         'heroSlides' => cms_normalize_hero_slides($home['heroSlides'] ?? []),
@@ -779,16 +796,51 @@ function cms_normalize_pages(mixed $items): array
         $page = [
             'title' => $title,
             'slug' => cms_unique_slug($used, $item['slug'] ?? '', $title ?: 'page'),
+            'parentSlug' => cms_slug($item['parentSlug'] ?? $item['parent_slug'] ?? ''),
             'contentMode' => $mode,
             'content' => cms_string($item['content'] ?? ''),
+            'image' => cms_safe_path($item['image'] ?? $item['imagePath'] ?? $item['image_path'] ?? ''),
+            'video' => cms_safe_path($item['video'] ?? $item['videoPath'] ?? $item['video_path'] ?? ''),
             'visible' => cms_bool($item['visible'] ?? true),
             'showInNavigation' => cms_bool($item['showInNavigation'] ?? $item['show_in_navigation'] ?? $item['visible'] ?? true),
             'showInFooter' => cms_bool($item['showInFooter'] ?? $item['show_in_footer'] ?? false),
         ];
-        if ($page['title'] !== '' || $page['content'] !== '') {
+        if ($page['title'] !== '' || $page['content'] !== '' || $page['image'] !== '' || $page['video'] !== '') {
             $output[] = $page;
         }
     }
+    $availableSlugs = [];
+    foreach ($output as $page) {
+        if ($page['slug'] !== '') {
+            $availableSlugs[$page['slug']] = true;
+        }
+    }
+    $pagesBySlug = [];
+    $parentsWithChildren = [];
+    foreach ($output as $page) {
+        if ($page['slug'] !== '') {
+            $pagesBySlug[$page['slug']] = $page;
+        }
+        if ($page['parentSlug'] !== '') {
+            $parentsWithChildren[$page['parentSlug']] = true;
+        }
+    }
+    foreach ($output as &$page) {
+        $hadParent = $page['parentSlug'] !== '';
+        $parentSlug = $page['parentSlug'];
+        $parent = $pagesBySlug[$parentSlug] ?? null;
+        if ($parentSlug === $page['slug']
+            || !isset($availableSlugs[$parentSlug])
+            || (is_array($parent) && $parent['parentSlug'] !== '')
+            || isset($parentsWithChildren[$page['slug']])
+        ) {
+            $page['parentSlug'] = '';
+        }
+        if ($hadParent || $page['title'] === 'صفحة فرعية جديدة') {
+            $page['showInNavigation'] = false;
+        }
+    }
+    unset($page);
     return $output;
 }
 
@@ -1190,15 +1242,18 @@ function cms_replace_pages(PDO $pdo, array $pages): void
 {
     $pdo->exec('DELETE FROM pages');
     $stmt = $pdo->prepare(
-        'INSERT INTO pages (title, slug, content_mode, content, sort_order, visible, show_in_navigation, show_in_footer)
-         VALUES (:title, :slug, :content_mode, :content, :sort_order, :visible, :show_in_navigation, :show_in_footer)'
+        'INSERT INTO pages (title, slug, parent_slug, content_mode, content, image_path, video_path, sort_order, visible, show_in_navigation, show_in_footer)
+         VALUES (:title, :slug, :parent_slug, :content_mode, :content, :image_path, :video_path, :sort_order, :visible, :show_in_navigation, :show_in_footer)'
     );
     foreach ($pages as $index => $page) {
         $stmt->execute([
             'title' => $page['title'],
             'slug' => $page['slug'],
+            'parent_slug' => $page['parentSlug'] ?? '',
             'content_mode' => $page['contentMode'],
             'content' => $page['content'],
+            'image_path' => $page['image'] ?? '',
+            'video_path' => $page['video'] ?? '',
             'sort_order' => $index,
             'visible' => cms_bool_int($page['visible']),
             'show_in_navigation' => cms_bool_int($page['showInNavigation'] ?? true),

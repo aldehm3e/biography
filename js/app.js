@@ -9,6 +9,8 @@
   var NOTIFICATION_READ_RETENTION_MS = 10 * 24 * 60 * 60 * 1000;
   var AUTH_LOADING_MIN_MS = 1200;
   var notificationSaveQueue = Promise.resolve();
+  var navPageDropdownTimers = new WeakMap();
+  var headerMenuExclusivityObserver = null;
 
   var appState = {
     data: null,
@@ -67,12 +69,12 @@
     });
     if (!slides.length && (hasText(home.heroImage) || hasText(home.heroVideo))) {
       slides.push({
-        title: home.heroTitle || "",
-        subtitle: home.heroSubtitle || "",
-        intro: home.heroIntro || "",
+        title: "",
+        subtitle: "",
+        intro: "",
         image: home.heroImage || "",
         video: home.heroVideo || "",
-        alt: home.heroTitle || home.ownerName || ""
+        alt: home.ownerName || ""
       });
     }
     return slides;
@@ -563,15 +565,56 @@
   }
 
   function pageNavigationItems(data) {
-    return publicPageItems(data).filter(function (item) {
-      return item.showInNavigation !== false;
-    }).map(function (item) {
+    var flattened = [];
+    pageNavigationTree(data).forEach(function (item) {
+      flattened.push(item);
+      (item.children || []).forEach(function (child) {
+        flattened.push(child);
+      });
+    });
+    return flattened;
+  }
+
+  function isGeneratedSubpageDraft(page) {
+    return String(page && page.title || "").trim() === "\u0635\u0641\u062d\u0629 \u0641\u0631\u0639\u064a\u0629 \u062c\u062f\u064a\u062f\u0629";
+  }
+
+  function pageNavigationTree(data) {
+    var pages = publicPageItems(data).map(function (item) {
+      var slug = String(item.slug || "").trim();
       return {
         label: item.title || item.slug,
-        href: "index.html#/page/" + encodeURIComponent(item.slug),
-        key: "page:" + item.slug
+        href: pageHref(item, data),
+        key: "page:" + slug,
+        slug: slug,
+        parentSlug: String(item.parentSlug || "").trim(),
+        page: item,
+        children: []
       };
     });
+    var bySlug = {};
+    var rawChildrenByParent = {};
+    var roots = [];
+
+    pages.forEach(function (item) {
+      if (item.slug) bySlug[item.slug] = item;
+    });
+    pages.forEach(function (item) {
+      var parent = item.parentSlug && bySlug[item.parentSlug];
+      if (parent && !parent.parentSlug && parent.slug !== item.slug && parent.page.showInNavigation !== false) {
+        rawChildrenByParent[parent.slug] = rawChildrenByParent[parent.slug] || [];
+        rawChildrenByParent[parent.slug].push(item);
+      }
+    });
+    pages.forEach(function (item) {
+      if (!item.parentSlug && item.page.showInNavigation !== false && !isGeneratedSubpageDraft(item.page)) roots.push(item);
+    });
+    roots.forEach(function (item) {
+      item.children = (rawChildrenByParent[item.slug] || []).filter(function (child) {
+        return !rawChildrenByParent[child.slug];
+      });
+    });
+    return roots;
   }
 
   function publicPageItems(data) {
@@ -582,17 +625,55 @@
 
   function routablePageItems(data) {
     return ((data && data.pages) || []).filter(function (item) {
-      return item && (item.visible !== false || item.showInFooter === true) && hasText(item.title || item.slug);
+      return item && (item.visible !== false || item.showInFooter === true) && hasText(item.title || item.slug) && !pageIsNavigationGroup(item, data);
     });
+  }
+
+  function pagesBySlug(data) {
+    var output = {};
+    ((data && data.pages) || []).forEach(function (page) {
+      var slug = String(page && page.slug || "").trim();
+      if (slug) output[slug] = page;
+    });
+    return output;
+  }
+
+  function pageHasChildPages(slug, data) {
+    var value = String(slug || "").trim();
+    return Boolean(value) && ((data && data.pages) || []).some(function (page) {
+      return String(page && page.parentSlug || "").trim() === value;
+    });
+  }
+
+  function pageIsNavigationGroup(page, data) {
+    var slug = String(page && page.slug || "").trim();
+    return Boolean(slug) && !String(page && page.parentSlug || "").trim() && pageHasChildPages(slug, data);
+  }
+
+  function pagePathSlugs(page, data) {
+    var slug = String(page && page.slug || "").trim();
+    var parentSlug = String(page && page.parentSlug || "").trim();
+    var bySlug = pagesBySlug(data);
+    if (pageIsNavigationGroup(page, data)) return [];
+    if (slug && parentSlug && parentSlug !== slug && bySlug[parentSlug] && !pageHasChildPages(slug, data)) return [parentSlug, slug];
+    return slug ? [slug] : [];
+  }
+
+  function pageHref(page, data) {
+    var parts = pagePathSlugs(page, data).map(function (part) {
+      return encodeURIComponent(part);
+    });
+    if (!parts.length) return "index.html";
+    return "index.html#/page/" + parts.join("/");
   }
 
   function footerPageItems(data) {
     return ((data && data.pages) || []).filter(function (item) {
-      return item && item.showInFooter === true && hasText(item.title || item.slug);
+      return item && item.showInFooter === true && hasText(item.title || item.slug) && !pageIsNavigationGroup(item, data);
     }).map(function (item) {
       return {
         label: item.title || item.slug,
-        href: "index.html#/page/" + encodeURIComponent(item.slug),
+        href: pageHref(item, data),
         key: "footer-page:" + item.slug
       };
     });
@@ -604,12 +685,11 @@
   }
 
   function isCurrentNav(item, page, currentSlug) {
-    return (page === item.key)
-      || (page === "home" && item.key === "home" && !currentSlug)
+    if (currentSlug) return item.key === "page:" + currentSlug;
+    return (page === "home" && item.key === "home")
       || (page === "projects" && item.key === "projects")
       || (page === "pages" && item.key === "pages")
-      || (page === "admin" && item.key === "admin")
-      || (currentSlug && item.key === "page:" + currentSlug);
+      || (page === "admin" && item.key === "admin");
   }
 
   function createNavLink(item, page, currentSlug) {
@@ -629,6 +709,45 @@
     return link;
   }
 
+  function createNavDropdownLink(item, page, currentSlug) {
+    var link = el("a", "nds-btn nds-subtle nds-dropdown-item nav-pages-link");
+    link.href = item.href;
+    link.dataset.navKey = item.key;
+    if (isCurrentNav(item, page, currentSlug)) link.dataset.state = "current";
+    link.append(el("span", "nds-label", item.label));
+    return link;
+  }
+
+  function createNavDropdown(item, page, currentSlug) {
+    var li = el("li", "nds-nav-item nav-pages-item");
+    var trigger = el("button", "nds-nav-link nds-btn nds-subtle nds-menu-btn nds-indicator nav-pages-trigger");
+    var menu = el("div", "nds-dropdown-menu nds-fit nav-pages-menu");
+    var content = el("div", "nds-dropdown-content");
+    var columns = el("div", "nds-dropdown-columns nds-rowView nav-pages-columns");
+    var list = el("div", "nds-list nav-pages-list");
+    var isCurrent = isCurrentNav(item, page, currentSlug) || (item.children || []).some(function (child) {
+      return isCurrentNav(child, page, currentSlug);
+    });
+
+    trigger.type = "button";
+    trigger.dataset.navKey = item.key;
+    trigger.setAttribute("aria-haspopup", "true");
+    trigger.setAttribute("aria-expanded", "false");
+    if (isCurrent) trigger.dataset.state = "current";
+    trigger.append(el("span", "nds-label", item.label));
+    trigger.append(el("span", "nav-caret"));
+
+    (item.children || []).forEach(function (child) {
+      list.append(createNavDropdownLink(child, page, currentSlug));
+    });
+    columns.append(list);
+    content.append(columns);
+    menu.append(content);
+    li.append(trigger);
+    li.append(menu);
+    return li;
+  }
+
   function renderNavigation(data) {
     var list = qs("[data-nav-list]");
     if (!list) return;
@@ -645,8 +764,13 @@
       list.append(li);
     });
 
-    pageNavigationItems(data).forEach(function (item) {
-      var li = el("li", "nds-nav-item");
+    pageNavigationTree(data).forEach(function (item) {
+      var li;
+      if (item.children && item.children.length) {
+        list.append(createNavDropdown(item, page, currentSlug));
+        return;
+      }
+      li = el("li", "nds-nav-item");
       li.append(createNavLink(item, page, currentSlug));
       list.append(li);
     });
@@ -2281,6 +2405,29 @@
         window.NDS.ScrollMore.create(scrollMore);
       });
     }
+    refreshNotificationScrollMore(scope);
+  }
+
+  function refreshNotificationScrollMore(scope) {
+    if (!(window.NDS && window.NDS.ScrollMore && window.NDS.ScrollMore.checkOverflow)) return;
+    var refresh = function () {
+      qsa(".notification-dropdown .nds-scroll-more", scope || document).forEach(function (scrollMore) {
+        window.NDS.ScrollMore.checkOverflow(scrollMore);
+      });
+    };
+    window.requestAnimationFrame(refresh);
+    window.setTimeout(refresh, 120);
+  }
+
+  function settleNotificationDropdownOpen(root) {
+    if (!root) return;
+    var state = root.dataset.state || "";
+    if (state.indexOf("open") === -1 && state.indexOf("opened") === -1) return;
+    root.dataset.state = "open opened";
+    root.setAttribute("data-state", "open opened");
+    syncNotificationTriggerState(root);
+    scheduleHeaderActionDropdownFit(root);
+    refreshNotificationComponents(root);
   }
 
   function notificationRootMode(root) {
@@ -2302,9 +2449,11 @@
       trigger.setAttribute("aria-expanded", "true");
     }
     refreshNotificationComponents(root);
+    scheduleHeaderActionDropdownFit(root);
     if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.show) {
       window.NDS.Backdrop.show({ zIndex: 999, onClick: closeNotificationDropdown });
     }
+    settleNotificationDropdownOpen(root);
   }
 
   function keepNotificationDropdownOpen(root) {
@@ -2315,6 +2464,9 @@
     window.setTimeout(function () {
       setNotificationDropdownOpen(notificationRootForMode(mode));
     }, 80);
+    window.setTimeout(function () {
+      settleNotificationDropdownOpen(notificationRootForMode(mode));
+    }, 260);
   }
 
   function rememberNotificationDropdownOpen(root) {
@@ -2333,6 +2485,9 @@
     window.requestAnimationFrame(function () {
       setNotificationDropdownOpen(notificationRootForMode(mode));
     });
+    window.setTimeout(function () {
+      settleNotificationDropdownOpen(notificationRootForMode(mode));
+    }, 260);
   }
 
   function emptyNotificationsMarkup() {
@@ -2373,6 +2528,9 @@
       notificationsDropdownMarkup(items, "min(820px, calc(100vw - 48px))")
     ].join("");
     refreshNotificationComponents(existing);
+    if ((existing.dataset.state || "").indexOf("open") !== -1) {
+      scheduleHeaderActionDropdownFit(existing);
+    }
     restoreRememberedNotificationDropdown();
   }
 
@@ -2436,6 +2594,7 @@
     });
     window.setTimeout(function () {
       sync();
+      if (root) settleNotificationDropdownOpen(root);
     }, 360);
   }
 
@@ -2554,6 +2713,20 @@
     resetBackdropWhenIdle();
   }
 
+  function closeHeaderActionDropdowns(options) {
+    if (!(options && options.localOnly)) dismissNdsHeaderOverlays();
+    qsa(".site-header .header-actions .nds-dropdown, .site-header .nds-nav-minimal .nds-dropdown").forEach(function (root) {
+      root.dataset.state = "";
+      root.removeAttribute("data-state");
+      qsa("[aria-expanded], [data-state]", root).forEach(function (trigger) {
+        if (trigger.classList && trigger.classList.contains("nav-pages-trigger")) return;
+        removeDataStateTokens(trigger, ["active", "open", "opened", "opening", "closing"]);
+        if (trigger.hasAttribute("aria-expanded")) trigger.setAttribute("aria-expanded", "false");
+      });
+    });
+    resetBackdropWhenIdle();
+  }
+
   function closeNavPanel(options) {
     var nav = qs("[data-nav-panel]");
     var toggler = qs(".nds-mainNav-toggler");
@@ -2572,6 +2745,26 @@
       toggler.removeAttribute("data-state");
     }
     if (button) button.setAttribute("aria-expanded", "false");
+  }
+
+  function isMobileNavPanelOpen() {
+    var nav = qs("[data-nav-panel]");
+    return Boolean(nav)
+      && window.matchMedia("(max-width: 960px)").matches
+      && (nav.dataset.state || "").split(/\s+/).indexOf("open") !== -1;
+  }
+
+  function closeMobileNavPanelAfterNavigation() {
+    if (!isMobileNavPanelOpen()) return;
+    closeNavDropmenus(null, { dismissNative: false, instant: true });
+    closeNotificationDropdown({ localOnly: true });
+    closeMobileAccountDropdown({ localOnly: true });
+    closeNavPanel();
+    window.setTimeout(function () {
+      closeNavPanel({ instant: true });
+      closeNavDropmenus(null, { dismissNative: false, instant: true });
+      resetBackdropWhenIdle();
+    }, 360);
   }
 
   function escapeHtml(value) {
@@ -2600,23 +2793,60 @@
   function setupDropmenus() {
     document.addEventListener("click", function (event) {
       var trigger = event.target.closest(".nav-pages-trigger");
+      var headerActionTrigger = event.target.closest(".site-header .header-actions .nds-dropdown > .nds-nav-link, .site-header .nds-nav-minimal .nds-dropdown > .nds-nav-link");
+      var mobileNavLink = event.target.closest("[data-nav-panel] .nds-nav-primary a[href]");
       if (trigger) {
-        var item = trigger.closest(".nav-pages-item");
-        var menu = item ? qs(".nav-pages-menu", item) : null;
-        var willOpen = menu && menu.hidden;
-        closeNavDropmenus(item);
-        if (menu) {
-          menu.hidden = !willOpen;
-          trigger.setAttribute("aria-expanded", String(willOpen));
-          item.dataset.state = willOpen ? "open" : "";
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        closeHeaderActionDropdowns({ localOnly: true });
+        toggleNavPageDropdown(trigger, event);
+        return;
+      }
+      if (mobileNavLink) {
+        closeMobileNavPanelAfterNavigation();
+      }
+      if (headerActionTrigger) {
+        var header = event.target.closest(".site-header");
+        if (header) header.dataset.headerActionOpening = "true";
+        prepareHeaderActionDropdown(headerActionTrigger);
+        window.setTimeout(function () {
+          if (header) delete header.dataset.headerActionOpening;
+        }, 360);
+      }
+      if (event.target.closest(".nav-pages-menu a")) {
+        closeNavDropmenus(null, { dismissNative: false });
+        scheduleNavPageDropdownSync();
+        return;
+      }
+      if (event.target.closest(".nds-dropdown > .nds-nav-link")) {
+        if (!event.target.closest("[data-notifications-trigger]")) {
+          closeNotificationDropdown({ localOnly: true });
+        }
+        if (!headerActionTrigger) {
+          closeNavDropmenus(null, { dismissNative: false, instant: true });
+          scheduleNavPageDropdownSync();
         }
         return;
       }
-      if (!event.target.closest(".nav-pages-item")) closeNavDropmenus();
-    });
+      if (!event.target.closest(".nav-pages-item")) {
+        closeNavDropmenus(null, { dismissNative: false });
+      }
+      if (hasNativeMainnavDropdowns()) {
+        scheduleNavPageDropdownSync();
+        return;
+      }
+    }, true);
+
+    window.addEventListener("resize", function () {
+      fitOpenNavPageDropdowns();
+      fitOpenHeaderActionDropdowns();
+    }, { passive: true });
 
     document.addEventListener("keydown", function (event) {
-      if (event.key === "Escape") closeNavDropmenus();
+      if (event.key !== "Escape") return;
+      closeNavDropmenus();
+      scheduleNavPageDropdownSync();
     });
   }
 
@@ -2636,7 +2866,9 @@
     data.home = data.home || {};
     data.settings = data.settings || {};
     var candidates = [];
-    allNavigationItems(data).forEach(function (item) {
+    baseNavigationItems(data).concat(pageNavigationItems(data).filter(function (item) {
+      return !(item.children && item.children.length);
+    })).forEach(function (item) {
       candidates.push({ href: item.href, text: item.label + " " + item.key });
     });
     visibleItems(data.projects || []).forEach(function (project, index) {
@@ -2645,9 +2877,9 @@
         text: [project.title, project.description, project.category, project.status, project.date].join(" ")
       });
     });
-    publicPageItems(data).forEach(function (page) {
+    routablePageItems(data).forEach(function (page) {
       candidates.push({
-        href: "index.html#/page/" + encodeURIComponent(page.slug),
+        href: pageHref(page, data),
         text: [page.title, page.slug, page.content].join(" ")
       });
     });
@@ -2725,6 +2957,10 @@
 
     document.addEventListener("wheel", function (event) {
       var list = event.target.closest("[data-nav-list]");
+      if (event.target.closest(".nav-pages-menu")) {
+        if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) event.preventDefault();
+        return;
+      }
       if (!list || window.matchMedia("(max-width: 960px)").matches || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
       event.preventDefault();
       list.scrollLeft += event.deltaY;
@@ -2754,15 +2990,273 @@
     }
   }
 
-  function closeNavDropmenus(except) {
+  function hasNativeMainnavDropdowns() {
+    return Boolean(window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.toggleDropdown);
+  }
+
+  function hasOpenStateToken(element) {
+    var states = (element && element.dataset && element.dataset.state || "").split(/\s+/);
+    return states.indexOf("open") !== -1 || states.indexOf("opening") !== -1 || states.indexOf("opened") !== -1;
+  }
+
+  function isHeaderActionDropdown(element) {
+    return Boolean(element && element.matches && element.matches(".site-header .header-actions .nds-dropdown, .site-header .nds-nav-minimal .nds-dropdown"));
+  }
+
+  function closeNavPagesForHeaderAction() {
+    closeNavDropmenus(null, { dismissNative: false, instant: true });
+    scheduleNavPageDropdownSync();
+  }
+
+  function scheduleNavPagesCloseForHeaderAction() {
+    closeNavPagesForHeaderAction();
+    window.requestAnimationFrame(closeNavPagesForHeaderAction);
+    window.setTimeout(closeNavPagesForHeaderAction, 80);
+    window.setTimeout(closeNavPagesForHeaderAction, 260);
+  }
+
+  function setupHeaderMenuExclusivity() {
+    var header = qs(".site-header");
+    if (!header || headerMenuExclusivityObserver) return;
+    headerMenuExclusivityObserver = new MutationObserver(function (mutations) {
+      var shouldCloseNavPages = mutations.some(function (mutation) {
+        return mutation.type === "attributes"
+          && mutation.attributeName === "data-state"
+          && isHeaderActionDropdown(mutation.target)
+          && hasOpenStateToken(mutation.target);
+      });
+      if (shouldCloseNavPages) closeNavPagesForHeaderAction();
+    });
+    headerMenuExclusivityObserver.observe(header, {
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["data-state"]
+    });
+  }
+
+  function closeNavDropmenus(except, options) {
+    var shouldDismissNative = !options || options.dismissNative !== false;
+    if (!except && shouldDismissNative && window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.dismissOverlays) {
+      window.NDS.Mainnav.dismissOverlays();
+      scheduleNavPageDropdownSync();
+    }
     qsa(".nav-pages-item").forEach(function (item) {
       if (item === except) return;
-      var trigger = qs(".nav-pages-trigger", item);
-      var menu = qs(".nav-pages-menu", item);
-      if (trigger) trigger.setAttribute("aria-expanded", "false");
-      if (menu) menu.hidden = true;
-      item.dataset.state = "";
+      setNavPageDropdownState(item, false, options);
     });
+  }
+
+  function headerActionDropdownFromTrigger(trigger) {
+    return trigger ? trigger.closest(".site-header .header-actions .nds-dropdown, .site-header .nds-nav-minimal .nds-dropdown") : null;
+  }
+
+  function fitHeaderActionDropdown(root) {
+    if (!root || window.matchMedia("(max-width: 960px)").matches) return;
+    var menu = qs(".nds-dropdown-menu.nds-fit", root);
+    var trigger = qs(":scope > .nds-nav-link, :scope > .nds-btn", root) || qs(".nds-nav-link, .nds-btn", root);
+    if (!menu || !trigger) return;
+    window.requestAnimationFrame(function () {
+      var nav = root.closest(".nds-main-nav");
+      var navRect = nav ? nav.getBoundingClientRect() : trigger.getBoundingClientRect();
+      var triggerRect = trigger.getBoundingClientRect();
+      var fixedRoot = menu.closest(".nds-collapse");
+      var rootRect = fixedRoot ? fixedRoot.getBoundingClientRect() : { left: 0, top: 0 };
+      var viewportWidth = document.documentElement.clientWidth || window.innerWidth || 0;
+      var pad = Math.max(16, parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--site-gutter")) || 16);
+      var menuWidth = Math.min(menu.getBoundingClientRect().width || menu.offsetWidth || 360, Math.max(240, viewportWidth - (pad * 2)));
+      var isRtl = (document.documentElement.dir || "").toLowerCase() === "rtl"
+        || getComputedStyle(document.documentElement).direction === "rtl";
+      var left = isRtl ? triggerRect.right - menuWidth : triggerRect.left;
+      left = Math.max(pad, Math.min(left, viewportWidth - pad - menuWidth));
+      menu.style.setProperty("--header-action-menu-top", Math.round(navRect.bottom - rootRect.top) + "px");
+      menu.style.setProperty("--header-action-menu-left", Math.round(left - rootRect.left) + "px");
+    });
+  }
+
+  function fitOpenHeaderActionDropdowns() {
+    qsa(".site-header .header-actions .nds-dropdown, .site-header .nds-nav-minimal .nds-dropdown").forEach(function (root) {
+      var states = (root.dataset.state || "").split(/\s+/);
+      if (states.indexOf("open") !== -1 || states.indexOf("opening") !== -1 || states.indexOf("opened") !== -1) {
+        fitHeaderActionDropdown(root);
+      }
+    });
+  }
+
+  function scheduleHeaderActionDropdownFit(root) {
+    window.requestAnimationFrame(function () {
+      fitHeaderActionDropdown(root);
+    });
+    window.setTimeout(function () {
+      fitHeaderActionDropdown(root);
+    }, 80);
+    window.setTimeout(function () {
+      fitHeaderActionDropdown(root);
+    }, 260);
+  }
+
+  function prepareHeaderActionDropdown(trigger) {
+    var root = headerActionDropdownFromTrigger(trigger);
+    closeNavDropmenus(null, { dismissNative: false, instant: true });
+    scheduleNavPageDropdownSync();
+    scheduleNavPagesCloseForHeaderAction();
+    if (root) scheduleHeaderActionDropdownFit(root);
+  }
+
+  function updateNavPageListDropdownState(list) {
+    if (!list) return;
+    var hasOpen = qsa(".nav-pages-item", list).some(function (item) {
+      return (item.dataset.state || "").split(/\s+/).indexOf("open") !== -1;
+    });
+    if (hasOpen) list.dataset.dropdownState = "open";
+    else list.removeAttribute("data-dropdown-state");
+  }
+
+  function resetNavPageDropdownPosition(menu) {
+    if (!menu) return;
+    menu.style.removeProperty("--nav-pages-left");
+    menu.style.removeProperty("--nav-pages-top");
+    menu.style.removeProperty("--nav-pages-shift");
+  }
+
+  function fitNavPageDropdown(item) {
+    var menu = qs(".nav-pages-menu", item);
+    var trigger = qs(".nav-pages-trigger", item);
+    if (!menu) return;
+    resetNavPageDropdownPosition(menu);
+    if (window.matchMedia("(max-width: 960px)").matches) return;
+    window.requestAnimationFrame(function () {
+      if ((item.dataset.state || "").split(/\s+/).indexOf("open") === -1) return;
+      if (!trigger) return;
+      var triggerRect = trigger.getBoundingClientRect();
+      var menuRect = menu.getBoundingClientRect();
+      var fixedRoot = menu.closest(".nds-collapse");
+      var rootRect = fixedRoot ? fixedRoot.getBoundingClientRect() : { left: 0, top: 0 };
+      var navShell = trigger.closest(".nds-main-nav");
+      var navRect = navShell ? navShell.getBoundingClientRect() : triggerRect;
+      var pad = 16;
+      var viewportWidth = Math.max(pad * 2, document.documentElement.clientWidth || window.innerWidth || 0);
+      var menuWidth = Math.min(menuRect.width || menu.offsetWidth || 240, viewportWidth - (pad * 2));
+      var isRtl = (document.documentElement.dir || "").toLowerCase() === "rtl"
+        || getComputedStyle(document.documentElement).direction === "rtl";
+      var left = isRtl ? triggerRect.right - menuWidth : triggerRect.left;
+      var top = Math.max(triggerRect.bottom + 4, navRect.bottom);
+      left = Math.max(pad, Math.min(left, viewportWidth - pad - menuWidth));
+      menu.style.setProperty("--nav-pages-left", Math.round(left - rootRect.left) + "px");
+      menu.style.setProperty("--nav-pages-top", Math.round(top - rootRect.top) + "px");
+    });
+  }
+
+  function fitOpenNavPageDropdowns() {
+    qsa(".nav-pages-item").forEach(function (item) {
+      if ((item.dataset.state || "").split(/\s+/).indexOf("open") !== -1) {
+        fitNavPageDropdown(item);
+      }
+    });
+  }
+
+  function syncNavPageDropdownTriggers() {
+    qsa(".nav-pages-item").forEach(function (item) {
+      var trigger = qs(".nav-pages-trigger", item);
+      var isOpen = (item.dataset.state || "").split(/\s+/).indexOf("open") !== -1;
+      if (!trigger) return;
+      trigger.setAttribute("aria-expanded", String(isOpen));
+    });
+    qsa("[data-nav-list]").forEach(function (list) {
+      updateNavPageListDropdownState(list);
+    });
+  }
+
+  function removeNavPageStateTokens(item, tokens) {
+    var states = (item.dataset.state || "").split(/\s+/).filter(Boolean);
+    var next = states.filter(function (state) {
+      return tokens.indexOf(state) === -1;
+    });
+    if (next.length) item.dataset.state = next.join(" ");
+    else item.removeAttribute("data-state");
+  }
+
+  function settleNavPageDropdownStates() {
+    qsa(".nav-pages-item").forEach(function (item) {
+      var states = (item.dataset.state || "").split(/\s+/);
+      if (states.indexOf("open") === -1 || states.indexOf("opened") === -1) return;
+      if (window.NDS && window.NDS.State && window.NDS.State.remove) {
+        window.NDS.State.remove(item, "opening", "closing");
+        return;
+      }
+      removeNavPageStateTokens(item, ["opening", "closing"]);
+    });
+    syncNavPageDropdownTriggers();
+  }
+
+  function scheduleNavPageDropdownSync() {
+    window.setTimeout(syncNavPageDropdownTriggers, 0);
+    window.setTimeout(settleNavPageDropdownStates, 280);
+  }
+
+  function toggleNavPageDropdown(trigger, event) {
+    var item = trigger ? trigger.closest(".nav-pages-item") : null;
+    if (!item) return;
+    var isOpen = (item.dataset.state || "").split(/\s+/).indexOf("open") !== -1;
+    closeNavDropmenus(item);
+    setNavPageDropdownState(item, !isOpen);
+  }
+
+  function setNavPageDropdownState(item, isOpen, options) {
+    var trigger = qs(".nav-pages-trigger", item);
+    var menu = qs(".nav-pages-menu", item);
+    var list = item.closest("[data-nav-list]");
+    var instant = options && options.instant;
+    var previousTimer = navPageDropdownTimers.get(item);
+    if (previousTimer) {
+      window.clearTimeout(previousTimer);
+      navPageDropdownTimers.delete(item);
+    }
+    if (!trigger || !menu) return;
+    menu.hidden = false;
+    trigger.setAttribute("aria-expanded", String(isOpen));
+    if (!isOpen && instant) {
+      menu.hidden = true;
+      item.removeAttribute("data-state");
+      resetNavPageDropdownPosition(menu);
+      updateNavPageListDropdownState(list);
+      return;
+    }
+    if (isOpen) {
+      item.dataset.state = "open opening";
+      updateNavPageListDropdownState(list);
+      fitNavPageDropdown(item);
+      window.requestAnimationFrame(function () {
+        window.requestAnimationFrame(function () {
+          if ((item.dataset.state || "").indexOf("open") === -1) return;
+          item.dataset.state = "open";
+          updateNavPageListDropdownState(list);
+          fitNavPageDropdown(item);
+        });
+      });
+      navPageDropdownTimers.set(item, window.setTimeout(function () {
+        if ((item.dataset.state || "").split(/\s+/).indexOf("open") !== -1) item.dataset.state = "open opened";
+        updateNavPageListDropdownState(list);
+        fitNavPageDropdown(item);
+        navPageDropdownTimers.delete(item);
+      }, 240));
+      return;
+    }
+    if ((item.dataset.state || "").split(/\s+/).indexOf("open") === -1) {
+      item.dataset.state = "";
+      item.removeAttribute("data-state");
+      resetNavPageDropdownPosition(menu);
+      updateNavPageListDropdownState(list);
+      return;
+    }
+    item.dataset.state = "open closing";
+    updateNavPageListDropdownState(list);
+    navPageDropdownTimers.set(item, window.setTimeout(function () {
+      item.dataset.state = "";
+      item.removeAttribute("data-state");
+      resetNavPageDropdownPosition(menu);
+      updateNavPageListDropdownState(list);
+      navPageDropdownTimers.delete(item);
+    }, 240));
   }
 
   function setupThemeToggle() {
@@ -3013,24 +3507,39 @@
   }
 
   function getPageSlug() {
-    var match = location.hash.match(/^#\/page\/([^/]+)$/);
-    return match ? decodeURIComponent(match[1]) : "";
+    var parts = getPagePathSlugs();
+    return parts.length ? parts[parts.length - 1] : "";
+  }
+
+  function getPagePathSlugs() {
+    var match = location.hash.match(/^#\/page\/(.+)$/);
+    if (!match) return [];
+    return match[1].split("/").filter(Boolean).map(function (part) {
+      try {
+        return decodeURIComponent(part);
+      } catch (error) {
+        return part;
+      }
+    });
   }
 
   function renderHome(data) {
     var homeView = qs("[data-home-view]");
     var pageView = qs("[data-extra-page-view]");
+    var pageContentView = qs("[data-extra-page-content-view]");
     var slug = getPageSlug();
 
     if (slug) {
       if (homeView) homeView.hidden = true;
       if (pageView) pageView.hidden = false;
+      if (pageContentView) pageContentView.hidden = false;
       renderExtraPage(data, slug);
       return;
     }
 
     if (homeView) homeView.hidden = false;
     if (pageView) pageView.hidden = true;
+    if (pageContentView) pageContentView.hidden = true;
 
     var home = data.home || {};
     var hasContent = hasHomeContent(home);
@@ -3221,6 +3730,37 @@
     return "video/mp4";
   }
 
+  function createPageMedia(page, options) {
+    var hasImage = hasText(page && page.image);
+    var hasVideo = hasText(page && page.video);
+    var wrapper;
+    var video;
+    var source;
+    var image;
+    if (!hasImage && !hasVideo) return null;
+    wrapper = el("div", options && options.card ? "page-media page-card-media nds-card-image" : "page-media page-content-media");
+    if (hasVideo) {
+      video = document.createElement("video");
+      video.className = "page-media-video";
+      video.controls = true;
+      video.preload = "metadata";
+      video.playsInline = true;
+      if (hasImage) video.poster = page.image;
+      source = document.createElement("source");
+      source.src = page.video;
+      source.type = videoMimeType(page.video);
+      video.append(source);
+      wrapper.append(video);
+      return wrapper;
+    }
+    image = document.createElement("img");
+    image.className = "page-media-image";
+    image.src = page.image;
+    image.alt = page.title || "";
+    wrapper.append(image);
+    return wrapper;
+  }
+
   function syncHeroMedia(root) {
     qsa(".hero-slide-video", root).forEach(function (video) {
       var isActive = video.closest(".hero-slide").dataset.state === "active";
@@ -3270,17 +3810,24 @@
     body.innerHTML = "";
     if (!page) {
       titleNodes.forEach(function (node) { node.textContent = "الصفحة غير موجودة"; });
+      renderExtraPageBreadcrumb(data, null);
       updateDocumentTitle(data, "الصفحة غير موجودة");
       body.append(emptyState(uiText(data, "extraPageNotFoundTitle", "لم يتم العثور على الصفحة المطلوبة"), uiText(data, "extraPageNotFoundDescription", "يمكنك العودة إلى الصفحة الرئيسية أو إنشاء الصفحة من لوحة الإدارة.")));
+      renderSectionShareAction("[data-extra-page-view] .nds-section-head", "", "");
       return;
     }
 
     titleNodes.forEach(function (node) { node.textContent = page.title || ""; });
+    renderExtraPageBreadcrumb(data, page);
     updateDocumentTitle(data, page.title || navigationLabel(data, "pagesLabel", "الصفحات"));
-    if (!hasText(page.content)) {
+    renderSectionShareAction("[data-extra-page-view] .nds-section-head", pageHref(page, data), page.title || page.slug || "");
+    var pageMedia = createPageMedia(page);
+    if (pageMedia) body.append(pageMedia);
+    if (!hasText(page.content) && !pageMedia) {
       body.append(emptyState(uiText(data, "extraPageEmptyTitle", "لم تتم إضافة محتوى لهذه الصفحة بعد"), uiText(data, "extraPageEmptyDescription", "يمكن تعديل هذه الصفحة من لوحة الإدارة.")));
       return;
     }
+    if (!hasText(page.content)) return;
 
     if ((page.contentMode || "text") === "html") {
       renderHtmlPageContent(body, page.content);
@@ -3295,6 +3842,35 @@
       if (!hasText(paragraph)) return;
       body.append(el("p", "content-paragraph", paragraph.trim()));
     });
+  }
+
+  function renderExtraPageBreadcrumb(data, page) {
+    var list = qs("[data-extra-page-breadcrumb]");
+    var bySlug = pagesBySlug(data);
+    var parent = page && page.parentSlug ? bySlug[page.parentSlug] : null;
+    if (!list) return;
+    list.innerHTML = "";
+    var homeItem = el("li");
+    var homeLink = el("a", "", navigationLabel(data, "homeLabel", "الرئيسية"));
+    homeLink.href = "index.html";
+    homeLink.setAttribute("data-home-page-label", "");
+    homeItem.append(homeLink);
+    list.append(homeItem);
+    if (page && parent && parent.slug !== page.slug) {
+      var parentItem = el("li");
+      if (pageIsNavigationGroup(parent, data)) {
+        parentItem.append(el("span", "", parent.title || parent.slug || ""));
+      } else {
+        var parentLink = el("a", "", parent.title || parent.slug || "");
+        parentLink.href = pageHref(parent, data);
+        parentItem.append(parentLink);
+      }
+      list.append(parentItem);
+    }
+    var currentItem = el("li", "nds-truncate", page ? (page.title || page.slug || "") : "الصفحة غير موجودة");
+    currentItem.setAttribute("aria-current", "page");
+    currentItem.setAttribute("data-extra-page-title", "");
+    list.append(currentItem);
   }
 
   function renderHtmlPageContent(root, html) {
@@ -3502,6 +4078,7 @@
     var content = qs("[data-projects-content]");
     var projects = visibleItems(data.projects || []);
     var hasProjects = projects.length > 0;
+    renderSectionShareAction("body[data-page='projects'] .nds-hero-section .nds-section-head", "projects.html", navigationLabel(data, "projectsLabel", "مشاريعنا"));
     if (empty) empty.hidden = hasProjects;
     if (content) content.hidden = !hasProjects;
     if (!hasProjects) return;
@@ -3555,7 +4132,8 @@
       if (meta.children.length) content.append(meta);
       var actions = el("div", "project-actions");
       var details = el("a", "nds-btn nds-primary nds-md");
-      details.href = "project.html?id=" + encodeURIComponent(String(entry.index));
+      var projectUrl = "project.html?id=" + encodeURIComponent(String(entry.index));
+      details.href = projectUrl;
       details.append(el("span", "nds-label", uiText(appState.data, "projectDetailsButton", "تفاصيل المشروع")));
       actions.append(details);
       content.append(actions);
@@ -3574,6 +4152,7 @@
     body.innerHTML = "";
 
     if (!project) {
+      renderSectionShareAction("body[data-page='project-detail'] .nds-hero-section .nds-section-head", "", "");
       titleNodes.forEach(function (node) { node.textContent = uiText(data, "projectNotFoundTitle", "المشروع غير موجود"); });
       updateDocumentTitle(data, uiText(data, "projectNotFoundTitle", "المشروع غير موجود"));
       body.append(emptyState(uiText(data, "projectNotFoundEmptyTitle", "لم يتم العثور على المشروع المطلوب"), uiText(data, "projectNotFoundEmptyDescription", "يمكنك العودة إلى صفحة مشاريعنا واختيار مشروع آخر.")));
@@ -3582,6 +4161,7 @@
 
     titleNodes.forEach(function (node) { node.textContent = project.title || uiText(data, "projectDetailFallbackTitle", "تفاصيل المشروع"); });
     updateDocumentTitle(data, project.title || uiText(data, "projectDetailFallbackTitle", "تفاصيل المشروع"));
+    renderSectionShareAction("body[data-page='project-detail'] .nds-hero-section .nds-section-head", "project.html?id=" + encodeURIComponent(String(index)), project.title || "");
     var detail = el("article", "project-detail nds-card nds-stroke");
     var content = el("div", "nds-card-content project-detail-content");
     if (hasText(project.image)) {
@@ -3632,11 +4212,156 @@
     return "https://" + value;
   }
 
+  function absoluteShareUrl(href) {
+    try {
+      return new URL(href || location.href, location.href).href;
+    } catch (error) {
+      return location.href;
+    }
+  }
+
+  function shareMenuButton(actionClass, iconClass, label, ariaLabel) {
+    var button = el("button", "nds-btn nds-subtle nds-dropmenu-item " + actionClass);
+    var icon = document.createElement("i");
+    button.type = "button";
+    button.setAttribute("aria-label", ariaLabel || label);
+    icon.className = "nds-icon " + iconClass;
+    icon.setAttribute("aria-hidden", "true");
+    button.append(icon);
+    button.append(el("span", "nds-label", label));
+    return button;
+  }
+
+  function createShareMenu(href, title) {
+    var shareLabel = uiText(appState.data, "sharePageLabel", "مشاركة الصفحة");
+    var share = el("div", "nds-share nds-dropmenu");
+    var trigger = el("button", "nds-btn nds-secondary-outline nds-dropmenu-trigger");
+    var triggerIcon = document.createElement("i");
+    var triggerLabel = el("span", "nds-label", shareLabel);
+    var menu = el("div", "nds-dropmenu-menu");
+    var copyButton;
+
+    share.dataset.shareUrl = absoluteShareUrl(href);
+    share.dataset.shareTitle = title || document.title;
+    trigger.type = "button";
+    trigger.title = shareLabel;
+    trigger.setAttribute("aria-label", shareLabel);
+    triggerIcon.className = "nds-icon nds-hgi-share-01";
+    triggerIcon.setAttribute("aria-hidden", "true");
+    trigger.append(triggerIcon, triggerLabel);
+
+    menu.hidden = true;
+    menu.append(shareMenuButton("nds-share-x", "nds-hgi-new-twitter", "X", "Share on X"));
+    menu.append(shareMenuButton("nds-share-linkedin", "nds-hgi-linkedin-02", "LinkedIn", "Share on LinkedIn"));
+    menu.append(shareMenuButton("nds-share-whatsapp", "nds-hgi-whatsapp", "WhatsApp", "Share on WhatsApp"));
+    copyButton = shareMenuButton("nds-share-copy", "nds-hgi-link-04", "Copy Link", "Copy Link");
+    copyButton.dataset.label = "Link Copied!";
+    copyButton.dataset.message = "Page link copied to clipboard";
+    copyButton.setAttribute("data-no-auto-close", "");
+    menu.append(copyButton);
+
+    share.append(trigger, menu);
+    return share;
+  }
+
+  function renderSectionShareAction(selector, href, title) {
+    var head = qs(selector);
+    var action = head ? qs("[data-section-share-action]", head) : null;
+    if (!head) return;
+    if (!href) {
+      if (action) action.remove();
+      return;
+    }
+    if (!action) {
+      action = el("div", "nds-section-action nds-minimal");
+      action.dataset.sectionShareAction = "true";
+      head.insertBefore(action, qs(".nds-section-title", head) || head.firstChild);
+    }
+    action.innerHTML = "";
+    action.append(createShareMenu(href, title || document.title));
+  }
+
+  function initializeShareComponents() {
+    if (window.NDS && window.NDS.Breadcrumb) {
+      if (window.NDS.Breadcrumb.reinit) window.NDS.Breadcrumb.reinit();
+      else if (window.NDS.Breadcrumb.init) window.NDS.Breadcrumb.init();
+    }
+    if (window.NDS && window.NDS.Dropmenu) {
+      if (window.NDS.Dropmenu.reinit) window.NDS.Dropmenu.reinit();
+      else if (window.NDS.Dropmenu.init) window.NDS.Dropmenu.init();
+    }
+    if (window.NDS && window.NDS.Copy && window.NDS.Copy.init) window.NDS.Copy.init();
+    if (window.NDS && window.NDS.Share && window.NDS.Share.init) window.NDS.Share.init();
+  }
+
+  function getShareDropmenuPanel(share) {
+    if (window.NDS && window.NDS.Dropmenu && window.NDS.Dropmenu.menuOf) {
+      return window.NDS.Dropmenu.menuOf(share);
+    }
+    return share ? share.querySelector(".nds-dropmenu-menu") : null;
+  }
+
+  function getShareDropmenuInstance(share) {
+    if (!share || !(window.NDS && window.NDS.Dropmenu)) return null;
+    if (share.ndsDropmenu && typeof share.ndsDropmenu.open === "function") return share.ndsDropmenu;
+    if (share.hasAttribute("data-nds-dropmenu-initialized")) {
+      share.removeAttribute("data-nds-dropmenu-initialized");
+    }
+    if (window.NDS.Dropmenu.create) {
+      share.ndsDropmenu = window.NDS.Dropmenu.create(share);
+    } else if (window.NDS.Dropmenu.init) {
+      window.NDS.Dropmenu.init();
+    }
+    return share.ndsDropmenu && typeof share.ndsDropmenu.open === "function" ? share.ndsDropmenu : null;
+  }
+
+  function forceOpenShareDropmenu(share) {
+    var instance = getShareDropmenuInstance(share);
+    var panel = getShareDropmenuPanel(share);
+    var trigger = share ? share.querySelector(".nds-dropmenu-trigger") : null;
+    if (panel) panel.hidden = false;
+    if (instance) {
+      if (instance.menu) instance.menu.hidden = false;
+      if (instance.isOpen) {
+        if (instance.applyPosition) instance.applyPosition();
+        if (instance.trigger) instance.trigger.setAttribute("aria-expanded", "true");
+        if (instance.menu) instance.menu.setAttribute("aria-hidden", "false");
+        return;
+      }
+      instance.open();
+      if (instance.menu) instance.menu.hidden = false;
+      return;
+    }
+    if (!panel || !trigger) return;
+    panel.hidden = false;
+    panel.setAttribute("aria-hidden", "false");
+    trigger.setAttribute("aria-expanded", "true");
+    share.dataset.state = "open";
+  }
+
+  function ensureShareDropmenuOpensOnClick() {
+    document.addEventListener("click", function (event) {
+      var target = event.target;
+      var trigger = target && target.closest ? target.closest(".nds-share .nds-dropmenu-trigger") : null;
+      var share;
+      if (!trigger) return;
+      share = trigger.closest(".nds-share.nds-dropmenu");
+      if (!share) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+      forceOpenShareDropmenu(share);
+    }, true);
+  }
+
   function renderPagesPage(data) {
     var empty = qs("[data-pages-empty]");
     var content = qs("[data-pages-content]");
-    var pages = publicPageItems(data);
+    var pages = publicPageItems(data).filter(function (page) {
+      return !pageIsNavigationGroup(page, data);
+    });
     var hasPages = pages.length > 0;
+    renderSectionShareAction("body[data-page='pages'] .nds-hero-section .nds-section-head", "pages.html", navigationLabel(data, "pagesLabel", "الصفحات"));
     if (empty) empty.hidden = hasPages;
     if (content) content.hidden = !hasPages;
     if (!hasPages) return;
@@ -3650,14 +4375,19 @@
     pages.forEach(function (page) {
       var card = el("article", "nds-card nds-stroke nds-full page-card compact-card");
       var content = el("div", "nds-card-content");
+      var media = createPageMedia(page, { card: true });
+      if (media) content.append(media);
       content.append(el("h2", "nds-card-title", page.title || page.slug || uiText(appState.data, "pageCardFallbackTitle", "صفحة")));
       if (hasText(page.content)) {
         content.append(el("p", "nds-card-description", textPreview(page.content)));
       }
       var link = el("a", "nds-btn nds-primary nds-md");
-      link.href = "index.html#/page/" + encodeURIComponent(page.slug);
+      var pageUrl = pageHref(page, appState.data);
+      var actions = el("div", "project-actions page-actions");
+      link.href = pageUrl;
       link.append(el("span", "nds-label", uiText(appState.data, "pageOpenButton", "فتح الصفحة")));
-      content.append(link);
+      actions.append(link);
+      content.append(actions);
       card.append(content);
       root.append(card);
     });
@@ -3666,6 +4396,7 @@
   function renderNotificationsPage() {
     var root = qs("[data-notifications-list]");
     var empty = qs("[data-notifications-empty]");
+    renderSectionShareAction("body[data-page='notifications'] .nds-hero-section .nds-section-head", "notifications.html", uiText(appState.data, "notificationsLabel", "الإشعارات"));
     if (!root) return;
     var items = loadNotifications();
     root.innerHTML = "";
@@ -3828,6 +4559,7 @@
       if (document.body.dataset.page === "notifications") renderNotificationsPage();
       if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.init) window.NDS.Mainnav.init();
       if (window.NDS && window.NDS.Sidemenu && window.NDS.Sidemenu.init) window.NDS.Sidemenu.init();
+      initializeShareComponents();
       updateHeaderActions(appState.data);
       revealHeaderShell();
       document.documentElement.dataset.siteLoading = "false";
@@ -3848,6 +4580,7 @@
     if (cachedData) applyShellText(cachedData);
     setupNavToggle();
     setupDropmenus();
+    setupHeaderMenuExclusivity();
     setupSiteSearch();
     setupThemeToggle();
     setupHeaderNavScrollEvents();
@@ -3858,6 +4591,7 @@
     setupNotifications();
     setupNotificationsPageEvents();
     setupToastEvents();
+    ensureShareDropmenuOpensOnClick();
     window.SiteStore.me().then(render).catch(render);
   }
 

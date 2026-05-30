@@ -11,6 +11,7 @@
   var lastSavedSignature = "";
   var pendingSaveSignature = "";
   var lastSavedSnapshot = null;
+  var adminConfirmResolver = null;
   var adminUsers = [];
   var adminPermissions = [];
   var adminUsersLoaded = false;
@@ -40,6 +41,7 @@
     ["logoutLabel", "تسمية تسجيل الخروج"],
     ["adminPortalLabel", "تسمية الإدارة"],
     ["themeToggleLabel", "تسمية تبديل الثيم"],
+    ["sharePageLabel", "تسمية زر مشاركة الصفحة"],
     ["homeEmptyTitle", "عنوان فراغ الرئيسية"],
     ["homeEmptyDescription", "وصف فراغ الرئيسية", true],
     ["homeEmptyButton", "زر فراغ الرئيسية"],
@@ -99,9 +101,15 @@
 
   function qs(selector, root) { return (root || document).querySelector(selector); }
   function qsa(selector, root) { return Array.prototype.slice.call((root || document).querySelectorAll(selector)); }
+  function directChildren(root, selector) {
+    return Array.prototype.filter.call(root ? root.children : [], function (child) {
+      return !selector || child.matches(selector);
+    });
+  }
   function field(name) { return qs('[name="' + name + '"]'); }
   function value(name) { var input = field(name); return input ? input.value.trim() : ""; }
   function setValue(name, text) { var input = field(name); if (input) input.value = text || ""; }
+  function hasAdminText(value) { return Boolean(String(value || "").trim()); }
   function currentAdminUser() {
     return window.SiteStore && window.SiteStore.currentUser ? window.SiteStore.currentUser() : null;
   }
@@ -434,7 +442,7 @@
   }
 
   function isPublicPage(page) {
-    return Boolean(page && page.visible === true && page.title && page.content);
+    return Boolean(page && page.visible === true && page.title && (page.content || page.image || page.video));
   }
 
   function isPublicProject(project) {
@@ -448,7 +456,7 @@
   }
 
   function pagePublicSignature(page) {
-    return [page.title || "", page.slug || "", page.contentMode || "text", page.content || ""].join("\u001f");
+    return [page.title || "", page.slug || "", page.contentMode || "text", page.image || "", page.video || "", page.content || ""].join("\u001f");
   }
 
   function projectPublicSignature(project) {
@@ -590,6 +598,8 @@
   }
 
   function fillLoadedForms() {
+    data.home = data.home || {};
+    migrateLegacyHeroMediaToSlides();
     setValue("siteName", data.settings.siteName);
     setValue("siteNameNav", data.settings.siteName);
     setValue("brandName", data.settings.brandName);
@@ -620,9 +630,6 @@
     setValue("intro", data.home.intro);
     setValue("avatar", data.home.avatar);
     setValue("biography", data.home.biography);
-    setValue("heroTitle", data.home.heroTitle);
-    setValue("heroSubtitle", data.home.heroSubtitle);
-    setValue("heroIntro", data.home.heroIntro);
     setValue("heroImage", data.home.heroImage);
     setValue("heroVideo", data.home.heroVideo);
     setValue("skills", (data.home.skills || []).map(function (item) { return typeof item === "string" ? item : item.name; }).join("\n"));
@@ -654,6 +661,35 @@
     collectPages();
     collectIntegrations();
     rememberSavedData();
+  }
+
+  function migrateLegacyHeroMediaToSlides() {
+    data.home.heroSlides = data.home.heroSlides || [];
+    var legacyImage = data.home.heroImage || "";
+    var legacyVideo = data.home.heroVideo || "";
+    var hasLegacyMedia = hasAdminText(legacyImage) || hasAdminText(legacyVideo);
+    var alreadyInSlides = data.home.heroSlides.some(function (slide) {
+      return String(slide.image || "") === String(legacyImage || "")
+        && String(slide.video || "") === String(legacyVideo || "");
+    });
+    if (hasLegacyMedia && !alreadyInSlides) {
+      data.home.heroSlides.unshift({
+        title: "",
+        subtitle: "",
+        intro: "",
+        image: legacyImage,
+        mobileImage: "",
+        video: legacyVideo,
+        mobileVideo: "",
+        alt: "",
+        visible: true
+      });
+    }
+    data.home.heroImage = "";
+    data.home.heroVideo = "";
+    data.home.heroTitle = "";
+    data.home.heroSubtitle = "";
+    data.home.heroIntro = "";
   }
 
   function saveSettings(event) {
@@ -702,11 +738,11 @@
     data.home.intro = value("intro");
     data.home.avatar = value("avatar");
     data.home.biography = value("biography");
-    data.home.heroTitle = value("heroTitle");
-    data.home.heroSubtitle = value("heroSubtitle");
-    data.home.heroIntro = value("heroIntro");
-    data.home.heroImage = value("heroImage");
-    data.home.heroVideo = value("heroVideo");
+    data.home.heroTitle = "";
+    data.home.heroSubtitle = "";
+    data.home.heroIntro = "";
+    data.home.heroImage = "";
+    data.home.heroVideo = "";
     data.home.heroSlides = collectHeroSlides();
     data.home.experience = collectContentRows("experience");
     data.home.achievements = collectContentRows("achievements");
@@ -845,12 +881,18 @@
     ].join("");
   }
 
-  function textareaHtml(key, label, value, rows, info) {
+  function textareaHtml(key, label, value, rows, info, options) {
+    var opts = options || {};
     var placeholder = info ? ' placeholder="' + safeText(info) + '"' : "";
+    var className = "nds-input" + (opts.className ? " " + safeText(opts.className) : "");
+    var attributes = "";
+    if (opts.dir) attributes += ' dir="' + safeText(opts.dir) + '"';
+    if (opts.spellcheck !== undefined) attributes += ' spellcheck="' + (opts.spellcheck ? "true" : "false") + '"';
+    if (opts.contentMode) attributes += ' data-content-editor-mode="' + safeText(opts.contentMode) + '"';
     return [
       '<div class="nds-form-container">',
       '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span></label></div>',
-      '<div class="nds-form-control textarea-control"><textarea class="nds-input" data-field="' + safeText(key) + '" rows="' + rows + '"' + placeholder + '>' + safeText(value) + '</textarea></div>',
+      '<div class="nds-form-control textarea-control"><textarea class="' + className + '" data-field="' + safeText(key) + '" rows="' + rows + '"' + placeholder + attributes + '>' + safeText(value) + '</textarea></div>',
       '</div>'
     ].join("");
   }
@@ -867,13 +909,13 @@
     return [
       '<div class="nds-form-container">',
       '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span></label></div>',
-      '<div class="nds-dropmenu icon-type-menu admin-select-menu" data-select-menu>',
+      '<div class="nds-dropmenu icon-type-menu admin-select-menu" data-select-menu data-dropmenu-no-click>',
       '<button class="nds-btn nds-secondary-outline nds-dropmenu-trigger icon-type-trigger admin-select-trigger" type="button" data-select-trigger aria-expanded="false">',
       '<span class="nds-label" data-select-label>' + safeText(selected.label) + '</span>',
       '<i class="nds-icon nds-hgi-arrow-down-01 icon-type-arrow" aria-hidden="true"></i>',
       '</button>',
       '<input type="hidden" data-field="' + safeText(key) + '" value="' + safeText(selected.value) + '">',
-      '<div class="nds-dropmenu-menu icon-type-options admin-select-options" hidden>',
+      '<div class="nds-dropmenu-menu icon-type-options admin-select-options" hidden aria-hidden="true">',
       '<div class="nds-dropmenu-scroll">',
       items,
       '</div>',
@@ -887,7 +929,7 @@
     var selected = getOption(value, options);
     var items = (options || []).map(function (option) {
       return [
-        '<button class="nds-btn nds-subtle nds-dropmenu-item icon-type-option option-type-option" type="button" data-option-value="' + safeText(option.value) + '">',
+        '<button class="nds-btn nds-subtle nds-dropmenu-item icon-type-option option-type-option" type="button" data-option-value="' + safeText(option.value) + '" data-state="' + (option.value === selected.value ? "selected" : "") + '">',
         adminOptionIcon(option.value),
         '<span class="nds-label">' + safeText(option.label) + '</span>',
         '</button>'
@@ -896,14 +938,14 @@
     return [
       '<div class="nds-form-container">',
       '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span></label></div>',
-      '<div class="nds-dropmenu icon-type-menu option-type-menu" data-option-menu>',
+      '<div class="nds-dropmenu icon-type-menu option-type-menu" data-option-menu data-dropmenu-no-click>',
       '<button class="nds-btn nds-secondary-outline nds-dropmenu-trigger icon-type-trigger option-type-trigger" type="button" data-option-trigger aria-expanded="false">',
       adminOptionIcon(selected.value),
       '<span class="nds-label" data-option-label>' + safeText(selected.label) + '</span>',
       '<i class="nds-icon nds-hgi-arrow-down-01 icon-type-arrow" aria-hidden="true"></i>',
       '</button>',
       '<input type="hidden" data-field="' + safeText(key) + '" value="' + safeText(selected.value) + '">',
-      '<div class="nds-dropmenu-menu icon-type-options option-type-options" hidden>',
+      '<div class="nds-dropmenu-menu icon-type-options option-type-options" hidden aria-hidden="true">',
       '<div class="nds-dropmenu-scroll">',
       items,
       '</div>',
@@ -944,6 +986,135 @@
       if (isOpen) openEditorAccordions.add(key);
       else openEditorAccordions.delete(key);
     }
+  }
+
+  function captureOpenEditorAccordions(root) {
+    qsa("[data-editor-toggle]", root || document).forEach(function (button) {
+      var item = button.closest(".compact-editor-item, [data-hero-slide-index]");
+      var key = editorAccordionKey(item, "", button.getAttribute("aria-controls"));
+      if (key && button.getAttribute("aria-expanded") === "true") openEditorAccordions.add(key);
+    });
+    qsa("[data-page-children-toggle]", root || document).forEach(function (button) {
+      var section = button.closest("[data-page-children-section]");
+      var key = section && section.dataset.editorAccordionKey;
+      if (key && button.getAttribute("aria-expanded") === "true") openEditorAccordions.add(key);
+    });
+  }
+
+  function setPageChildrenSectionState(button, isOpen) {
+    var panelId = button.getAttribute("aria-controls");
+    var panel = panelId ? document.getElementById(panelId) : null;
+    var section = button.closest("[data-page-children-section]");
+    var key = section && section.dataset.editorAccordionKey;
+    button.setAttribute("aria-expanded", String(isOpen));
+    button.dataset.state = isOpen ? "open" : "";
+    if (panel) {
+      panel.dataset.state = isOpen ? "open" : "";
+      panel.setAttribute("aria-hidden", String(!isOpen));
+    }
+    if (section) section.dataset.state = isOpen ? "open" : "closed";
+    if (key) {
+      if (isOpen) openEditorAccordions.add(key);
+      else openEditorAccordions.delete(key);
+    }
+  }
+
+  function togglePageChildrenSection(button) {
+    setPageChildrenSectionState(button, button.getAttribute("aria-expanded") !== "true");
+  }
+
+  function confirmAdminDelete(message) {
+    var modal = ensureAdminConfirmModal();
+    return new Promise(function (resolve) {
+      var title = qs("[data-admin-confirm-title]", modal);
+      var description = qs("[data-admin-confirm-description]", modal);
+      var confirmButton = qs("[data-admin-confirm-action]", modal);
+      if (!modal || !confirmButton || !description) {
+        resolve(window.confirm(message || "هل تريد حذف هذا العنصر؟"));
+        return;
+      }
+      if (adminConfirmResolver) adminConfirmResolver(false);
+      adminConfirmResolver = resolve;
+      if (title) title.textContent = "تأكيد الحذف";
+      description.textContent = message || "هل تريد حذف هذا العنصر؟ لا يمكن التراجع عن هذا الإجراء.";
+      if (window.NDS && window.NDS.Modal && window.NDS.Modal.open) {
+        window.NDS.Modal.open(modal);
+      } else {
+        modal.hidden = false;
+        modal.setAttribute("aria-hidden", "false");
+        modal.dataset.state = "open";
+      }
+      window.setTimeout(function () { confirmButton.focus(); }, 80);
+    });
+  }
+
+  function confirmAdminDeleteThen(message, action) {
+    confirmAdminDelete(message).then(function (confirmed) {
+      if (confirmed) action();
+    });
+  }
+
+  function resolveAdminConfirmModal(confirmed) {
+    var modal = qs("#admin-confirm-modal");
+    var resolver = adminConfirmResolver;
+    adminConfirmResolver = null;
+    if (modal && window.NDS && window.NDS.Modal && window.NDS.Modal.close) {
+      window.NDS.Modal.close();
+    } else if (modal) {
+      modal.hidden = true;
+      modal.setAttribute("aria-hidden", "true");
+      modal.removeAttribute("data-state");
+    }
+    if (resolver) resolver(Boolean(confirmed));
+  }
+
+  function ensureAdminConfirmModal() {
+    var modal = qs("#admin-confirm-modal");
+    if (modal) return modal;
+    modal = document.createElement("div");
+    modal.id = "admin-confirm-modal";
+    modal.className = "nds-modal nds-card nds-stroke admin-confirm-modal";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-labelledby", "admin-confirm-title");
+    modal.setAttribute("aria-describedby", "admin-confirm-description");
+    modal.setAttribute("aria-hidden", "true");
+    modal.hidden = true;
+    modal.innerHTML = [
+      '<div class="nds-card-header">',
+      '<span class="nds-featured-icon nds-circle" data-status="neutral">',
+      '<i class="nds-icon nds-hgi-information-circle" aria-hidden="true"></i>',
+      '</span>',
+      '<button class="nds-close nds-modal-close nds-btn nds-subtle" type="button" aria-label="إغلاق">',
+      '<i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i>',
+      '</button>',
+      '</div>',
+      '<div class="nds-card-content">',
+      '<div class="nds-card-text">',
+      '<h3 class="nds-card-title" id="admin-confirm-title" data-admin-confirm-title>تأكيد الحذف</h3>',
+      '<p class="nds-card-description" id="admin-confirm-description" data-admin-confirm-description></p>',
+      '</div>',
+      '</div>',
+      '<div class="nds-card-actions">',
+      '<button class="nds-btn nds-primary nds-lg" type="button" data-admin-confirm-action>',
+      '<span class="nds-label">تأكيد</span>',
+      '</button>',
+      '<button class="nds-btn nds-secondary-outline nds-lg" type="button" data-admin-confirm-cancel>',
+      '<span class="nds-label">إلغاء</span>',
+      '</button>',
+      '</div>'
+    ].join("");
+    modal.addEventListener("click", function (event) {
+      if (event.target.closest("[data-admin-confirm-action]")) {
+        resolveAdminConfirmModal(true);
+      } else if (event.target.closest("[data-admin-confirm-cancel], .nds-modal-close")) {
+        resolveAdminConfirmModal(false);
+      }
+    });
+    modal.addEventListener("nds-modal-closed", function () {
+      if (adminConfirmResolver) resolveAdminConfirmModal(false);
+    });
+    document.body.appendChild(modal);
+    return modal;
   }
 
   function contactAccordionKey(button) {
@@ -1015,7 +1186,8 @@
     prepareUploadControls(root);
   }
 
-  function collectHeroSlides() {
+  function collectHeroSlides(options) {
+    var keepDrafts = options && options.keepDrafts;
     return qsa("[data-hero-slide-index]").map(function (item) {
       return {
         title: qs('[data-field="heroSlideTitle"]', item) ? qs('[data-field="heroSlideTitle"]', item).value.trim() : "",
@@ -1029,7 +1201,7 @@
         visible: qs("[data-hero-slide-visible]", item).checked
       };
     }).filter(function (slide) {
-      return slide.title || slide.subtitle || slide.intro || slide.image || slide.mobileImage || slide.video || slide.mobileVideo || slide.alt;
+      return keepDrafts || slide.title || slide.subtitle || slide.intro || slide.image || slide.mobileImage || slide.video || slide.mobileVideo || slide.alt;
     });
   }
 
@@ -1272,7 +1444,116 @@
     prepareUploadControls(root);
   }
 
-  function pageTemplate(page, index) {
+  function pageDisplayTitle(page) {
+    return page && (page.title || page.slug) || "صفحة";
+  }
+
+  function pageStructurePathLabel(page) {
+    var pageSlug = slugify(page && (page.slug || page.title));
+    if (!pageSlug) return "بدون-رابط";
+    return pageSlug;
+  }
+
+  function pageHasChildren(slug, pages) {
+    var normalized = slugify(slug);
+    return Boolean(normalized) && (pages || data.pages || []).some(function (page) {
+      return slugify(page && page.parentSlug) === normalized;
+    });
+  }
+
+  function pageChildCount(slug, pages) {
+    var normalized = slugify(slug);
+    if (!normalized) return 0;
+    return (pages || data.pages || []).filter(function (page) {
+      return slugify(page && page.parentSlug) === normalized;
+    }).length;
+  }
+
+  function isGeneratedSubpageDraft(page) {
+    return String(page && page.title || "").trim() === "\u0635\u0641\u062d\u0629 \u0641\u0631\u0639\u064a\u0629 \u062c\u062f\u064a\u062f\u0629";
+  }
+
+  function ensureUniquePageSlugs(pages) {
+    var seen = {};
+    var fallbackSeed = Date.now();
+    (pages || []).forEach(function (page, index) {
+      var seed = slugify(page && (page.slug || page.title)) || ("page-" + fallbackSeed + "-" + (index + 1));
+      var slug = seed;
+      var counter = 2;
+      while (seen[slug]) {
+        slug = seed + "-" + counter;
+        counter += 1;
+      }
+      page.slug = slug;
+      seen[slug] = true;
+    });
+  }
+
+  function pageSlugMaps(pages) {
+    var maps = { bySlug: {}, byOriginalSlug: {} };
+    (pages || []).forEach(function (page) {
+      var slug = slugify(page && page.slug);
+      var originalSlug = slugify(page && page.originalSlug);
+      if (slug) maps.bySlug[slug] = page;
+      if (originalSlug && !maps.byOriginalSlug[originalSlug]) maps.byOriginalSlug[originalSlug] = page;
+    });
+    return maps;
+  }
+
+  function pageParentOptions(currentSlug) {
+    var current = slugify(currentSlug);
+    var currentPage = (data.pages || []).find(function (page) {
+      return slugify(page && page.slug) === current;
+    }) || {};
+    var currentParent = slugify(currentPage.parentSlug);
+    var baseOption = { value: "", label: "صفحة رئيسية في الهيدر" };
+    if (pageHasChildren(current, data.pages)) return [baseOption];
+    var rootPages = (data.pages || []).filter(function (page) {
+      var pageSlug = slugify(page && page.slug);
+      return pageSlug && pageSlug !== current && (!slugify(page.parentSlug) || pageSlug === currentParent);
+    });
+    return [baseOption].concat(rootPages.map(function (page) {
+      return {
+        value: slugify(page.slug),
+        label: "فرعية تحت: " + pageDisplayTitle(page)
+      };
+    }));
+  }
+
+  function normalizePageParentLinks(pages) {
+    var bySlug = {};
+    ensureUniquePageSlugs(pages);
+    (pages || []).forEach(function (page) {
+      page.slug = slugify(page.slug || page.title);
+      page.parentSlug = slugify(page.parentSlug);
+      if (page.slug) bySlug[page.slug] = page;
+    });
+    (pages || []).forEach(function (page) {
+      var hadParent = Boolean(page.parentSlug);
+      var parent = bySlug[page.parentSlug];
+      if (!parent || page.parentSlug === page.slug || slugify(parent.parentSlug) || pageHasChildren(page.slug, pages)) {
+        page.parentSlug = "";
+      }
+      if (hadParent || isGeneratedSubpageDraft(page)) page.showInNavigation = false;
+    });
+    (pages || []).forEach(function (page) {
+      if (!slugify(page.parentSlug) && pageHasChildren(page.slug, pages)) resetPageGroupContent(page);
+    });
+    return pages || [];
+  }
+
+  function resetPageGroupContent(page) {
+    if (!page) return;
+    page.contentMode = "text";
+    page.content = "";
+    page.image = "";
+    page.imagePath = "";
+    page.video = "";
+    page.videoPath = "";
+    page.showInFooter = false;
+  }
+
+  function pageTemplate(page, index, children) {
     var pageId = ensureEntityId(page, "page");
     var mode = page.contentMode || "text";
     var panelId = "page-panel-" + index;
@@ -1280,23 +1561,40 @@
     var title = page.title || "صفحة إضافية";
     var isOpen = pendingOpenEditor.page === index || openEditorAccordions.has(accordionKey);
     if (isOpen) openEditorAccordions.add(accordionKey);
-    var showInNavigation = page.showInFooter && page.visible === false ? false : page.showInNavigation !== false;
+    var isChild = hasAdminText(page.parentSlug);
+    var childEntries = children || [];
+    var childCount = childEntries.length;
+    var isNavigationGroup = !isChild && childCount > 0;
+    var showInNavigation = isChild ? false : (page.showInFooter && page.visible === false ? false : page.showInNavigation !== false);
     return [
-      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="page" data-editor-accordion-key="' + safeText(accordionKey) + '" data-page-index="' + index + '" data-page-id="' + safeText(pageId) + '" data-state="' + (isOpen ? "open" : "closed") + '">',
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="page" data-editor-accordion-key="' + safeText(accordionKey) + '" data-page-index="' + index + '" data-page-id="' + safeText(pageId) + '" data-page-original-slug="' + safeText(slugify(page.slug || page.title)) + '" data-page-is-child="' + (isChild ? "true" : "false") + '" data-page-is-group="' + (isNavigationGroup ? "true" : "false") + '" data-state="' + (isOpen ? "open" : "closed") + '">',
       '<div class="nds-card-content compact-card-content">',
       '<div class="editor-item-head sortable-editor-header">',
       dragHandleHtml("اسحب لتغيير ترتيب الصفحات"),
       '<button class="editor-accordion-btn nds-accordion-btn nds-btn nds-subtle" type="button" data-editor-toggle data-state="' + (isOpen ? "open" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
+      '<span class="page-editor-heading">',
       '<span class="nds-card-title">' + safeText(title) + '</span>',
+      '<span class="page-editor-meta">',
+      '<span class="nds-tag nds-sm" data-status="' + (isChild ? "info" : "neutral") + '"><span class="nds-label">' + (isChild ? "صفحة فرعية" : "صفحة رئيسية") + '</span></span>',
+      childCount ? '<span class="nds-tag nds-sm"><span class="nds-label">' + childCount + ' عناصر فرعية</span></span>' : '',
+      '</span>',
+      '</span>',
       '</button>',
+      '<div class="editor-item-actions page-editor-actions">',
       adminDeleteButton("data-delete-page", index, "حذف الصفحة"),
+      '</div>',
       '</div>',
       '<div class="editor-accordion-collapse nds-accordion-collapse" id="' + panelId + '"' + (isOpen ? ' data-state="open" aria-hidden="false"' : ' aria-hidden="true"') + '>',
       '<div class="editor-accordion-content nds-accordion-content">',
       '<div class="form-grid">',
       inputHtml("pageTitle", "عنوان الصفحة", page.title),
       inputHtml("pageSlug", "الرابط المختصر", page.slug),
+      selectHtml("pageParentSlug", "الموقع في الهيدر", page.parentSlug || "", pageParentOptions(page.slug)),
       optionDropmenuHtml("pageContentMode", "نوع المحتوى", mode, window.PAGE_CONTENT_MODES || []),
+      '</div>',
+      '<div class="form-grid">',
+      uploadableInputHtml("pageImage", "صورة الصفحة", page.image, "page-image", "مثال: uploads/images/page.jpg"),
+      uploadableInputHtml("pageVideo", "فيديو الصفحة", page.video, "page-video", "مثال: uploads/video/page.webm"),
       '</div>',
       '<div class="admin-check-stack">',
       '<label class="check-line"><input type="checkbox" data-page-visible ' + (page.visible ? "checked" : "") + '> <span>نشر الصفحة</span></label>',
@@ -1304,6 +1602,7 @@
       '<label class="check-line"><input type="checkbox" data-page-footer-link ' + (page.showInFooter ? "checked" : "") + '> <span>رابط تذييل</span></label>',
       '</div>',
       textareaHtml("pageContent", "محتوى الصفحة", page.content, 10, "اكتب نصا عاديا أو اختر HTML والصق الكود كاملا. سيتم عرضه داخل حاوية منسقة."),
+      isChild ? '' : pageChildrenSectionHtml(page, pageId, childEntries),
       '</div>',
       '</div>',
       '</div>',
@@ -1311,23 +1610,94 @@
     ].join("");
   }
 
+  function pageChildrenSectionHtml(page, pageId, children) {
+    var pageTitle = pageDisplayTitle(page);
+    var childrenKey = "page-children:" + pageId;
+    var panelId = "page-children-panel-" + pageId;
+    var isOpen = openEditorAccordions.has(childrenKey);
+    return [
+      '<section class="page-children-section" data-page-children-section data-editor-accordion-key="' + safeText(childrenKey) + '" data-state="' + (isOpen ? "open" : "closed") + '" aria-label="الصفحات الفرعية">',
+      '<div class="page-children-head">',
+      '<button class="nds-btn nds-subtle page-children-toggle" type="button" data-page-children-toggle data-state="' + (isOpen ? "open" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + safeText(panelId) + '">',
+      '<i class="nds-icon nds-hgi-arrow-down-01" aria-hidden="true"></i>',
+      '<span class="page-children-title-row">',
+      '<span class="section-minor-title">الصفحات الفرعية</span>',
+      '<span class="nds-tag nds-sm"><span class="nds-label">' + children.length + ' صفحة</span></span>',
+      '</span>',
+      '</button>',
+      '<button class="nds-btn nds-secondary-outline nds-sm page-add-subpage-btn" type="button" data-add-subpage="' + safeText(pageId) + '" aria-label="إضافة صفحة فرعية تحت ' + safeText(pageTitle) + '" title="إضافة صفحة فرعية">',
+      '<i class="nds-icon nds-hgi-plus-sign" aria-hidden="true"></i>',
+      '<span class="nds-label">إضافة صفحة فرعية</span>',
+      '</button>',
+      '</div>',
+      '<div class="page-children-collapse" id="' + safeText(panelId) + '"' + (isOpen ? ' data-state="open" aria-hidden="false"' : ' aria-hidden="true"') + '>',
+      '<div class="page-children-collapse-content">',
+      '<div class="editor-list compact-editor-list page-children-list" data-sortable-list="pages">',
+      children.length ? children.map(function (entry) { return pageTemplate(entry.page, entry.index, []); }).join("") : '<div class="page-children-empty">لا توجد صفحات فرعية لهذه الصفحة.</div>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</section>'
+    ].join("");
+  }
+
   function renderPagesEditor() {
     var root = qs("[data-pages-editor]");
+    var entries;
+    var bySlug = {};
+    var childrenByParent = {};
+    var roots = [];
     if (!root) return;
     data.pages = data.pages || [];
+    data.pages = normalizePageParentLinks(data.pages);
+    entries = data.pages.map(function (page, index) {
+      var slug = slugify(page && page.slug);
+      var entry = { page: page, index: index, slug: slug };
+      if (slug) bySlug[slug] = entry;
+      return entry;
+    });
+    entries.forEach(function (entry) {
+      var parentSlug = slugify(entry.page && entry.page.parentSlug);
+      var parent = parentSlug && bySlug[parentSlug];
+      if (parent && parent !== entry) {
+        childrenByParent[parentSlug] = childrenByParent[parentSlug] || [];
+        childrenByParent[parentSlug].push(entry);
+      } else {
+        roots.push(entry);
+      }
+    });
     root.dataset.sortableList = "pages";
-    root.innerHTML = data.pages.map(pageTemplate).join("");
+    root.innerHTML = roots.map(function (entry) {
+      return pageTemplate(entry.page, entry.index, childrenByParent[entry.slug] || []);
+    }).join("");
+    syncPageContentEditorModes(root);
     pendingOpenEditor.page = null;
     if (!data.pages.length) {
       root.append(window.SiteApp.emptyState("لا توجد صفحات إضافية", "استخدم زر إضافة صفحة لإنشاء صفحة جديدة."));
     }
   }
 
+  function syncPageContentEditorMode(item) {
+    var input = item ? qs('[data-field="pageContentMode"]', item) : null;
+    var editor = item ? qs('[data-field="pageContent"]', item) : null;
+    var mode = input && input.value === "html" ? "html" : "text";
+    if (!editor) return;
+    editor.classList.add("page-content-editor");
+    editor.classList.toggle("page-content-editor-html", mode === "html");
+    editor.dataset.contentEditorMode = mode;
+    editor.setAttribute("dir", mode === "html" ? "ltr" : "auto");
+    editor.setAttribute("spellcheck", mode === "html" ? "false" : "true");
+  }
+
+  function syncPageContentEditorModes(root) {
+    qsa("[data-page-index]", root || document).forEach(syncPageContentEditorMode);
+  }
+
   function iconTypeDropmenuHtml(key, label, value) {
     var selected = getIconOption(value);
     var options = (window.CONTACT_ICON_OPTIONS || []).map(function (option) {
       return [
-        '<button class="nds-btn nds-subtle nds-dropmenu-item icon-type-option" type="button" data-icon-type-option="' + safeText(option.value) + '">',
+        '<button class="nds-btn nds-subtle nds-dropmenu-item icon-type-option" type="button" data-icon-type-option="' + safeText(option.value) + '" data-state="' + (option.value === selected.value ? "selected" : "") + '">',
         adminContactIcon(option.value),
         '<span class="nds-label">' + safeText(option.label) + '</span>',
         '</button>'
@@ -1336,14 +1706,14 @@
     return [
       '<div class="nds-form-container">',
       '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span></label></div>',
-      '<div class="nds-dropmenu icon-type-menu" data-icon-type-menu>',
+      '<div class="nds-dropmenu icon-type-menu" data-icon-type-menu data-dropmenu-no-click>',
       '<button class="nds-btn nds-secondary-outline nds-dropmenu-trigger icon-type-trigger" type="button" data-icon-type-trigger aria-expanded="false">',
       adminContactIcon(selected.value),
       '<span class="nds-label" data-icon-type-label>' + safeText(selected.label) + '</span>',
       '<i class="nds-icon nds-hgi-arrow-down-01 icon-type-arrow" aria-hidden="true"></i>',
       '</button>',
       '<input type="hidden" data-field="' + safeText(key) + '" value="' + safeText(selected.value) + '">',
-      '<div class="nds-dropmenu-menu icon-type-options" hidden>',
+      '<div class="nds-dropmenu-menu icon-type-options" hidden aria-hidden="true">',
       '<div class="nds-dropmenu-scroll">',
       options,
       '</div>',
@@ -1850,21 +2220,146 @@
   }
 
   function collectPages() {
+    var maps;
     data.pages = qsa("[data-page-index]").map(function (item) {
       var title = qs('[data-field="pageTitle"]', item).value.trim();
       var slug = qs('[data-field="pageSlug"]', item).value.trim() || slugify(title);
+      var parentSlug = slugify((qs('[data-field="pageParentSlug"]', item) || {}).value || "");
+      var navigationInput = qs("[data-page-navigation-link]", item);
       return {
         id: item.dataset.pageId || newEntityId("page"),
+        originalSlug: item.dataset.pageOriginalSlug || "",
         title: title,
         slug: slugify(slug),
+        parentSlug: parentSlug,
         visible: qs("[data-page-visible]", item).checked,
-        showInNavigation: qs("[data-page-navigation-link]", item).checked,
+        showInNavigation: parentSlug ? false : (navigationInput ? navigationInput.checked : true),
         showInFooter: qs("[data-page-footer-link]", item).checked,
         contentMode: qs('[data-field="pageContentMode"]', item).value || "text",
+        image: (qs('[data-field="pageImage"]', item) || {}).value || "",
+        video: (qs('[data-field="pageVideo"]', item) || {}).value || "",
         content: qs('[data-field="pageContent"]', item).value.trim()
       };
     }).filter(function (page) {
-      return page.title || page.slug || page.content;
+      return page.title || page.slug || page.content || page.image || page.video;
+    });
+    ensureUniquePageSlugs(data.pages);
+    maps = pageSlugMaps(data.pages);
+    data.pages.forEach(function (page) {
+      var parent = maps.bySlug[page.parentSlug] || maps.byOriginalSlug[page.parentSlug];
+      if (parent && parent !== page) page.parentSlug = parent.slug;
+      delete page.originalSlug;
+    });
+    data.pages = normalizePageParentLinks(data.pages);
+  }
+
+  function addSubpageForParent(parentPageId) {
+    var parentIndex;
+    var parent;
+    var parentSlug;
+    var child;
+    var insertAt;
+    if (!ensurePermission("pages")) return;
+    captureOpenEditorAccordions(qs("[data-pages-editor]"));
+    collectPages();
+    parentIndex = (data.pages || []).findIndex(function (page) {
+      return ensureEntityId(page, "page") === parentPageId;
+    });
+    if (parentIndex < 0) {
+      toast("تعذر تحديد الصفحة الأم", "error");
+      renderPagesEditor();
+      return;
+    }
+    parent = data.pages[parentIndex];
+    if (slugify(parent.parentSlug)) {
+      toast("الصفحة الفرعية لا يمكن أن تحتوي على صفحة فرعية أخرى", "error");
+      renderPagesEditor();
+      return;
+    }
+    parentSlug = slugify(parent.slug || parent.title);
+    if (!parentSlug) {
+      toast("اكتب عنوان الصفحة الأم أو الرابط المختصر أولا", "error");
+      renderPagesEditor();
+      return;
+    }
+    parent.parentSlug = "";
+    parent.showInNavigation = parent.showInNavigation !== false;
+    child = {
+      id: newEntityId("page"),
+      title: "صفحة فرعية جديدة",
+      slug: parentSlug + "-subpage",
+      parentSlug: parentSlug,
+      content: "",
+      contentMode: "text",
+      image: "",
+      video: "",
+      visible: true,
+      showInNavigation: false,
+      showInFooter: false
+    };
+    data.pages.push(child);
+    data.pages = normalizePageParentLinks(data.pages);
+    parentIndex = data.pages.findIndex(function (page) {
+      return ensureEntityId(page, "page") === parentPageId;
+    });
+    child = data.pages.find(function (page) {
+      return ensureEntityId(page, "page") === child.id;
+    });
+    if (!child || parentIndex < 0) {
+      toast("تعذر إنشاء الصفحة الفرعية", "error");
+      renderPagesEditor();
+      return;
+    }
+    parent = data.pages[parentIndex];
+    parentSlug = slugify(parent && parent.slug);
+    insertAt = parentIndex + 1;
+    while (insertAt < data.pages.length && slugify(data.pages[insertAt].parentSlug) === parentSlug) {
+      insertAt += 1;
+    }
+    data.pages = data.pages.filter(function (page) {
+      return ensureEntityId(page, "page") !== child.id;
+    });
+    data.pages.splice(insertAt, 0, child);
+    pendingOpenEditor.page = insertAt;
+    openEditorAccordions.add("page:" + parentPageId);
+    openEditorAccordions.add("page-children:" + parentPageId);
+    openEditorAccordions.add("page:" + child.id);
+    saveData();
+    renderPagesEditor();
+    refreshPublicShell();
+    toast("تمت إضافة صفحة فرعية");
+  }
+
+  function deletePageById(pageId) {
+    var index;
+    var page;
+    var pageSlug;
+    var childCount;
+    if (!pageId) return;
+    captureOpenEditorAccordions(qs("[data-pages-editor]"));
+    collectPages();
+    index = (data.pages || []).findIndex(function (candidate) {
+      return ensureEntityId(candidate, "page") === pageId;
+    });
+    if (index < 0) return;
+    page = data.pages[index];
+    pageSlug = slugify(page.slug || page.title);
+    childCount = (data.pages || []).filter(function (candidate) {
+      return slugify(candidate.parentSlug) === pageSlug;
+    }).length;
+    confirmAdminDeleteThen(childCount ? "هل تريد حذف هذه الصفحة؟ سيتم نقل صفحاتها الفرعية إلى المستوى الرئيسي." : "هل تريد حذف هذه الصفحة؟", function () {
+      data.pages.splice(index, 1);
+      if (pageSlug) {
+        data.pages.forEach(function (candidate) {
+          if (slugify(candidate.parentSlug) === pageSlug) candidate.parentSlug = "";
+        });
+      }
+      openEditorAccordions.delete("page:" + pageId);
+      openEditorAccordions.delete("page-children:" + pageId);
+      saveData();
+      renderPagesEditor();
+      refreshPublicShell();
+      toast("تم حذف الصفحة");
     });
   }
 
@@ -2097,19 +2592,22 @@
     if (!ensurePermission("users")) return;
     var id = Number(button.dataset.deleteAdminUser || 0);
     if (!id) {
-      var draftItem = button.closest("[data-admin-user-index]");
-      adminUsers.splice(Number(draftItem ? draftItem.dataset.adminUserIndex : 0), 1);
-      renderAdminUsersEditor();
+      confirmAdminDeleteThen("هل تريد حذف هذا الموظف؟", function () {
+        var draftItem = button.closest("[data-admin-user-index]");
+        adminUsers.splice(Number(draftItem ? draftItem.dataset.adminUserIndex : 0), 1);
+        renderAdminUsersEditor();
+      });
       return;
     }
-    if (!confirm("هل تريد حذف هذا الموظف؟")) return;
-    window.SiteStore.deleteUser(id).then(function (users) {
-      adminUsers = users || [];
-      adminUsersLoaded = true;
-      renderAdminUsersEditor();
-      toast("تم حذف الموظف");
-    }).catch(function (error) {
-      toast(error.message || "تعذر حذف الموظف", "error");
+    confirmAdminDeleteThen("هل تريد حذف هذا الموظف؟", function () {
+      window.SiteStore.deleteUser(id).then(function (users) {
+        adminUsers = users || [];
+        adminUsersLoaded = true;
+        renderAdminUsersEditor();
+        toast("تم حذف الموظف");
+      }).catch(function (error) {
+        toast(error.message || "تعذر حذف الموظف", "error");
+      });
     });
   }
 
@@ -2210,7 +2708,7 @@
   }
 
   function getDragAfterElement(container, y) {
-    return qsa("[data-sortable-item]:not(.is-dragging)", container).reduce(function (closest, child) {
+    return directChildren(container, "[data-sortable-item]:not(.is-dragging)").reduce(function (closest, child) {
       var box = child.getBoundingClientRect();
       var offset = y - box.top - box.height / 2;
       if (offset < 0 && offset > closest.offset) {
@@ -2223,7 +2721,7 @@
   function persistSortableOrder(root) {
     if (!root) return;
     if (root.dataset.sortableList === "hero") {
-      data.home.heroSlides = collectHeroSlides();
+      data.home.heroSlides = collectHeroSlides({ keepDrafts: true });
       saveData();
       renderHeroSlidesEditor();
       refreshPublicShell();
@@ -2554,7 +3052,7 @@
     setupUploadEvents();
 
     qs("[data-add-hero-slide]").addEventListener("click", function () {
-      data.home.heroSlides = collectHeroSlides();
+      data.home.heroSlides = collectHeroSlides({ keepDrafts: true });
       data.home.heroSlides.unshift({ title: "", subtitle: "", intro: "", image: "", mobileImage: "", video: "", mobileVideo: "", alt: "", visible: true });
       pendingOpenEditor.hero = 0;
       renderHeroSlidesEditor();
@@ -2637,7 +3135,7 @@
     qs("[data-add-page]").addEventListener("click", function () {
       var page;
       collectPages();
-      page = { id: newEntityId("page"), title: "صفحة جديدة", slug: "page-" + Date.now(), content: "", contentMode: "text", visible: true, showInNavigation: true, showInFooter: false };
+      page = { id: newEntityId("page"), title: "صفحة جديدة", slug: "page-" + Date.now(), parentSlug: "", content: "", contentMode: "text", image: "", video: "", visible: true, showInNavigation: true, showInFooter: false };
       data.pages.unshift(page);
       pendingOpenEditor.page = 0;
       renderPagesEditor();
@@ -2689,6 +3187,8 @@
       var deleteAdminUserButton = event.target.closest("[data-delete-admin-user]");
       var deleteContentRow = event.target.closest("[data-delete-content-row]");
       var deleteSkill = event.target.closest("[data-delete-skill]");
+      var addSubpage = event.target.closest("[data-add-subpage]");
+      var pageChildrenToggle = event.target.closest("[data-page-children-toggle]");
       var contactToggle = event.target.closest("[data-contact-toggle]");
       var editorToggle = event.target.closest("[data-editor-toggle]");
       var iconTypeTrigger = event.target.closest("[data-icon-type-trigger]");
@@ -2706,33 +3206,43 @@
       if (selectValue) { selectDropmenuValue(selectValue); return; }
       if (saveAdminUserButton) { saveAdminUser(saveAdminUserButton); return; }
       if (deleteAdminUserButton) { deleteAdminUser(deleteAdminUserButton); return; }
-      if (!event.target.closest("[data-icon-type-menu]")) closeIconTypeMenus();
-      if (!event.target.closest("[data-option-menu]")) closeOptionMenus();
-      if (!event.target.closest("[data-select-menu]")) closeSelectMenus();
+      if (addSubpage) { addSubpageForParent(addSubpage.dataset.addSubpage || ""); return; }
+      if (pageChildrenToggle) { togglePageChildrenSection(pageChildrenToggle); return; }
+      if (!event.target.closest("[data-icon-type-menu], [data-option-menu], [data-select-menu]")) closeAdminInlineDropmenus();
       if (contactToggle) { toggleContactPanel(contactToggle); return; }
       if (editorToggle) { toggleEditorPanel(editorToggle); return; }
 
       if (deleteHeroSlide) {
-        data.home.heroSlides = collectHeroSlides();
-        data.home.heroSlides.splice(getSortableItemIndex(deleteHeroSlide.closest("[data-hero-slide-index]")), 1);
-        saveData();
-        renderHeroSlidesEditor();
-        toast("تم حذف وسائط القسم الرئيسي");
+        confirmAdminDeleteThen("هل تريد حذف وسائط القسم الرئيسي؟", function () {
+          var heroSlideIndex = getSortableItemIndex(deleteHeroSlide.closest("[data-hero-slide-index]"));
+          data.home.heroSlides = collectHeroSlides({ keepDrafts: true });
+          if (heroSlideIndex > -1) data.home.heroSlides.splice(heroSlideIndex, 1);
+          saveData();
+          renderHeroSlidesEditor();
+          toast("تم حذف وسائط القسم الرئيسي");
+        });
+        return;
       }
       if (deleteContact) {
-        data.home.contacts = collectContacts();
-        data.home.contacts.splice(Number(deleteContact.dataset.deleteContact), 1);
-        saveData();
-        renderContactsEditor();
-        toast("تم حذف وسيلة التواصل");
+        confirmAdminDeleteThen("هل تريد حذف وسيلة التواصل؟", function () {
+          data.home.contacts = collectContacts();
+          data.home.contacts.splice(Number(deleteContact.dataset.deleteContact), 1);
+          saveData();
+          renderContactsEditor();
+          toast("تم حذف وسيلة التواصل");
+        });
+        return;
       }
       if (deleteFooterLink) {
-        data.home.footerLinks = collectFooterLinks({ keepDrafts: true });
-        data.home.footerLinks.splice(Number(deleteFooterLink.dataset.deleteFooterLink), 1);
-        saveData();
-        renderFooterLinksEditor();
-        refreshPublicShell();
-        toast("تم حذف رابط التذييل");
+        confirmAdminDeleteThen("هل تريد حذف رابط التذييل؟", function () {
+          data.home.footerLinks = collectFooterLinks({ keepDrafts: true });
+          data.home.footerLinks.splice(Number(deleteFooterLink.dataset.deleteFooterLink), 1);
+          saveData();
+          renderFooterLinksEditor();
+          refreshPublicShell();
+          toast("تم حذف رابط التذييل");
+        });
+        return;
       }
       if (addFooterColumnLink) {
         var columnIndex = Number(addFooterColumnLink.dataset.addFooterColumnLink);
@@ -2759,92 +3269,119 @@
         renderFooterIconGroupsEditor();
       }
       if (deleteFooterColumn) {
-        data.footer.columns = collectFooterColumns({ keepDrafts: true });
-        data.footer.columns.splice(Number(deleteFooterColumn.dataset.deleteFooterColumn), 1);
-        saveData();
-        renderFooterColumnsEditor();
-        refreshPublicShell();
-        toast("تم حذف عمود التذييل");
+        confirmAdminDeleteThen("هل تريد حذف عمود التذييل؟", function () {
+          data.footer.columns = collectFooterColumns({ keepDrafts: true });
+          data.footer.columns.splice(Number(deleteFooterColumn.dataset.deleteFooterColumn), 1);
+          saveData();
+          renderFooterColumnsEditor();
+          refreshPublicShell();
+          toast("تم حذف عمود التذييل");
+        });
+        return;
       }
       if (deleteFooterColumnLink) {
-        var columnParts = String(deleteFooterColumnLink.dataset.deleteFooterColumnLink || "").split(":");
-        data.footer.columns = collectFooterColumns({ keepDrafts: true });
-        if (data.footer.columns[Number(columnParts[0])]) data.footer.columns[Number(columnParts[0])].links.splice(Number(columnParts[1]), 1);
-        saveData();
-        renderFooterColumnsEditor();
-        refreshPublicShell();
-        toast("تم حذف رابط العمود");
+        confirmAdminDeleteThen("هل تريد حذف رابط العمود؟", function () {
+          var columnParts = String(deleteFooterColumnLink.dataset.deleteFooterColumnLink || "").split(":");
+          data.footer.columns = collectFooterColumns({ keepDrafts: true });
+          if (data.footer.columns[Number(columnParts[0])]) data.footer.columns[Number(columnParts[0])].links.splice(Number(columnParts[1]), 1);
+          saveData();
+          renderFooterColumnsEditor();
+          refreshPublicShell();
+          toast("تم حذف رابط العمود");
+        });
+        return;
       }
       if (deleteFooterIconGroup) {
-        data.footer.iconGroups = collectFooterIconGroups({ keepDrafts: true });
-        data.footer.iconGroups.splice(Number(deleteFooterIconGroup.dataset.deleteFooterIconGroup), 1);
-        saveData();
-        renderFooterIconGroupsEditor();
-        refreshPublicShell();
-        toast("تم حذف مجموعة الأيقونات");
+        confirmAdminDeleteThen("هل تريد حذف مجموعة الأيقونات؟", function () {
+          data.footer.iconGroups = collectFooterIconGroups({ keepDrafts: true });
+          data.footer.iconGroups.splice(Number(deleteFooterIconGroup.dataset.deleteFooterIconGroup), 1);
+          saveData();
+          renderFooterIconGroupsEditor();
+          refreshPublicShell();
+          toast("تم حذف مجموعة الأيقونات");
+        });
+        return;
       }
       if (deleteFooterIconLink) {
-        var iconParts = String(deleteFooterIconLink.dataset.deleteFooterIconLink || "").split(":");
-        data.footer.iconGroups = collectFooterIconGroups({ keepDrafts: true });
-        if (data.footer.iconGroups[Number(iconParts[0])]) data.footer.iconGroups[Number(iconParts[0])].links.splice(Number(iconParts[1]), 1);
-        saveData();
-        renderFooterIconGroupsEditor();
-        refreshPublicShell();
-        toast("تم حذف رابط الأيقونة");
+        confirmAdminDeleteThen("هل تريد حذف رابط الأيقونة؟", function () {
+          var iconParts = String(deleteFooterIconLink.dataset.deleteFooterIconLink || "").split(":");
+          data.footer.iconGroups = collectFooterIconGroups({ keepDrafts: true });
+          if (data.footer.iconGroups[Number(iconParts[0])]) data.footer.iconGroups[Number(iconParts[0])].links.splice(Number(iconParts[1]), 1);
+          saveData();
+          renderFooterIconGroupsEditor();
+          refreshPublicShell();
+          toast("تم حذف رابط الأيقونة");
+        });
+        return;
       }
       if (deleteFooterBottomLink) {
-        data.footer.bottomLinks = collectFooterBottomLinks({ keepDrafts: true });
-        data.footer.bottomLinks.splice(Number(deleteFooterBottomLink.dataset.deleteFooterBottomLink), 1);
-        saveData();
-        renderFooterBottomLinksEditor();
-        refreshPublicShell();
-        toast("تم حذف الرابط السفلي");
+        confirmAdminDeleteThen("هل تريد حذف الرابط السفلي؟", function () {
+          data.footer.bottomLinks = collectFooterBottomLinks({ keepDrafts: true });
+          data.footer.bottomLinks.splice(Number(deleteFooterBottomLink.dataset.deleteFooterBottomLink), 1);
+          saveData();
+          renderFooterBottomLinksEditor();
+          refreshPublicShell();
+          toast("تم حذف الرابط السفلي");
+        });
+        return;
       }
       if (deleteFooterLogo) {
-        data.footer.logos = collectFooterLogos({ keepDrafts: true });
-        data.footer.logos.splice(Number(deleteFooterLogo.dataset.deleteFooterLogo), 1);
-        saveData();
-        renderFooterLogosEditor();
-        refreshPublicShell();
-        toast("تم حذف شعار التذييل");
+        confirmAdminDeleteThen("هل تريد حذف شعار التذييل؟", function () {
+          data.footer.logos = collectFooterLogos({ keepDrafts: true });
+          data.footer.logos.splice(Number(deleteFooterLogo.dataset.deleteFooterLogo), 1);
+          saveData();
+          renderFooterLogosEditor();
+          refreshPublicShell();
+          toast("تم حذف شعار التذييل");
+        });
+        return;
       }
       if (deleteProject) {
-        collectProjects();
-        data.projects.splice(Number(deleteProject.dataset.deleteProject), 1);
-        saveData();
-        renderProjectsEditor();
-        toast("تم حذف المشروع");
+        confirmAdminDeleteThen("هل تريد حذف المشروع؟", function () {
+          collectProjects();
+          data.projects.splice(Number(deleteProject.dataset.deleteProject), 1);
+          saveData();
+          renderProjectsEditor();
+          toast("تم حذف المشروع");
+        });
+        return;
       }
       if (deletePage) {
-        collectPages();
-        data.pages.splice(getSortableItemIndex(deletePage.closest("[data-page-index]")), 1);
-        saveData();
-        renderPagesEditor();
-        refreshPublicShell();
-        toast("تم حذف الصفحة");
+        var deletePageItem = deletePage.closest("[data-page-index]");
+        deletePageById(deletePageItem ? deletePageItem.dataset.pageId : "");
+        return;
       }
       if (deleteIntegration) {
-        collectIntegrations({ keepDrafts: true });
-        data.integrations.splice(getSortableItemIndex(deleteIntegration.closest("[data-integration-index]")), 1);
-        saveData();
-        renderIntegrationsEditor();
-        toast("تم حذف التكامل");
+        confirmAdminDeleteThen("هل تريد حذف التكامل؟", function () {
+          collectIntegrations({ keepDrafts: true });
+          data.integrations.splice(getSortableItemIndex(deleteIntegration.closest("[data-integration-index]")), 1);
+          saveData();
+          renderIntegrationsEditor();
+          toast("تم حذف التكامل");
+        });
+        return;
       }
       if (deleteContentRow) {
-        var rowItem = deleteContentRow.closest("[data-content-row-type]");
-        var rowType = rowItem ? rowItem.dataset.contentRowType : "experience";
-        data.home[rowType] = collectContentRows(rowType);
-        data.home[rowType].splice(getSortableItemIndex(rowItem), 1);
-        saveData();
-        renderContentRowsEditor(rowType);
-        toast("تم حذف العنصر");
+        confirmAdminDeleteThen("هل تريد حذف هذا العنصر؟", function () {
+          var rowItem = deleteContentRow.closest("[data-content-row-type]");
+          var rowType = rowItem ? rowItem.dataset.contentRowType : "experience";
+          data.home[rowType] = collectContentRows(rowType);
+          data.home[rowType].splice(getSortableItemIndex(rowItem), 1);
+          saveData();
+          renderContentRowsEditor(rowType);
+          toast("تم حذف العنصر");
+        });
+        return;
       }
       if (deleteSkill) {
-        data.home.skills = collectSkills();
-        data.home.skills.splice(getSortableItemIndex(deleteSkill.closest("[data-skill-index]")), 1);
-        saveData();
-        renderSkillsEditor();
-        toast("تم حذف المهارة");
+        confirmAdminDeleteThen("هل تريد حذف المهارة؟", function () {
+          data.home.skills = collectSkills();
+          data.home.skills.splice(getSortableItemIndex(deleteSkill.closest("[data-skill-index]")), 1);
+          saveData();
+          renderSkillsEditor();
+          toast("تم حذف المهارة");
+        });
+        return;
       }
     });
 
@@ -2912,14 +3449,15 @@
     });
 
     qs("[data-reset-content]").addEventListener("click", function () {
-      if (!confirm("هل تريد إعادة تعيين كل المحتوى؟")) return;
-      window.SiteStore.reset().then(function (resetData) {
-        data = resetData;
-        fillForms();
-        setValue("jsonBox", "");
-        toast("تمت إعادة التعيين");
-      }).catch(function (error) {
-        toast(error.message || "تعذر إعادة التعيين", "error");
+      confirmAdminDeleteThen("هل تريد إعادة تعيين كل المحتوى؟ سيتم حذف التعديلات الحالية.", function () {
+        window.SiteStore.reset().then(function (resetData) {
+          data = resetData;
+          fillForms();
+          setValue("jsonBox", "");
+          toast("تمت إعادة التعيين");
+        }).catch(function (error) {
+          toast(error.message || "تعذر إعادة التعيين", "error");
+        });
       });
     });
 
@@ -2948,7 +3486,27 @@
       var trigger = qs("[data-icon-type-trigger]", menu);
       var menuPanel = qs(".nds-dropmenu-menu", menu);
       if (trigger) trigger.setAttribute("aria-expanded", "false");
-      if (menuPanel) menuPanel.hidden = true;
+      if (menuPanel) {
+        menuPanel.hidden = true;
+        menuPanel.setAttribute("aria-hidden", "true");
+        menuPanel.dataset.state = "";
+      }
+      menu.dataset.state = "";
+    });
+  }
+
+  function scrollAdminInlineMenuIntoView(menuPanel) {
+    var scrollParent = menuPanel ? menuPanel.closest("[data-pages-editor], [data-projects-editor]") : null;
+    if (!scrollParent) return;
+    requestAnimationFrame(function () {
+      var menuRect = menuPanel.getBoundingClientRect();
+      var parentRect = scrollParent.getBoundingClientRect();
+      var offset = 12;
+      if (menuRect.bottom > parentRect.bottom - offset) {
+        scrollParent.scrollTop += menuRect.bottom - parentRect.bottom + offset;
+      } else if (menuRect.top < parentRect.top + offset) {
+        scrollParent.scrollTop -= parentRect.top - menuRect.top + offset;
+      }
     });
   }
 
@@ -2957,9 +3515,13 @@
     var menuPanel = menu ? qs(".nds-dropmenu-menu", menu) : null;
     if (!menuPanel) return;
     var willOpen = menuPanel.hidden;
-    closeIconTypeMenus(menu);
+    closeAdminInlineDropmenus(menu);
     menuPanel.hidden = !willOpen;
+    menuPanel.setAttribute("aria-hidden", String(!willOpen));
+    menuPanel.dataset.state = willOpen ? "open" : "";
+    menu.dataset.state = willOpen ? "open" : "";
     trigger.setAttribute("aria-expanded", String(willOpen));
+    if (willOpen) scrollAdminInlineMenuIntoView(menuPanel);
   }
 
   function selectIconType(optionButton) {
@@ -2973,6 +3535,13 @@
     if (input) input.value = selected.value;
     if (label) label.textContent = selected.label;
     if (existingIcon) existingIcon.outerHTML = adminContactIcon(selected.value);
+    qsa("[data-icon-type-option]", menu).forEach(function (item) {
+      item.dataset.state = item === optionButton ? "selected" : "";
+    });
+    if (input) {
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
     closeIconTypeMenus();
   }
 
@@ -2982,7 +3551,12 @@
       var trigger = qs("[data-option-trigger]", menu);
       var menuPanel = qs(".nds-dropmenu-menu", menu);
       if (trigger) trigger.setAttribute("aria-expanded", "false");
-      if (menuPanel) menuPanel.hidden = true;
+      if (menuPanel) {
+        menuPanel.hidden = true;
+        menuPanel.setAttribute("aria-hidden", "true");
+        menuPanel.dataset.state = "";
+      }
+      menu.dataset.state = "";
     });
   }
 
@@ -2991,9 +3565,13 @@
     var menuPanel = menu ? qs(".nds-dropmenu-menu", menu) : null;
     if (!menuPanel) return;
     var willOpen = menuPanel.hidden;
-    closeOptionMenus(menu);
+    closeAdminInlineDropmenus(menu);
     menuPanel.hidden = !willOpen;
+    menuPanel.setAttribute("aria-hidden", String(!willOpen));
+    menuPanel.dataset.state = willOpen ? "open" : "";
+    menu.dataset.state = willOpen ? "open" : "";
     trigger.setAttribute("aria-expanded", String(willOpen));
+    if (willOpen) scrollAdminInlineMenuIntoView(menuPanel);
   }
 
   function selectOptionValue(optionButton) {
@@ -3008,6 +3586,14 @@
     if (input) input.value = selected.value;
     if (label) label.textContent = selected.label;
     if (existingIcon) existingIcon.outerHTML = adminOptionIcon(selected.value);
+    qsa("[data-option-value]", menu).forEach(function (item) {
+      item.dataset.state = item === optionButton ? "selected" : "";
+    });
+    if (input) {
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    syncPageContentEditorMode(optionButton.closest("[data-page-index]"));
     closeOptionMenus();
   }
 
@@ -3017,8 +3603,19 @@
       var trigger = qs("[data-select-trigger]", menu);
       var menuPanel = qs(".nds-dropmenu-menu", menu);
       if (trigger) trigger.setAttribute("aria-expanded", "false");
-      if (menuPanel) menuPanel.hidden = true;
+      if (menuPanel) {
+        menuPanel.hidden = true;
+        menuPanel.setAttribute("aria-hidden", "true");
+        menuPanel.dataset.state = "";
+      }
+      menu.dataset.state = "";
     });
+  }
+
+  function closeAdminInlineDropmenus(exceptMenu) {
+    closeIconTypeMenus(exceptMenu);
+    closeOptionMenus(exceptMenu);
+    closeSelectMenus(exceptMenu);
   }
 
   function toggleSelectMenu(trigger) {
@@ -3026,9 +3623,13 @@
     var menuPanel = menu ? qs(".nds-dropmenu-menu", menu) : null;
     if (!menuPanel) return;
     var willOpen = menuPanel.hidden;
-    closeSelectMenus(menu);
+    closeAdminInlineDropmenus(menu);
     menuPanel.hidden = !willOpen;
+    menuPanel.setAttribute("aria-hidden", String(!willOpen));
+    menuPanel.dataset.state = willOpen ? "open" : "";
+    menu.dataset.state = willOpen ? "open" : "";
     trigger.setAttribute("aria-expanded", String(willOpen));
+    if (willOpen) scrollAdminInlineMenuIntoView(menuPanel);
   }
 
   function selectDropmenuValue(optionButton) {

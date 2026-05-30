@@ -1,63 +1,44 @@
 # Beginner Installation Guide
 
-This guide is for a first-time customer or beginner who wants to install the Biography CMS without touching code.
+Author: Eng. Abdulrahman alsaedi
 
-The website uses:
+This guide is for installing Biography CMS without touching code.
 
-- HTML, CSS, and JavaScript for the public pages
-- PHP 8 or newer for the backend API
-- MySQL or MariaDB for the database
-- An installer at `install/`
-- An admin panel at `admin.html`
+## What This Website Needs
+
+- PHP 8 or newer
+- MySQL or MariaDB
+- Apache or another PHP-capable web server
+- A browser
+
+For local testing, Laragon is recommended on Windows.
 
 ## Important Idea
 
-Do not edit `index.html` to change normal website content.
+Do not edit `index.html` for normal website content.
 
-After installation, content is managed from the admin panel and saved in the database:
+After installation, open `admin.html` and manage content from the admin panel:
 
 - brand name
-- slogan
 - logo
-- hero content
+- home page content
+- hero slides
 - biography
 - projects
-- pages
-- contacts
-- footer columns, footer icon groups, footer bottom links, and footer logos
-- skills
-- achievements
-- experience
-- admin users and permissions
-- public update notifications
+- pages and subpages
+- page text or HTML
+- images and videos
+- footer
+- notifications
+- users and permissions
 
-Only edit HTML files if you are changing the template, layout, or developer-level structure.
+## Install Locally With Laragon
 
-## What You Need
-
-For local testing:
-
-- Laragon or XAMPP
-- PHP 8+
-- MySQL or MariaDB
-- A browser
-
-For hosting:
-
-- A shared hosting account such as Hostinger or cPanel hosting
-- PHP 8+
-- MySQL database access
-- File Manager or FTP
-
-## Local Installation With Laragon
-
-1. Put the project folder here:
+1. Copy the project folder to:
 
 ```text
 C:\laragon\www\Biography
 ```
-
-If you are reinstalling after an old test, remove the old project folder and old database first so the installer starts from a clean state.
 
 2. Open Laragon.
 3. Click `Start All`.
@@ -73,31 +54,24 @@ Easy way from Laragon Terminal:
 mysql -u root -e "CREATE DATABASE biography_cms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 ```
 
-5. Open the installer in your browser:
+5. Open the installer:
 
 ```text
 http://localhost/Biography/install/
 ```
 
-6. Fill the database form:
+6. Use these database values:
 
 ```text
 DB host: localhost
 DB name: biography_cms
 DB user: root
-DB password: leave empty unless your Laragon MySQL has a password
+DB password: leave empty unless you set a MySQL password
 ```
 
-7. Fill the first admin account:
-
-```text
-Display name: your name
-Email: your email
-Password: at least 8 characters
-```
-
-8. Click `Install CMS`.
-9. When installation finishes, open:
+7. Create the first admin account.
+8. Finish the installer.
+9. Open the admin panel:
 
 ```text
 http://localhost/Biography/admin.html
@@ -105,15 +79,15 @@ http://localhost/Biography/admin.html
 
 10. Log in with the email and password you created.
 
-## Local Installation With XAMPP
+## Install Locally With XAMPP
 
-1. Put the project folder here:
+1. Copy the project folder to:
 
 ```text
 C:\xampp\htdocs\Biography
 ```
 
-2. Start Apache and MySQL from XAMPP.
+2. Start Apache and MySQL.
 3. Open phpMyAdmin:
 
 ```text
@@ -132,7 +106,7 @@ biography_cms
 http://localhost/Biography/install/
 ```
 
-6. Use your XAMPP database username and password.
+6. Fill the database form.
 7. Create the first admin account.
 8. Open:
 
@@ -140,20 +114,13 @@ http://localhost/Biography/install/
 http://localhost/Biography/admin.html
 ```
 
-## Hostinger Or cPanel Installation
+## Install On Hosting
 
-1. Upload the project files to:
-
-```text
-public_html
-```
-
-or to a subfolder inside `public_html`.
-
-2. In Hostinger or cPanel, create a MySQL database.
+1. Upload the project files to `public_html` or the target folder.
+2. Create a MySQL database from the hosting control panel.
 3. Create a MySQL user.
-4. Give that user full permissions on the database.
-5. Open the installer:
+4. Give the user full permissions on the database.
+5. Open:
 
 ```text
 https://your-domain.com/install/
@@ -165,15 +132,15 @@ If the project is in a subfolder:
 https://your-domain.com/folder-name/install/
 ```
 
-6. Fill the database form using the values from hosting.
+6. Fill the database form using the hosting database values.
 7. Create the first admin account.
-8. After installation, open:
+8. Open:
 
 ```text
 https://your-domain.com/admin.html
 ```
 
-## Files Created During Installation
+## Files Created By The Installer
 
 The installer creates:
 
@@ -182,13 +149,13 @@ api/config.php
 install/install.lock
 ```
 
-`api/config.php` contains database login details.
+`api/config.php` stores database connection details.
 
-`install/install.lock` blocks the installer after setup so someone cannot reinstall the site by accident.
+`install/install.lock` prevents accidental reinstall.
 
-## Do Not Overwrite These Later
+## Do Not Overwrite These On A Live Site
 
-When uploading updates to a live site, be careful with:
+When uploading updates later, protect:
 
 ```text
 api/config.php
@@ -196,61 +163,46 @@ install/install.lock
 uploads/
 ```
 
-Do not overwrite them unless you intentionally want to reset or replace the live configuration and uploaded media.
+The `uploads/` folder contains uploaded images, videos, logos, and icons.
 
-## First Admin Test
-
-After installation:
+## First Test After Installation
 
 1. Open `admin.html`.
 2. Log in.
 3. Change the brand name.
-4. Change the brand slogan.
-5. Save.
-6. Refresh the browser.
-7. Open the home page.
-8. Confirm the brand name and slogan stayed changed.
+4. Save.
+5. Refresh the page.
+6. Open `index.html`.
+7. Confirm the change stayed.
 
-If the changes stay after refresh, the database is working.
+If the change stays after refresh, the database is working.
 
 ## Upload Test
 
-In the admin panel:
+1. Upload a logo or page image from the admin panel.
+2. Save.
+3. Refresh.
+4. Confirm the media still appears.
 
-1. Upload a brand logo.
-2. Add a hero slide with an image.
-3. Add a project image.
-4. Save.
-5. Refresh.
+If the media stays after refresh, uploads are working.
 
-If the images still show after refresh, uploads are working.
+## Page HTML Test
 
-## Reinstalling From Scratch
+1. Open `admin.html`.
+2. Go to `الصفحات`.
+3. Add or open a page.
+4. Change `نوع المحتوى` to HTML.
+5. Paste simple HTML, for example:
 
-Only do this when you intentionally want to reinstall.
-
-Remove:
-
-```text
-api/config.php
-install/install.lock
+```html
+<section>
+  <h2>Test HTML</h2>
+  <p>This is saved HTML content.</p>
+</section>
 ```
 
-Then open:
-
-```text
-http://localhost/Biography/install/
-```
-
-or on hosting:
-
-```text
-https://your-domain.com/install/
-```
-
-If you also want to remove all old content, empty the database or create a new database before reinstalling.
-
-For a fully fresh Laragon reinstall, remove the old project folder from `C:\laragon\www`, drop the old MySQL database, and remove any old Laragon virtual-host entry such as `Biography.test` if one was created.
+6. Save pages.
+7. Open the page from the public site.
 
 ## Backup
 
@@ -261,18 +213,64 @@ MySQL database
 uploads/
 ```
 
-The database stores text and media paths. The `uploads/` folder stores the actual uploaded files.
+The database stores text and paths. The uploaded files live in `uploads/`.
+
+## Reinstall From Scratch
+
+Only do this if you want to reset the installation.
+
+1. Back up anything important.
+2. Remove:
+
+```text
+api/config.php
+install/install.lock
+```
+
+3. Drop the old database or create a new empty database.
+4. Open the installer again.
+
+Local Laragon installer:
+
+```text
+http://localhost/Biography/install/
+```
+
+Hosting installer:
+
+```text
+https://your-domain.com/install/
+```
 
 ## Common Problems
 
-If the installer says PDO MySQL is missing:
+Cannot open installer:
 
-- Enable the PHP `pdo_mysql` extension.
-- In Laragon or XAMPP, use a PHP version that includes MySQL support.
+- Confirm Apache is running.
+- Confirm the project folder is in the correct web root.
+- Confirm the URL is correct.
 
-If uploads do not work:
+Cannot connect to database:
 
-- Make sure these folders are writable:
+- Confirm MySQL is running.
+- Confirm the database exists.
+- Check DB name, user, and password.
+
+Login does not work:
+
+- Confirm installation finished.
+- Use the admin account created during installation.
+- Confirm `api/config.php` exists.
+
+Content does not save:
+
+- Confirm you are logged in.
+- Confirm your admin user has permission for that section.
+- Confirm MySQL is running.
+
+Uploads do not work:
+
+- Confirm these folders are writable:
 
 ```text
 uploads/images/
@@ -280,47 +278,3 @@ uploads/video/
 uploads/logos/
 uploads/icons/
 ```
-
-If login does not work:
-
-- Make sure installation completed.
-- Make sure you are using the admin email and password created during installation.
-- Check that `api/config.php` exists.
-
-If the site opens but content does not save:
-
-- Confirm the database details in `api/config.php`.
-- Confirm MySQL is running.
-- Confirm you are logged in as admin.
-
-## Normal Daily Use
-
-After installation, use:
-
-```text
-admin.html
-```
-
-to manage website content.
-
-Use the admin panel for:
-
-- brand settings
-- home page content
-- hero slides
-- biography
-- projects
-- pages
-- footer columns and footer links
-- footer icon groups, including social icons and app-store icons
-- footer bottom links, such as privacy policy and terms
-- footer logos with independent image and URL fields
-- contacts
-- public update notifications
-- admin users and permissions
-- integrations
-- account password
-- admin email
-- phone number
-
-That is the safest way to update the website.

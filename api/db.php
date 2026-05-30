@@ -351,11 +351,24 @@ function cms_public_path(string $relativePath): string
     return realpath(CMS_ROOT_DIR) . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $clean);
 }
 
+function cms_truncate_utf8(string $text, int $max): string
+{
+    if ($max <= 0 || strlen($text) <= $max) {
+        return $text;
+    }
+
+    $truncated = substr($text, 0, $max);
+    while ($truncated !== '' && preg_match('//u', $truncated) !== 1) {
+        $truncated = substr($truncated, 0, strlen($truncated) - 1);
+    }
+    return $truncated;
+}
+
 function cms_string(mixed $value, int $max = 0): string
 {
     $text = trim((string) ($value ?? ''));
     if ($max > 0 && strlen($text) > $max) {
-        $text = substr($text, 0, $max);
+        $text = cms_truncate_utf8($text, $max);
     }
     return $text;
 }

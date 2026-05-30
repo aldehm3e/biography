@@ -19,8 +19,8 @@
   <link rel="icon" type="image/svg+xml" href="assets/images/site-mark.svg" data-site-favicon>
   <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
-  <link rel="stylesheet" href="css/nds-local-components.css">
-  <link rel="stylesheet" href="css/custom.css?v=nds-footer-bottom-links-20260528">
+  <link rel="stylesheet" href="css/nds-local-components.css?v=notification-refit-20260530">
+  <link rel="stylesheet" href="css/custom.css?v=notification-refit-20260530">
 </head>
 <body data-page="projects">
   <header class="site-header">
@@ -195,15 +195,16 @@
   </header>
 
   <main>
-    <section class="nds-hero-section nds-sub nds-flat">
-      <div class="site-container project-page-container nds-section-wrapper">
+    <section class="nds-hero-section nds-sub" aria-label="قسم العرض الرئيسي">
+      <nav class="nds-breadcrumb-nav" aria-label="Breadcrumb">
+        <ol class="nds-breadcrumb">
+          <li><a href="index.html" data-home-page-label>الرئيسية</a></li>
+          <li class="nds-truncate" aria-current="page" data-projects-page-label>مشاريعنا</li>
+        </ol>
+      </nav>
+      <div class="nds-section-wrapper">
         <div class="nds-section-head">
-          <nav class="nds-breadcrumb-nav" aria-label="مسار الصفحة">
-            <ol class="nds-breadcrumb">
-              <li><a href="index.html" data-home-page-label>الرئيسية</a></li>
-              <li aria-current="page" data-projects-page-label>مشاريعنا</li>
-            </ol>
-          </nav>
+          <div class="nds-section-action nds-minimal" data-section-share-action></div>
           <h1 class="nds-section-title" data-projects-page-label>مشاريعنا</h1>
           <p class="nds-section-description">تظهر المشاريع هنا بعد إضافتها من لوحة الإدارة، وتبقى منظمة حتى عند زيادة العدد.</p>
         </div>
@@ -262,7 +263,7 @@
     </div>
   </footer>
 
-  <script src="js/default-data.js?v=nds-footer-copycat-20260528"></script>
+  <script src="js/default-data.js?v=notification-refit-20260530"></script>
   <script src="js/store.js"></script>
   <script src="assets/vendor/nds/components/js/nds-core.js"></script>
   <script src="assets/vendor/nds/components/js/nds-backdrop.js"></script>
@@ -273,7 +274,11 @@
   <script src="assets/vendor/nds/components/js/nds-feedback.js"></script>
   <script src="assets/vendor/nds/components/js/nds-forms.js"></script>
   <script src="assets/vendor/nds/components/js/nds-alert.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-breadcrumb.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-dropmenu.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-copy.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-share.js"></script>
   <script src="js/nds-local-components.js"></script>
-  <script src="js/app.js?v=nds-admin-avatar-icon-20260528"></script>
+  <script src="js/app.js?v=notification-refit-20260530"></script>
 </body>
 </html>

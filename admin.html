@@ -19,8 +19,8 @@
   <link rel="icon" type="image/svg+xml" href="assets/images/site-mark.svg" data-site-favicon>
   <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
-  <link rel="stylesheet" href="css/nds-local-components.css">
-  <link rel="stylesheet" href="css/custom.css?v=nds-footer-bottom-links-20260528">
+  <link rel="stylesheet" href="css/nds-local-components.css?v=notification-refit-20260530">
+  <link rel="stylesheet" href="css/custom.css?v=notification-refit-20260530">
 </head>
 <body data-page="admin">
   <header class="site-header">
@@ -199,10 +199,10 @@
     <section class="nds-hero-section nds-sub nds-flat">
       <div class="site-container nds-section-wrapper">
         <div class="nds-section-head">
-          <nav class="nds-breadcrumb-nav" aria-label="مسار الصفحة">
+          <nav class="nds-breadcrumb-nav" aria-label="Breadcrumb">
             <ol class="nds-breadcrumb">
               <li><a href="index.html" data-home-page-label>الرئيسية</a></li>
-              <li aria-current="page" data-admin-page-label>لوحة الإدارة</li>
+              <li class="nds-truncate" aria-current="page" data-admin-page-label>لوحة الإدارة</li>
             </ol>
           </nav>
           <h1 class="nds-section-title" data-admin-dashboard-title>لوحة الإدارة</h1>
@@ -435,36 +435,6 @@
                     <div class="nds-form-control upload-file-control" data-upload-label="رفع صورة"><input class="nds-input file-input" type="file" data-media-upload="avatar-image" data-upload-target-name="avatar" accept=".jpg,.jpeg,.png,.webp,.svg"></div>
                   </div>
                 </div>
-                <div class="form-grid">
-                  <div class="nds-form-container">
-                    <div class="nds-form-header"><label for="heroTitle"><span class="nds-label">عنوان القسم الرئيسي</span></label></div>
-                    <div class="nds-form-control"><input class="nds-input" id="heroTitle" name="heroTitle" type="text"></div>
-                  </div>
-                  <div class="nds-form-container">
-                    <div class="nds-form-header"><label for="heroSubtitle"><span class="nds-label">العنوان الفرعي للقسم الرئيسي</span></label></div>
-                    <div class="nds-form-control"><input class="nds-input" id="heroSubtitle" name="heroSubtitle" type="text"></div>
-                  </div>
-                </div>
-                <div class="nds-form-container">
-                  <div class="nds-form-header"><label for="heroIntro"><span class="nds-label">وصف القسم الرئيسي</span></label></div>
-                  <div class="nds-form-control textarea-control"><textarea class="nds-input" id="heroIntro" name="heroIntro" rows="3"></textarea></div>
-                </div>
-                <div class="form-grid">
-                  <div class="nds-form-container">
-                    <div class="nds-form-header"><label for="heroImage"><span class="nds-label">صورة القسم الرئيسي</span></label></div>
-                    <div class="uploadable-control-row">
-                      <div class="nds-form-control upload-path-control"><input class="nds-input" id="heroImage" name="heroImage" type="text"></div>
-                      <div class="nds-form-control upload-file-control" data-upload-label="رفع صورة"><input class="nds-input file-input" type="file" data-media-upload="hero-image" data-upload-target-name="heroImage" accept=".jpg,.jpeg,.png,.webp,.svg"></div>
-                    </div>
-                  </div>
-                  <div class="nds-form-container">
-                    <div class="nds-form-header"><label for="heroVideo"><span class="nds-label">فيديو القسم الرئيسي</span></label></div>
-                    <div class="uploadable-control-row">
-                      <div class="nds-form-control upload-path-control"><input class="nds-input" id="heroVideo" name="heroVideo" type="text"></div>
-                      <div class="nds-form-control upload-file-control" data-upload-label="رفع فيديو"><input class="nds-input file-input" type="file" data-media-upload="hero-video" data-upload-target-name="heroVideo" accept=".mp4,.webm"></div>
-                    </div>
-                  </div>
-                </div>
                 <div class="hero-editor-block">
                   <div class="panel-heading compact-heading">
                     <div>
@@ -643,7 +613,7 @@
                 <div class="panel-heading">
                   <div>
                     <h2 class="nds-card-title">الصفحات الإضافية</h2>
-                    <p class="nds-card-description">الصفحات المرئية تظهر تلقائيا في التنقل.</p>
+                    <p class="nds-card-description">رتب الصفحات، واختر الصفحة الأم للعناصر الفرعية، وتحكم في الظهور في الهيدر من هنا فقط.</p>
                   </div>
                   <div class="nds-section-action">
                     <button class="nds-btn nds-secondary-outline" type="button" data-add-page><span class="nds-label">إضافة صفحة</span></button>
@@ -802,7 +772,7 @@
     </div>
   </footer>
 
-  <script src="js/default-data.js?v=nds-footer-copycat-20260528"></script>
+  <script src="js/default-data.js?v=notification-refit-20260530"></script>
   <script src="js/store.js"></script>
   <script src="assets/vendor/nds/components/js/nds-core.js"></script>
   <script src="assets/vendor/nds/components/js/nds-backdrop.js"></script>
@@ -815,8 +785,9 @@
   <script src="assets/vendor/nds/components/js/nds-progress.js"></script>
   <script src="assets/vendor/nds/components/js/nds-forms.js"></script>
   <script src="assets/vendor/nds/components/js/nds-alert.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-breadcrumb.js"></script>
   <script src="js/nds-local-components.js"></script>
-  <script src="js/app.js?v=nds-admin-avatar-icon-20260528"></script>
-  <script src="js/admin.js?v=nds-footer-icon-type-only-20260528"></script>
+  <script src="js/app.js?v=notification-refit-20260530"></script>
+  <script src="js/admin.js?v=notification-refit-20260530"></script>
 </body>
 </html>
