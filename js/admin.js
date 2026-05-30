@@ -17,6 +17,25 @@
   var adminUsersLoaded = false;
   var MAX_FOOTER_COLUMNS = 3;
   var MAX_FOOTER_ICON_GROUPS = 2;
+  var PAGE_EDITOR_FONTS = [
+    { value: "", label: "الخط", family: "" },
+    { value: "ibm-plex-arabic", label: "IBM Plex Sans Arabic", family: "'IBM Plex Sans Arabic', sans-serif" },
+    { value: "saudi", label: "Saudi", family: "'Saudi', 'IBM Plex Sans Arabic', sans-serif" },
+    { value: "maqroo", label: "Maqroo", family: "'Maqroo', 'IBM Plex Sans Arabic', sans-serif" },
+    { value: "open-dyslexic", label: "OpenDyslexic", family: "'OpenDyslexic', 'IBM Plex Sans Arabic', sans-serif" }
+  ];
+  var PAGE_EDITOR_FONT_SIZES = [
+    { value: "", label: "حجم الخط" },
+    { value: "12px", label: "12" },
+    { value: "14px", label: "14" },
+    { value: "16px", label: "16" },
+    { value: "18px", label: "18" },
+    { value: "20px", label: "20" },
+    { value: "24px", label: "24" },
+    { value: "28px", label: "28" },
+    { value: "32px", label: "32" },
+    { value: "40px", label: "40" }
+  ];
   var ADMIN_PERMISSION_LABELS = {
     settings: "الإعدادات والهوية",
     home: "الرئيسية",
@@ -459,6 +478,77 @@
     return [page.title || "", page.slug || "", page.contentMode || "text", page.image || "", page.video || "", page.content || ""].join("\u001f");
   }
 
+  function currentPageTimestamp() {
+    var date = new Date();
+    var pad = function (value) {
+      return String(value).padStart(2, "0");
+    };
+    return [
+      date.getFullYear(),
+      pad(date.getMonth() + 1),
+      pad(date.getDate())
+    ].join("-") + " " + [
+      pad(date.getHours()),
+      pad(date.getMinutes()),
+      pad(date.getSeconds())
+    ].join(":");
+  }
+
+  function normalizePageTimestampValue(value, fallback) {
+    var text = String(value || "").trim();
+    return text || fallback || currentPageTimestamp();
+  }
+
+  function pageTrackingTimestamp(page) {
+    return String((page && (page.updatedAt || page.updated_at || page.createdAt || page.created_at)) || "").trim();
+  }
+
+  function formatPageTrackingTimestamp(value) {
+    var text = String(value || "").trim();
+    var normalized;
+    var date;
+    if (!text) return "";
+    normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(text) ? text.replace(" ", "T") : text;
+    date = new Date(normalized);
+    if (Number.isNaN(date.getTime())) return text;
+    try {
+      return new Intl.DateTimeFormat(document.documentElement.lang || "ar", {
+        dateStyle: "medium",
+        timeStyle: "short"
+      }).format(date);
+    } catch (error) {
+      return date.toLocaleString();
+    }
+  }
+
+  function pageTrackingLabel(page) {
+    var timestamp = pageTrackingTimestamp(page);
+    return timestamp ? "آخر تحديث: " + formatPageTrackingTimestamp(timestamp) : "";
+  }
+
+  function ensurePageTimestamps(page) {
+    var now = currentPageTimestamp();
+    if (!page) return page;
+    page.createdAt = normalizePageTimestampValue(page.createdAt || page.created_at, now);
+    page.updatedAt = normalizePageTimestampValue(page.updatedAt || page.updated_at, page.createdAt);
+    return page;
+  }
+
+  function pageEditorSignature(page) {
+    return [
+      page.title || "",
+      page.slug || "",
+      page.parentSlug || "",
+      page.visible === false ? "0" : "1",
+      page.showInNavigation === false ? "0" : "1",
+      page.showInFooter === true ? "1" : "0",
+      page.contentMode || "text",
+      page.image || "",
+      page.video || "",
+      page.content || ""
+    ].join("\u001f");
+  }
+
   function projectPublicSignature(project) {
     return [project.title || "", project.slug || "", project.status || "", project.date || "", project.category || "", project.image || "", project.url || "", project.description || ""].join("\u001f");
   }
@@ -893,6 +983,67 @@
       '<div class="nds-form-container">',
       '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span></label></div>',
       '<div class="nds-form-control textarea-control"><textarea class="' + className + '" data-field="' + safeText(key) + '" rows="' + rows + '"' + placeholder + attributes + '>' + safeText(value) + '</textarea></div>',
+      '</div>'
+    ].join("");
+  }
+
+  function pageEditorToolbarHtml() {
+    var fontOptions = PAGE_EDITOR_FONTS.map(function (font) {
+      return '<option value="' + safeText(font.value) + '">' + safeText(font.label) + '</option>';
+    }).join("");
+    var sizeOptions = PAGE_EDITOR_FONT_SIZES.map(function (size) {
+      return '<option value="' + safeText(size.value) + '">' + safeText(size.label) + '</option>';
+    }).join("");
+    return [
+      '<div class="page-format-toolbar" data-page-format-toolbar aria-label="تنسيق محتوى الصفحة">',
+      '<div class="page-format-buttons" role="group" aria-label="تنسيق النص">',
+      '<button class="nds-btn nds-secondary-outline nds-icon-only page-format-btn" type="button" data-page-format="bold" title="غامق" aria-label="غامق">',
+      '<i class="hgi-stroke hgi-text-bold" aria-hidden="true"></i>',
+      '</button>',
+      '<button class="nds-btn nds-secondary-outline nds-icon-only page-format-btn" type="button" data-page-format="italic" title="مائل" aria-label="مائل">',
+      '<i class="hgi-stroke hgi-text-italic" aria-hidden="true"></i>',
+      '</button>',
+      '<button class="nds-btn nds-secondary-outline nds-icon-only page-format-btn" type="button" data-page-format="underline" title="تسطير" aria-label="تسطير">',
+      '<i class="hgi-stroke hgi-text-underline" aria-hidden="true"></i>',
+      '</button>',
+      '</div>',
+      '<div class="page-format-buttons" role="group" aria-label="محاذاة النص">',
+      '<button class="nds-btn nds-secondary-outline nds-icon-only page-format-btn" type="button" data-page-format="right" title="محاذاة لليمين" aria-label="محاذاة لليمين">',
+      '<i class="hgi-stroke hgi-text-align-right" aria-hidden="true"></i>',
+      '</button>',
+      '<button class="nds-btn nds-secondary-outline nds-icon-only page-format-btn" type="button" data-page-format="center" title="توسيط" aria-label="توسيط">',
+      '<i class="hgi-stroke hgi-text-align-center" aria-hidden="true"></i>',
+      '</button>',
+      '<button class="nds-btn nds-secondary-outline nds-icon-only page-format-btn" type="button" data-page-format="left" title="محاذاة لليسار" aria-label="محاذاة لليسار">',
+      '<i class="hgi-stroke hgi-text-align-left" aria-hidden="true"></i>',
+      '</button>',
+      '<button class="nds-btn nds-secondary-outline nds-icon-only page-format-btn" type="button" data-page-format="justify" title="ضبط النص" aria-label="ضبط النص">',
+      '<i class="hgi-stroke hgi-text-align-justify-center" aria-hidden="true"></i>',
+      '</button>',
+      '</div>',
+      '<label class="page-format-select-control page-format-font-control">',
+      '<span class="sr-only">اختيار الخط</span>',
+      '<select class="nds-input page-format-font-select" data-page-format-font aria-label="اختيار الخط">',
+      fontOptions,
+      '</select>',
+      '</label>',
+      '<label class="page-format-select-control page-format-size-control">',
+      '<span class="sr-only">اختيار حجم الخط</span>',
+      '<select class="nds-input page-format-size-select" data-page-format-size aria-label="اختيار حجم الخط">',
+      sizeOptions,
+      '</select>',
+      '</label>',
+      '</div>'
+    ].join("");
+  }
+
+  function pageContentEditorHtml(page) {
+    var info = "اكتب نصا عاديا أو اختر HTML والصق الكود كاملا. سيتم عرضه داخل حاوية منسقة.";
+    return [
+      '<div class="nds-form-container page-content-editor-container">',
+      '<div class="nds-form-header"><label><span class="nds-label">محتوى الصفحة</span></label></div>',
+      pageEditorToolbarHtml(),
+      '<div class="nds-form-control textarea-control"><textarea class="nds-input" data-field="pageContent" rows="10" placeholder="' + safeText(info) + '">' + safeText(page.content) + '</textarea></div>',
       '</div>'
     ].join("");
   }
@@ -1524,6 +1675,7 @@
     var bySlug = {};
     ensureUniquePageSlugs(pages);
     (pages || []).forEach(function (page) {
+      ensurePageTimestamps(page);
       page.slug = slugify(page.slug || page.title);
       page.parentSlug = slugify(page.parentSlug);
       if (page.slug) bySlug[page.slug] = page;
@@ -1559,21 +1711,27 @@
     var panelId = "page-panel-" + index;
     var accordionKey = "page:" + pageId;
     var title = page.title || "صفحة إضافية";
+    var pageSignature;
+    var trackingLabel;
     var isOpen = pendingOpenEditor.page === index || openEditorAccordions.has(accordionKey);
     if (isOpen) openEditorAccordions.add(accordionKey);
+    ensurePageTimestamps(page);
+    pageSignature = pageEditorSignature(page);
+    trackingLabel = pageTrackingLabel(page);
     var isChild = hasAdminText(page.parentSlug);
     var childEntries = children || [];
     var childCount = childEntries.length;
     var isNavigationGroup = !isChild && childCount > 0;
     var showInNavigation = isChild ? false : (page.showInFooter && page.visible === false ? false : page.showInNavigation !== false);
     return [
-      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="page" data-editor-accordion-key="' + safeText(accordionKey) + '" data-page-index="' + index + '" data-page-id="' + safeText(pageId) + '" data-page-original-slug="' + safeText(slugify(page.slug || page.title)) + '" data-page-is-child="' + (isChild ? "true" : "false") + '" data-page-is-group="' + (isNavigationGroup ? "true" : "false") + '" data-state="' + (isOpen ? "open" : "closed") + '">',
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="page" data-editor-accordion-key="' + safeText(accordionKey) + '" data-page-index="' + index + '" data-page-id="' + safeText(pageId) + '" data-page-original-slug="' + safeText(slugify(page.slug || page.title)) + '" data-page-created-at="' + safeText(page.createdAt) + '" data-page-updated-at="' + safeText(page.updatedAt) + '" data-page-signature="' + safeText(pageSignature) + '" data-page-is-child="' + (isChild ? "true" : "false") + '" data-page-is-group="' + (isNavigationGroup ? "true" : "false") + '" data-state="' + (isOpen ? "open" : "closed") + '">',
       '<div class="nds-card-content compact-card-content">',
       '<div class="editor-item-head sortable-editor-header">',
       dragHandleHtml("اسحب لتغيير ترتيب الصفحات"),
       '<button class="editor-accordion-btn nds-accordion-btn nds-btn nds-subtle" type="button" data-editor-toggle data-state="' + (isOpen ? "open" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
       '<span class="page-editor-heading">',
       '<span class="nds-card-title">' + safeText(title) + '</span>',
+      trackingLabel ? '<span class="page-editor-timestamp">' + safeText(trackingLabel) + '</span>' : '',
       '<span class="page-editor-meta">',
       '<span class="nds-tag nds-sm" data-status="' + (isChild ? "info" : "neutral") + '"><span class="nds-label">' + (isChild ? "صفحة فرعية" : "صفحة رئيسية") + '</span></span>',
       childCount ? '<span class="nds-tag nds-sm"><span class="nds-label">' + childCount + ' عناصر فرعية</span></span>' : '',
@@ -1601,7 +1759,7 @@
       '<label class="check-line"><input type="checkbox" data-page-navigation-link ' + (showInNavigation ? "checked" : "") + '> <span>إظهار في الهيدر</span></label>',
       '<label class="check-line"><input type="checkbox" data-page-footer-link ' + (page.showInFooter ? "checked" : "") + '> <span>رابط تذييل</span></label>',
       '</div>',
-      textareaHtml("pageContent", "محتوى الصفحة", page.content, 10, "اكتب نصا عاديا أو اختر HTML والصق الكود كاملا. سيتم عرضه داخل حاوية منسقة."),
+      pageContentEditorHtml(page),
       isChild ? '' : pageChildrenSectionHtml(page, pageId, childEntries),
       '</div>',
       '</div>',
@@ -1691,6 +1849,96 @@
 
   function syncPageContentEditorModes(root) {
     qsa("[data-page-index]", root || document).forEach(syncPageContentEditorMode);
+  }
+
+  function setPageContentMode(pageItem, mode) {
+    var normalized = mode === "html" ? "html" : "text";
+    var input = pageItem ? qs('[data-field="pageContentMode"]', pageItem) : null;
+    var menu = input ? input.closest("[data-option-menu]") : null;
+    var selected = getOption(normalized, window.PAGE_CONTENT_MODES || []);
+    var label = menu ? qs("[data-option-label]", menu) : null;
+    var trigger = menu ? qs("[data-option-trigger]", menu) : null;
+    var existingIcon = trigger ? qs(".admin-option-icon", trigger) : null;
+    if (input) input.value = normalized;
+    if (label) label.textContent = selected.label;
+    if (existingIcon) existingIcon.outerHTML = adminOptionIcon(selected.value);
+    if (menu) {
+      qsa("[data-option-value]", menu).forEach(function (item) {
+        item.dataset.state = item.dataset.optionValue === normalized ? "selected" : "";
+      });
+    }
+    if (input) {
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    syncPageContentEditorMode(pageItem);
+  }
+
+  function replacePageEditorSelection(editor, before, after) {
+    var start = typeof editor.selectionStart === "number" ? editor.selectionStart : editor.value.length;
+    var end = typeof editor.selectionEnd === "number" ? editor.selectionEnd : start;
+    var selected = editor.value.slice(start, end);
+    editor.value = editor.value.slice(0, start) + before + selected + after + editor.value.slice(end);
+    editor.focus();
+    if (selected) {
+      editor.setSelectionRange(start, start + before.length + selected.length + after.length);
+    } else {
+      editor.setSelectionRange(start + before.length, start + before.length);
+    }
+    editor.dispatchEvent(new Event("input", { bubbles: true }));
+  }
+
+  function applyPageTextFormat(button) {
+    var pageItem = button ? button.closest("[data-page-index]") : null;
+    var editor = pageItem ? qs('[data-field="pageContent"]', pageItem) : null;
+    var action = button ? button.dataset.pageFormat : "";
+    var alignmentMap = {
+      right: "right",
+      center: "center",
+      left: "left",
+      justify: "justify"
+    };
+    if (!editor) return;
+    setPageContentMode(pageItem, "html");
+    if (action === "bold") {
+      replacePageEditorSelection(editor, "<strong>", "</strong>");
+      return;
+    }
+    if (action === "italic") {
+      replacePageEditorSelection(editor, "<em>", "</em>");
+      return;
+    }
+    if (action === "underline") {
+      replacePageEditorSelection(editor, '<span style="text-decoration: underline;">', "</span>");
+      return;
+    }
+    if (alignmentMap[action]) {
+      replacePageEditorSelection(editor, '<div style="text-align: ' + alignmentMap[action] + ';">', "</div>");
+    }
+  }
+
+  function applyPageEditorFont(select) {
+    var pageItem = select ? select.closest("[data-page-index]") : null;
+    var editor = pageItem ? qs('[data-field="pageContent"]', pageItem) : null;
+    var selected = PAGE_EDITOR_FONTS.find(function (font) {
+      return font.value === (select ? select.value : "");
+    });
+    if (!editor || !selected || !selected.family) return;
+    setPageContentMode(pageItem, "html");
+    replacePageEditorSelection(editor, '<span style="font-family: ' + selected.family + ';">', "</span>");
+    select.value = "";
+  }
+
+  function applyPageEditorFontSize(select) {
+    var pageItem = select ? select.closest("[data-page-index]") : null;
+    var editor = pageItem ? qs('[data-field="pageContent"]', pageItem) : null;
+    var selected = PAGE_EDITOR_FONT_SIZES.find(function (size) {
+      return size.value === (select ? select.value : "");
+    });
+    if (!editor || !selected || !selected.value) return;
+    setPageContentMode(pageItem, "html");
+    replacePageEditorSelection(editor, '<span style="font-size: ' + selected.value + ';">', "</span>");
+    select.value = "";
   }
 
   function iconTypeDropmenuHtml(key, label, value) {
@@ -2226,7 +2474,9 @@
       var slug = qs('[data-field="pageSlug"]', item).value.trim() || slugify(title);
       var parentSlug = slugify((qs('[data-field="pageParentSlug"]', item) || {}).value || "");
       var navigationInput = qs("[data-page-navigation-link]", item);
-      return {
+      var createdAt = normalizePageTimestampValue(item.dataset.pageCreatedAt);
+      var updatedAt = normalizePageTimestampValue(item.dataset.pageUpdatedAt, createdAt);
+      var page = {
         id: item.dataset.pageId || newEntityId("page"),
         originalSlug: item.dataset.pageOriginalSlug || "",
         title: title,
@@ -2238,8 +2488,14 @@
         contentMode: qs('[data-field="pageContentMode"]', item).value || "text",
         image: (qs('[data-field="pageImage"]', item) || {}).value || "",
         video: (qs('[data-field="pageVideo"]', item) || {}).value || "",
-        content: qs('[data-field="pageContent"]', item).value.trim()
+        content: qs('[data-field="pageContent"]', item).value.trim(),
+        createdAt: createdAt,
+        updatedAt: updatedAt
       };
+      if (pageEditorSignature(page) !== (item.dataset.pageSignature || "")) {
+        page.updatedAt = currentPageTimestamp();
+      }
+      return page;
     }).filter(function (page) {
       return page.title || page.slug || page.content || page.image || page.video;
     });
@@ -2251,6 +2507,7 @@
       delete page.originalSlug;
     });
     data.pages = normalizePageParentLinks(data.pages);
+    data.pages.forEach(ensurePageTimestamps);
   }
 
   function addSubpageForParent(parentPageId) {
@@ -2284,6 +2541,7 @@
     }
     parent.parentSlug = "";
     parent.showInNavigation = parent.showInNavigation !== false;
+    parent.updatedAt = currentPageTimestamp();
     child = {
       id: newEntityId("page"),
       title: "صفحة فرعية جديدة",
@@ -2295,7 +2553,9 @@
       video: "",
       visible: true,
       showInNavigation: false,
-      showInFooter: false
+      showInFooter: false,
+      createdAt: parent.updatedAt,
+      updatedAt: parent.updatedAt
     };
     data.pages.push(child);
     data.pages = normalizePageParentLinks(data.pages);
@@ -2334,6 +2594,7 @@
     var index;
     var page;
     var pageSlug;
+    var deletedParentSlug;
     var childCount;
     if (!pageId) return;
     captureOpenEditorAccordions(qs("[data-pages-editor]"));
@@ -2344,6 +2605,7 @@
     if (index < 0) return;
     page = data.pages[index];
     pageSlug = slugify(page.slug || page.title);
+    deletedParentSlug = slugify(page.parentSlug);
     childCount = (data.pages || []).filter(function (candidate) {
       return slugify(candidate.parentSlug) === pageSlug;
     }).length;
@@ -2351,7 +2613,15 @@
       data.pages.splice(index, 1);
       if (pageSlug) {
         data.pages.forEach(function (candidate) {
-          if (slugify(candidate.parentSlug) === pageSlug) candidate.parentSlug = "";
+          if (slugify(candidate.parentSlug) === pageSlug) {
+            candidate.parentSlug = "";
+            candidate.updatedAt = currentPageTimestamp();
+          }
+        });
+      }
+      if (deletedParentSlug) {
+        data.pages.forEach(function (candidate) {
+          if (slugify(candidate.slug) === deletedParentSlug) candidate.updatedAt = currentPageTimestamp();
         });
       }
       openEditorAccordions.delete("page:" + pageId);
@@ -3134,8 +3404,10 @@
 
     qs("[data-add-page]").addEventListener("click", function () {
       var page;
+      var now;
       collectPages();
-      page = { id: newEntityId("page"), title: "صفحة جديدة", slug: "page-" + Date.now(), parentSlug: "", content: "", contentMode: "text", image: "", video: "", visible: true, showInNavigation: true, showInFooter: false };
+      now = currentPageTimestamp();
+      page = { id: newEntityId("page"), title: "صفحة جديدة", slug: "page-" + Date.now(), parentSlug: "", content: "", contentMode: "text", image: "", video: "", visible: true, showInNavigation: true, showInFooter: false, createdAt: now, updatedAt: now };
       data.pages.unshift(page);
       pendingOpenEditor.page = 0;
       renderPagesEditor();
@@ -3189,6 +3461,7 @@
       var deleteSkill = event.target.closest("[data-delete-skill]");
       var addSubpage = event.target.closest("[data-add-subpage]");
       var pageChildrenToggle = event.target.closest("[data-page-children-toggle]");
+      var pageFormatButton = event.target.closest("[data-page-format]");
       var contactToggle = event.target.closest("[data-contact-toggle]");
       var editorToggle = event.target.closest("[data-editor-toggle]");
       var iconTypeTrigger = event.target.closest("[data-icon-type-trigger]");
@@ -3208,6 +3481,7 @@
       if (deleteAdminUserButton) { deleteAdminUser(deleteAdminUserButton); return; }
       if (addSubpage) { addSubpageForParent(addSubpage.dataset.addSubpage || ""); return; }
       if (pageChildrenToggle) { togglePageChildrenSection(pageChildrenToggle); return; }
+      if (pageFormatButton) { applyPageTextFormat(pageFormatButton); return; }
       if (!event.target.closest("[data-icon-type-menu], [data-option-menu], [data-select-menu]")) closeAdminInlineDropmenus();
       if (contactToggle) { toggleContactPanel(contactToggle); return; }
       if (editorToggle) { toggleEditorPanel(editorToggle); return; }
@@ -3386,6 +3660,14 @@
     });
 
     document.addEventListener("change", function (event) {
+      if (event.target.matches("[data-page-format-font]")) {
+        applyPageEditorFont(event.target);
+        return;
+      }
+      if (event.target.matches("[data-page-format-size]")) {
+        applyPageEditorFontSize(event.target);
+        return;
+      }
       if (!event.target.matches("[data-page-visible], [data-page-navigation-link], [data-page-footer-link]")) return;
       var pageItem = event.target.closest("[data-page-index]");
       if (pageItem && event.target.matches("[data-page-navigation-link], [data-page-footer-link]") && event.target.checked) {

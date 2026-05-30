@@ -315,6 +315,8 @@ function cms_fetch_site_data(PDO $pdo): array
             'visible' => (bool) ($page['visible'] ?? 1),
             'showInNavigation' => (bool) ($page['show_in_navigation'] ?? ($page['visible'] ?? 1)),
             'showInFooter' => (bool) ($page['show_in_footer'] ?? 0),
+            'createdAt' => (string) ($page['created_at'] ?? ''),
+            'updatedAt' => (string) ($page['updated_at'] ?? ($page['created_at'] ?? '')),
         ];
     }
 
@@ -458,6 +460,8 @@ function cms_ensure_pages_columns(PDO $pdo): void
         'video_path' => 'VARCHAR(500)',
         'show_in_navigation' => 'TINYINT(1) DEFAULT 1',
         'show_in_footer' => 'TINYINT(1) DEFAULT 0',
+        'created_at' => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP',
+        'updated_at' => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
     ];
 
     foreach ($columns as $column => $definition) {
@@ -675,6 +679,24 @@ function cms_safe_path(mixed $value): string
     return ltrim(str_replace('\\', '/', $path), '/');
 }
 
+function cms_timestamp(mixed $value, ?string $fallback = null): string
+{
+    $text = trim((string) ($value ?? ''));
+    if ($text !== '') {
+        try {
+            return (new DateTimeImmutable($text))->format('Y-m-d H:i:s');
+        } catch (Exception $error) {
+            // Fall back to the supplied timestamp or the current time below.
+        }
+    }
+
+    if ($fallback !== null && trim($fallback) !== '') {
+        return $fallback;
+    }
+
+    return gmdate('Y-m-d H:i:s');
+}
+
 function cms_normalize_hero_slides(mixed $items): array
 {
     if (!is_array($items)) {
@@ -793,6 +815,8 @@ function cms_normalize_pages(mixed $items): array
         }
         $title = cms_string($item['title'] ?? '', 255);
         $mode = ($item['contentMode'] ?? $item['content_mode'] ?? 'text') === 'html' ? 'html' : 'text';
+        $createdAt = cms_timestamp($item['createdAt'] ?? $item['created_at'] ?? null);
+        $updatedAt = cms_timestamp($item['updatedAt'] ?? $item['updated_at'] ?? null, $createdAt);
         $page = [
             'title' => $title,
             'slug' => cms_unique_slug($used, $item['slug'] ?? '', $title ?: 'page'),
@@ -804,6 +828,8 @@ function cms_normalize_pages(mixed $items): array
             'visible' => cms_bool($item['visible'] ?? true),
             'showInNavigation' => cms_bool($item['showInNavigation'] ?? $item['show_in_navigation'] ?? $item['visible'] ?? true),
             'showInFooter' => cms_bool($item['showInFooter'] ?? $item['show_in_footer'] ?? false),
+            'createdAt' => $createdAt,
+            'updatedAt' => $updatedAt,
         ];
         if ($page['title'] !== '' || $page['content'] !== '' || $page['image'] !== '' || $page['video'] !== '') {
             $output[] = $page;
@@ -1258,8 +1284,8 @@ function cms_replace_pages(PDO $pdo, array $pages): void
 {
     $pdo->exec('DELETE FROM pages');
     $stmt = $pdo->prepare(
-        'INSERT INTO pages (title, slug, parent_slug, content_mode, content, image_path, video_path, sort_order, visible, show_in_navigation, show_in_footer)
-         VALUES (:title, :slug, :parent_slug, :content_mode, :content, :image_path, :video_path, :sort_order, :visible, :show_in_navigation, :show_in_footer)'
+        'INSERT INTO pages (title, slug, parent_slug, content_mode, content, image_path, video_path, sort_order, visible, show_in_navigation, show_in_footer, created_at, updated_at)
+         VALUES (:title, :slug, :parent_slug, :content_mode, :content, :image_path, :video_path, :sort_order, :visible, :show_in_navigation, :show_in_footer, :created_at, :updated_at)'
     );
     foreach ($pages as $index => $page) {
         $stmt->execute([
@@ -1274,6 +1300,8 @@ function cms_replace_pages(PDO $pdo, array $pages): void
             'visible' => cms_bool_int($page['visible']),
             'show_in_navigation' => cms_bool_int($page['showInNavigation'] ?? true),
             'show_in_footer' => cms_bool_int($page['showInFooter']),
+            'created_at' => $page['createdAt'] ?? gmdate('Y-m-d H:i:s'),
+            'updated_at' => $page['updatedAt'] ?? ($page['createdAt'] ?? gmdate('Y-m-d H:i:s')),
         ]);
     }
 }

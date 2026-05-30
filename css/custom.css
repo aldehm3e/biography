@@ -58,6 +58,41 @@
   unicode-range: U+0000-00FF;
 }
 
+@font-face {
+  font-family: "Saudi";
+  font-weight: 300 400;
+  font-display: swap;
+  src: url("../assets/vendor/nds/fonts/SaudiWeb-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Saudi";
+  font-weight: 600 700;
+  font-display: swap;
+  src: url("../assets/vendor/nds/fonts/SaudiWeb-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "Maqroo";
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/vendor/nds/fonts/Maqroo-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  font-weight: 400;
+  font-display: swap;
+  src: url("../assets/vendor/nds/fonts/OpenDyslexic-Regular.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "OpenDyslexic";
+  font-weight: 700;
+  font-display: swap;
+  src: url("../assets/vendor/nds/fonts/OpenDyslexic-Bold.woff2") format("woff2");
+}
+
 :root {
   --nds-nav-height: 72px;
   --nds-minimal-nav-bp: 960px;
@@ -1110,6 +1145,20 @@ html[dir="ltr"] .nds-breadcrumb > li:not(:last-child)::after {
 .project-actions,
 .page-actions {
   align-items: center;
+}
+
+.page-tracking-stamp {
+  margin: 0;
+  color: var(--text-secondary-paragraph);
+  font-family: "Maqroo", var(--nds-font-family);
+  font-size: var(--typo-text-xs-FS);
+  line-height: var(--typo-text-xs-LH);
+  font-weight: 400;
+}
+
+.nds-section-head > .page-tracking-stamp {
+  width: 100%;
+  margin-block-start: calc(-1 * var(--spacing-xs));
 }
 
 .nds-card-image {
@@ -2784,6 +2833,68 @@ textarea.nds-input {
   resize: vertical;
 }
 
+.page-content-editor-container {
+  min-width: 0;
+}
+
+.page-format-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-block-end: var(--spacing-sm);
+}
+
+.page-format-buttons {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-xs);
+}
+
+.page-format-btn {
+  --btn-size: 36px;
+  width: 36px;
+  height: 36px;
+  min-width: 36px;
+  min-height: 36px;
+  border-radius: var(--radius-sm);
+}
+
+.page-format-btn .hgi-stroke {
+  width: 20px;
+  height: 20px;
+  font-size: 20px;
+  line-height: 20px;
+}
+
+.page-format-select-control {
+  min-width: min(180px, 100%);
+  max-width: 100%;
+}
+
+.page-format-font-control {
+  min-width: min(240px, 100%);
+}
+
+.page-format-font-select,
+.page-format-size-select {
+  min-height: 36px;
+  padding-block: 0;
+  padding-inline: var(--spacing-md);
+}
+
+@media (max-width: 640px) {
+  .page-format-toolbar {
+    align-items: stretch;
+  }
+
+  .page-format-select-control,
+  .page-format-font-select,
+  .page-format-size-select {
+    width: 100%;
+  }
+}
+
 textarea.page-content-editor[data-content-editor-mode="html"],
 textarea.page-content-editor-html {
   direction: ltr;
@@ -2990,23 +3101,44 @@ body[data-page="admin"] [data-pages-editor] [data-sortable-item="page"] :is(.adm
 
 .page-editor-heading {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
-  gap: var(--spacing-xs);
+  gap: var(--spacing-sm);
+  width: 100%;
   min-width: 0;
+  overflow: hidden;
 }
 
 .page-editor-heading > .nds-card-title {
+  flex: 1 1 auto;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+.page-editor-timestamp {
+  flex: 0 1 auto;
+  max-width: min(34ch, 42%);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-secondary-paragraph);
+  font-family: "Maqroo", var(--nds-font-family);
+  font-size: var(--typo-text-xs-FS);
+  line-height: var(--typo-text-xs-LH);
+  font-weight: 400;
+}
+
 .page-editor-meta {
+  flex: 0 0 auto;
   display: inline-flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: var(--spacing-2xs);
+}
+
+.page-editor-meta .nds-tag {
+  white-space: nowrap;
 }
 
 .admin-template-header.sortable-editor-header:not(:has(.editor-drag-handle)),
@@ -6814,12 +6946,67 @@ body {
   background: var(--background-default);
 }
 
+body[data-page="admin"] :is(.admin-panel[data-admin-panel="projects"], .admin-panel[data-admin-panel="pages"]) > .nds-card > .nds-card-content {
+  min-height: 0;
+}
+
+body[data-page="admin"] :is(.admin-panel[data-admin-panel="projects"], .admin-panel[data-admin-panel="pages"]) :is([data-projects-editor], [data-pages-editor]) {
+  min-height: 0;
+  max-height: clamp(320px, 55dvh, 680px) !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+  align-content: start;
+  contain: content;
+}
+
 body[data-page="admin"] .site-footer {
   z-index: 1;
 }
 
+body[data-page="admin"] main {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+body[data-page="admin"] [data-admin-dashboard] {
+  flex: 1 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+body[data-page="admin"] [data-admin-dashboard][hidden] {
+  display: none;
+}
+
 body[data-page="admin"] .admin-panel {
   margin-block-end: var(--spacing-3xl);
+}
+
+body[data-page="admin"]:has(:is(.admin-panel[data-admin-panel="projects"], .admin-panel[data-admin-panel="pages"]):not([hidden])) .admin-content-layout {
+  min-height: 0;
+  padding-block-end: var(--spacing-md);
+}
+
+body[data-page="admin"]:has(:is(.admin-panel[data-admin-panel="projects"], .admin-panel[data-admin-panel="pages"]):not([hidden])) :is(.admin-panel[data-admin-panel="projects"], .admin-panel[data-admin-panel="pages"]) {
+  margin-block-end: var(--spacing-md);
+}
+
+body[data-page="admin"] .admin-panel[data-admin-panel="pages"] .panel-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+}
+
+body[data-page="admin"] .admin-panel[data-admin-panel="pages"] .panel-heading > :first-child {
+  min-width: 0;
+}
+
+body[data-page="admin"] .admin-panel[data-admin-panel="pages"] .panel-heading .nds-section-action {
+  justify-content: flex-end;
+  align-self: start;
 }
 
 body[data-page="admin"] .admin-panel[data-admin-panel="home"] > .nds-card > .nds-card-content {

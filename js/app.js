@@ -667,6 +667,45 @@
     return "index.html#/page/" + parts.join("/");
   }
 
+  function pageTrackingTimestamp(page) {
+    return String((page && (page.updatedAt || page.updated_at || page.createdAt || page.created_at)) || "").trim();
+  }
+
+  function formatPageTrackingTimestamp(value) {
+    var text = String(value || "").trim();
+    var normalized;
+    var date;
+    if (!text) return "";
+    normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(text) ? text.replace(" ", "T") : text;
+    date = new Date(normalized);
+    if (Number.isNaN(date.getTime())) return text;
+    try {
+      return new Intl.DateTimeFormat(document.documentElement.lang || "ar", {
+        dateStyle: "medium",
+        timeStyle: "short"
+      }).format(date);
+    } catch (error) {
+      return date.toLocaleString();
+    }
+  }
+
+  function pageTrackingStamp(page) {
+    var timestamp = pageTrackingTimestamp(page);
+    if (!timestamp) return null;
+    return el("p", "page-tracking-stamp", "آخر تحديث: " + formatPageTrackingTimestamp(timestamp));
+  }
+
+  function renderExtraPageTrackingStamp(page) {
+    var head = qs("[data-extra-page-view] .nds-section-head");
+    var previous;
+    var stamp;
+    if (!head) return;
+    previous = qs(".page-tracking-stamp", head);
+    if (previous) previous.remove();
+    stamp = pageTrackingStamp(page);
+    if (stamp) head.append(stamp);
+  }
+
   function footerPageItems(data) {
     return ((data && data.pages) || []).filter(function (item) {
       return item && item.showInFooter === true && hasText(item.title || item.slug) && !pageIsNavigationGroup(item, data);
@@ -3810,6 +3849,7 @@
     body.innerHTML = "";
     if (!page) {
       titleNodes.forEach(function (node) { node.textContent = "الصفحة غير موجودة"; });
+      renderExtraPageTrackingStamp(null);
       renderExtraPageBreadcrumb(data, null);
       updateDocumentTitle(data, "الصفحة غير موجودة");
       body.append(emptyState(uiText(data, "extraPageNotFoundTitle", "لم يتم العثور على الصفحة المطلوبة"), uiText(data, "extraPageNotFoundDescription", "يمكنك العودة إلى الصفحة الرئيسية أو إنشاء الصفحة من لوحة الإدارة.")));
@@ -3818,6 +3858,7 @@
     }
 
     titleNodes.forEach(function (node) { node.textContent = page.title || ""; });
+    renderExtraPageTrackingStamp(page);
     renderExtraPageBreadcrumb(data, page);
     updateDocumentTitle(data, page.title || navigationLabel(data, "pagesLabel", "الصفحات"));
     renderSectionShareAction("[data-extra-page-view] .nds-section-head", pageHref(page, data), page.title || page.slug || "");
@@ -4378,6 +4419,8 @@
       var media = createPageMedia(page, { card: true });
       if (media) content.append(media);
       content.append(el("h2", "nds-card-title", page.title || page.slug || uiText(appState.data, "pageCardFallbackTitle", "صفحة")));
+      var stamp = pageTrackingStamp(page);
+      if (stamp) content.append(stamp);
       if (hasText(page.content)) {
         content.append(el("p", "nds-card-description", textPreview(page.content)));
       }
