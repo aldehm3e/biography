@@ -841,6 +841,22 @@ function cms_normalize_pages(mixed $items): array
         }
     }
     unset($page);
+    $rootParentsWithChildren = [];
+    foreach ($output as $page) {
+        if ($page['parentSlug'] !== '') {
+            $rootParentsWithChildren[$page['parentSlug']] = true;
+        }
+    }
+    foreach ($output as &$page) {
+        if ($page['parentSlug'] === '' && isset($rootParentsWithChildren[$page['slug']])) {
+            $page['contentMode'] = 'text';
+            $page['content'] = '';
+            $page['image'] = '';
+            $page['video'] = '';
+            $page['showInFooter'] = false;
+        }
+    }
+    unset($page);
     return $output;
 }
 

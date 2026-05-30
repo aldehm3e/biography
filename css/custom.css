@@ -200,7 +200,7 @@ body {
 }
 
 main {
-  flex: 1;
+  flex: 1 0 auto;
 }
 
 img {
@@ -1245,7 +1245,9 @@ html[dir="ltr"] .nds-breadcrumb > li:not(:last-child)::after {
 .site-footer {
   position: relative;
   z-index: 3;
-  padding-block: var(--spacing-5xl) var(--spacing-3xl);
+  flex-shrink: 0;
+  margin-block-end: 0;
+  padding-block: var(--spacing-5xl) calc(var(--spacing-3xl) + env(safe-area-inset-bottom));
   background: var(--colors-primary-sa-flag-900);
   color: rgba(255, 255, 255, 0.86);
   font-size: 14px;
@@ -4079,13 +4081,11 @@ html[dir="rtl"] .nav-pages-menu .nds-dropmenu-item[data-state~="current"] {
   display: none;
 }
 
-.admin-template-item[data-page-is-group="true"] :is(
-  .nds-form-container:has([data-field="pageContentMode"]),
-  .nds-form-container:has([data-field="pageImage"]),
-  .nds-form-container:has([data-field="pageVideo"]),
-  .nds-form-container:has([data-field="pageContent"]),
-  .check-line:has([data-page-footer-link])
-) {
+.admin-template-item[data-page-is-group="true"] > .nds-card-content > .editor-accordion-collapse > .editor-accordion-content > .form-grid > .nds-form-container:has([data-field="pageContentMode"]),
+.admin-template-item[data-page-is-group="true"] > .nds-card-content > .editor-accordion-collapse > .editor-accordion-content > .form-grid > .nds-form-container:has([data-field="pageImage"]),
+.admin-template-item[data-page-is-group="true"] > .nds-card-content > .editor-accordion-collapse > .editor-accordion-content > .form-grid > .nds-form-container:has([data-field="pageVideo"]),
+.admin-template-item[data-page-is-group="true"] > .nds-card-content > .editor-accordion-collapse > .editor-accordion-content > .nds-form-container:has([data-field="pageContent"]),
+.admin-template-item[data-page-is-group="true"] > .nds-card-content > .editor-accordion-collapse > .editor-accordion-content > .admin-check-stack > .check-line:has([data-page-footer-link]) {
   display: none;
 }
 
