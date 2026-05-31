@@ -154,6 +154,14 @@ function cms_default_site_data(): array
             'logos' => [],
             'copyrightText' => '',
             'legalText' => '',
+            'cookies' => [
+                'enabled' => true,
+                'title' => 'ملفات تعريف الارتباط',
+                'content' => 'يستخدم هذا الموقع ملفات تعريف الارتباط لتحسين تجربة التصفح وتسهيل الاستخدام. بالمتابعة في استخدام الموقع، فإنك توافق على استخدام ملفات الارتباط.',
+                'acceptLabel' => 'قبول',
+                'declineLabel' => 'رفض',
+                'linkPageSlugs' => [],
+            ],
         ],
         'projects' => [],
         'pages' => [],
@@ -1009,6 +1017,30 @@ function cms_normalize_footer_managed_links(mixed $items, bool $withIcons = fals
     return $output;
 }
 
+function cms_normalize_footer_cookies(mixed $cookies, array $defaults): array
+{
+    $output = $defaults;
+    if (!is_array($cookies)) {
+        return $output;
+    }
+    $output['enabled'] = cms_bool($cookies['enabled'] ?? $defaults['enabled'] ?? true);
+    $output['title'] = cms_string($cookies['title'] ?? $defaults['title'] ?? '', 255);
+    $output['content'] = cms_string($cookies['content'] ?? $defaults['content'] ?? '', 1200);
+    $output['acceptLabel'] = cms_string($cookies['acceptLabel'] ?? $cookies['accept_label'] ?? $defaults['acceptLabel'] ?? '', 100);
+    $output['declineLabel'] = cms_string($cookies['declineLabel'] ?? $cookies['decline_label'] ?? $defaults['declineLabel'] ?? '', 100);
+    $output['linkPageSlugs'] = [];
+    $rawSlugs = $cookies['linkPageSlugs'] ?? $cookies['link_page_slugs'] ?? [];
+    if (is_array($rawSlugs)) {
+        foreach (array_values($rawSlugs) as $slug) {
+            $value = cms_string($slug, 180);
+            if ($value !== '' && !in_array($value, $output['linkPageSlugs'], true)) {
+                $output['linkPageSlugs'][] = $value;
+            }
+        }
+    }
+    return $output;
+}
+
 function cms_normalize_footer(mixed $footer, array $defaults): array
 {
     if (!is_array($footer)) {
@@ -1065,6 +1097,7 @@ function cms_normalize_footer(mixed $footer, array $defaults): array
     }
     $output['copyrightText'] = cms_string($footer['copyrightText'] ?? $footer['copyright_text'] ?? '', 500);
     $output['legalText'] = cms_string($footer['legalText'] ?? $footer['legal_text'] ?? '', 1000);
+    $output['cookies'] = cms_normalize_footer_cookies($footer['cookies'] ?? [], $defaults['cookies'] ?? []);
     return $output;
 }
 

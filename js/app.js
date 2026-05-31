@@ -17,6 +17,9 @@
   var siteSearchVoiceButton = null;
   var textInputClearObserver = null;
   var textInputClearQueued = false;
+  var analyticsKnownIds = [];
+  var analyticsConfiguredPageKeys = {};
+  var analyticsScriptLoaded = false;
 
   var appState = {
     data: null,
@@ -423,6 +426,7 @@
     renderAccountMenu(data);
     renderNavigation(data);
     renderNotifications();
+    renderAnalyticsIntegrations(data);
     try {
       renderFooter(data);
     } catch (error) {
@@ -1082,6 +1086,226 @@
   function renderFooter(data) {
     renderFooterContent(data);
     renderFooterBottom(data);
+    renderCookieConsent(data);
+  }
+
+  function normalizeGoogleAnalyticsId(value) {
+    var id = String(value || "").trim().toUpperCase();
+    if (/^(G|GT|AW)-[A-Z0-9-]+$/.test(id) || /^UA-\d+-\d+$/.test(id)) return id;
+    return "";
+  }
+
+  function activeGoogleAnalyticsIds(data) {
+    var seen = {};
+    return ((data && data.integrations) || []).filter(function (integration) {
+      return integration && integration.enabled !== false && integration.type === "analytics";
+    }).map(function (integration) {
+      return normalizeGoogleAnalyticsId(integration.publicKey || integration.measurementId || integration.measurement_id);
+    }).filter(function (id) {
+      if (!id || seen[id]) return false;
+      seen[id] = true;
+      return true;
+    });
+  }
+
+  function analyticsConsentState() {
+    if (window.NDS && window.NDS.Cookies && window.NDS.Cookies.getConsent) {
+      return window.NDS.Cookies.getConsent();
+    }
+    var match = document.cookie.match(/(?:^|;\s*)cookieConsent=([^;]+)/);
+    return match ? decodeURIComponent(match[1]) : null;
+  }
+
+  function setGoogleAnalyticsDisabled(ids, disabled) {
+    (ids || []).forEach(function (id) {
+      window["ga-disable-" + id] = Boolean(disabled);
+    });
+  }
+
+  function ensureGtagBase() {
+    window.dataLayer = window.dataLayer || [];
+    if (typeof window.gtag !== "function") {
+      window.gtag = function () {
+        window.dataLayer.push(arguments);
+      };
+    }
+  }
+
+  function loadGoogleAnalyticsScript(primaryId) {
+    var existing = qs("#siteGoogleAnalyticsScript");
+    if (existing || analyticsScriptLoaded || !primaryId) return;
+    var script = document.createElement("script");
+    script.id = "siteGoogleAnalyticsScript";
+    script.async = true;
+    script.src = "https://www.googletagmanager.com/gtag/js?id=" + encodeURIComponent(primaryId);
+    document.head.append(script);
+    analyticsScriptLoaded = true;
+  }
+
+  function configureGoogleAnalytics(ids) {
+    var pageKey = window.location.pathname + window.location.search + window.location.hash;
+    var pageLocation = window.location.href;
+    ensureGtagBase();
+    if (!window.__siteGtagStarted) {
+      window.gtag("js", new Date());
+      window.__siteGtagStarted = true;
+    }
+    window.gtag("consent", "update", {
+      analytics_storage: "granted",
+      ad_storage: "denied"
+    });
+    ids.forEach(function (id) {
+      if (analyticsConfiguredPageKeys[id] === pageKey) return;
+      window.gtag("config", id, {
+        page_path: pageKey,
+        page_location: pageLocation
+      });
+      analyticsConfiguredPageKeys[id] = pageKey;
+    });
+  }
+
+  function renderAnalyticsIntegrations(data) {
+    var ids = activeGoogleAnalyticsIds(data);
+    var allKnownIds = analyticsKnownIds.concat(ids).filter(function (id, index, list) {
+      return id && list.indexOf(id) === index;
+    });
+    var consent = analyticsConsentState();
+    analyticsKnownIds = ids.slice();
+    window.GA_TRACKING_ID = ids.length === 1 ? ids[0] : ids.slice();
+    if (!ids.length) {
+      setGoogleAnalyticsDisabled(allKnownIds, true);
+      return;
+    }
+    if (consent !== "accepted") {
+      setGoogleAnalyticsDisabled(allKnownIds, true);
+      if (typeof window.gtag === "function") {
+        window.gtag("consent", "update", {
+          analytics_storage: "denied",
+          ad_storage: "denied"
+        });
+      }
+      return;
+    }
+    setGoogleAnalyticsDisabled(allKnownIds.filter(function (id) {
+      return ids.indexOf(id) === -1;
+    }), true);
+    setGoogleAnalyticsDisabled(ids, false);
+    loadGoogleAnalyticsScript(ids[0]);
+    configureGoogleAnalytics(ids);
+  }
+
+  function defaultCookieConsentConfig() {
+    var defaults = window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.footer && window.DEFAULT_SITE_DATA.footer.cookies;
+    return Object.assign({
+      enabled: true,
+      title: "ملفات تعريف الارتباط",
+      content: "يستخدم هذا الموقع ملفات تعريف الارتباط لتحسين تجربة التصفح وتسهيل الاستخدام. بالمتابعة في استخدام الموقع، فإنك توافق على استخدام ملفات الارتباط.",
+      acceptLabel: "قبول",
+      declineLabel: "رفض",
+      linkPageSlugs: []
+    }, defaults || {});
+  }
+
+  function footerCookieConsentConfig(data) {
+    var footer = data && data.footer || {};
+    var config = Object.assign(defaultCookieConsentConfig(), footer.cookies || {});
+    config.enabled = config.enabled !== false;
+    config.linkPageSlugs = Array.isArray(config.linkPageSlugs) ? config.linkPageSlugs : [];
+    return config;
+  }
+
+  function cookieLinkMarkup(link, id) {
+    var external = /^https?:\/\//i.test(link.href);
+    if (!hasText(link.href) || !hasText(link.label)) return "";
+    return '<a href="' + escapeHtml(link.href) + '" id="' + id + '"' + (external ? ' target="_blank" rel="noopener noreferrer"' : "") + '>' + escapeHtml(link.label) + '</a>';
+  }
+
+  function cookieLinksMarkup(data, config) {
+    var selectedSlugs = config.linkPageSlugs || [];
+    var links = footerPageItems(data).filter(function (item) {
+      var key = String(item.key || "").replace(/^footer-page:/, "");
+      return selectedSlugs.indexOf(key) !== -1;
+    }).map(function (item, index) {
+      return cookieLinkMarkup({
+        label: item.label,
+        href: normalizeFooterLinkUrl(item.href)
+      }, "ndsCookiesFooterLink" + index);
+    }).filter(Boolean);
+    if (!links.length) return "";
+    return '<div class="nds-cookie-popup-links">' + links.join('<span aria-hidden="true">|</span>') + '</div>';
+  }
+
+  function renderCookieConsent(data, options) {
+    options = options || {};
+    var config = footerCookieConsentConfig(data);
+    var popup = qs("#ndsCookiesPopup");
+    var wasHidden = !popup || popup.hasAttribute("hidden");
+    var isAdminPage = document.body && document.body.dataset.page === "admin";
+
+    if (!config.enabled) {
+      if (popup) popup.remove();
+      return;
+    }
+
+    if (!popup) {
+      popup = document.createElement("div");
+      popup.id = "ndsCookiesPopup";
+      popup.hidden = true;
+      document.body.append(popup);
+    }
+
+    popup.className = "nds-cookie-popup nds-card";
+    popup.setAttribute("role", "dialog");
+    popup.setAttribute("aria-labelledby", "ndsCookiesTitle");
+    popup.setAttribute("aria-live", "polite");
+    popup.innerHTML = [
+      '<div class="nds-card-header">',
+      '<span class="nds-featured-icon nds-circle">',
+      '<i class="nds-icon nds-hgi-cookie" aria-hidden="true"></i>',
+      '</span>',
+      '<button id="ndsCookiesCloseBtn" class="nds-close nds-btn nds-subtle" type="button" aria-label="إغلاق">',
+      '<i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i>',
+      '</button>',
+      '</div>',
+      '<div class="nds-card-content">',
+      '<div class="nds-card-text">',
+      '<h3 class="nds-card-title" id="ndsCookiesTitle">' + escapeHtml(config.title || "ملفات تعريف الارتباط") + '</h3>',
+      '<p class="nds-card-description" id="ndsCookiesContent">' + escapeHtml(config.content || "") + '</p>',
+      '</div>',
+      cookieLinksMarkup(data, config),
+      '</div>',
+      '<div class="nds-card-actions">',
+      '<button class="nds-btn nds-primary nds-full" type="button" id="ndsCookiesAcceptBtn" data-accept-title="تم القبول" data-accept-message="تم قبول ملفات الارتباط">',
+      '<span class="nds-label">' + escapeHtml(config.acceptLabel || "قبول") + '</span>',
+      '</button>',
+      '<button class="nds-btn nds-secondary nds-full" type="button" id="ndsCookiesDeclineBtn" data-decline-title="تم الرفض" data-decline-message="تم رفض ملفات الارتباط الاختيارية">',
+      '<span class="nds-label">' + escapeHtml(config.declineLabel || "رفض") + '</span>',
+      '</button>',
+      '</div>'
+    ].join("");
+
+    if (wasHidden && !options.preview) popup.hidden = true;
+    else popup.removeAttribute("hidden");
+
+    if (window.NDS && window.NDS.Cookies && window.NDS.Cookies.init && (!isAdminPage || options.preview)) {
+      window.NDS.Cookies.init();
+    }
+    ["ndsCookiesAcceptBtn", "ndsCookiesDeclineBtn"].forEach(function (buttonId) {
+      var button = qs("#" + buttonId, popup);
+      if (!button) return;
+      button.addEventListener("click", function () {
+        window.setTimeout(function () {
+          renderAnalyticsIntegrations(appState.data || data);
+        }, 0);
+      });
+    });
+    if (options.preview) {
+      if (window.NDS && window.NDS.Cookies && window.NDS.Cookies.show) {
+        window.NDS.Cookies.show();
+      } else {
+        popup.removeAttribute("hidden");
+      }
+    }
   }
 
   function normalizeFooterLinkUrl(url) {
@@ -5139,6 +5363,8 @@
     toggleTheme: toggleTheme,
     updateThemeIcon: updateThemeIcon,
     updateHeaderDateTime: updateHeaderDateTime,
+    renderCookieConsent: renderCookieConsent,
+    renderAnalyticsIntegrations: renderAnalyticsIntegrations,
     openNotifications: openNotifications,
     isAdminAuthenticated: isAdminAuthenticated,
     addNotification: addNotification

@@ -106,6 +106,14 @@
     });
     footer.bottomLinks = normalizeArray(footer.bottomLinks);
     footer.logos = normalizeArray(footer.logos);
+    footer.cookies = mergeObject(
+      window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.footer && window.DEFAULT_SITE_DATA.footer.cookies || {},
+      footer.cookies || {}
+    );
+    footer.cookies.enabled = footer.cookies.enabled !== false;
+    footer.cookies.linkPageSlugs = normalizeArray(footer.cookies.linkPageSlugs).map(function (slug) {
+      return String(slug || "").trim();
+    }).filter(Boolean);
     return footer;
   }
 

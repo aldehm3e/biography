@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
   <link rel="stylesheet" href="css/nds-local-components.css?v=notification-refit-20260530">
-  <link rel="stylesheet" href="css/custom.css?v=accordion-motion-trash-20260531">
+  <link rel="stylesheet" href="css/custom.css?v=release-qa-20260601">
 </head>
 <body data-page="admin">
   <header class="site-header">
@@ -212,31 +212,92 @@
     </section>
 
     <div class="nds-content-layout nds-wSideMenu nds-cardView admin-content-layout">
-      <aside class="nds-sidemenu nds-top admin-sidemenu" aria-label="أقسام الإدارة">
-        <button id="nds-admin-sidemenu-toggle" class="nds-sidemenu-toggle nds-btn nds-menu-btn nds-subtle nds-indicator nds-peek" type="button" aria-label="القائمة الجانبية">
+      <aside class="nds-sidemenu nds-peek admin-sidemenu" aria-label="أقسام الإدارة">
+        <button id="nds-admin-sidemenu-toggle" class="nds-sidemenu-toggle nds-btn nds-primary nds-indicator nds-peek" type="button" aria-label="القائمة الجانبية" hidden>
           <i class="nds-icon nds-hgi-menu-02" aria-hidden="true"></i>
-          <span class="nds-label nds-truncate" data-home-page-label>الرئيسية</span>
+          <span class="nds-label nds-truncate" hidden>القائمة الجانبية</span>
         </button>
-        <nav class="nds-drawer nds-divided nds-lined nds-full-height">
+        <nav class="nds-drawer nds-divided nds-full-height">
           <div class="nds-scroll-more nds-divided">
             <ul class="nds-drawer-list nds-scroll-more-content admin-tabs" aria-label="أقسام الإدارة">
+              <li data-admin-group="site">
+                <button class="nds-btn nds-subtle nds-indicator nds-menu-btn" type="button" aria-expanded="false">
+                  <span class="nds-label">الموقع</span>
+                </button>
+                <ul>
               <li data-permission="settings">
-                <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="settings">
+                <button class="nds-btn nds-subtle nds-indicator nds-menu-btn" type="button" aria-expanded="false">
                   <i class="hgi-stroke hgi-settings-02" aria-hidden="true"></i>
                   <span class="nds-label">الإعدادات</span>
                 </button>
+                <ul>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="settings" data-settings-section="identity">
+                      <span class="nds-label">الهوية والتواصل</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="settings" data-settings-section="shell">
+                      <span class="nds-label">الشريط العلوي</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="settings" data-settings-section="interface">
+                      <span class="nds-label">نصوص الواجهة</span>
+                    </button>
+                  </li>
+                </ul>
               </li>
               <li data-state="active" data-permission="home">
-                <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="home" data-state="selected">
+                <button class="nds-btn nds-subtle nds-indicator nds-menu-btn" type="button" aria-expanded="false">
                   <i class="hgi-stroke hgi-home-01" aria-hidden="true"></i>
                   <span class="nds-label" data-home-page-label>الرئيسية</span>
                 </button>
+                <ul>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="home" data-home-section="profile" data-state="selected">
+                      <span class="nds-label">التعريف</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="home" data-home-section="media">
+                      <span class="nds-label">وسائط الرئيسية</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="home" data-home-section="content">
+                      <span class="nds-label">السيرة والخبرات</span>
+                    </button>
+                  </li>
+                </ul>
               </li>
               <li data-permission="footer">
-                <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="footer">
+                <button class="nds-btn nds-subtle nds-indicator nds-menu-btn" type="button" aria-expanded="false">
                   <i class="nds-icon nds-hgi-link-04" aria-hidden="true"></i>
                   <span class="nds-label">التذييل</span>
                 </button>
+                <ul>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="footer" data-footer-section="labels">
+                      <span class="nds-label">النصوص العامة</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="footer" data-footer-section="links">
+                      <span class="nds-label">الروابط والأعمدة</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="footer" data-footer-section="social">
+                      <span class="nds-label">التواصل والشعارات</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="footer" data-footer-section="cookies">
+                      <span class="nds-label">ملفات الارتباط</span>
+                    </button>
+                  </li>
+                </ul>
               </li>
               <li data-permission="projects">
                 <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="projects">
@@ -256,6 +317,13 @@
                   <span class="nds-label">التنقل</span>
                 </button>
               </li>
+                </ul>
+              </li>
+              <li data-admin-group="system">
+                <button class="nds-btn nds-subtle nds-indicator nds-menu-btn" type="button" aria-expanded="false">
+                  <span class="nds-label">النظام</span>
+                </button>
+                <ul>
               <li data-permission="integrations">
                 <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="integrations">
                   <i class="nds-icon nds-hgi-link-04" aria-hidden="true"></i>
@@ -280,8 +348,9 @@
                   <span class="nds-label">الحساب</span>
                 </button>
               </li>
+                </ul>
+              </li>
             </ul>
-            <div class="nds-divider"></div>
             <button class="nds-show-more nds-btn nds-subtle" type="button" aria-label="عرض المزيد">
               <i class="nds-icon nds-hgi-arrow-down-01" aria-hidden="true"></i>
             </button>
@@ -293,6 +362,7 @@
           <form class="nds-form admin-panel" data-admin-panel="settings" data-permission="settings" data-settings-form hidden>
             <div class="nds-card nds-stroke">
               <div class="nds-card-content">
+                <section class="admin-settings-section" data-settings-section-panel="identity">
                 <div class="panel-heading">
                   <div>
                     <h2 class="nds-card-title">إعدادات الموقع والهوية</h2>
@@ -348,11 +418,14 @@
                     <div class="nds-form-control"><input class="nds-input" id="siteTheme" name="siteTheme" type="text"></div>
                   </div>
                 </div>
+                </section>
+                <section class="admin-settings-section" data-settings-section-panel="shell" hidden>
                 <div class="panel-heading compact-heading">
                   <div>
                     <h3 class="section-minor-title">نصوص الشريط العلوي والتحقق</h3>
                     <p class="nds-card-description">هذه النصوص تظهر في الشريط العلوي ولوحة التحقق أسفل الهيدر.</p>
                   </div>
+                  <button class="nds-btn nds-primary" type="submit"><span class="nds-label">حفظ الإعدادات</span></button>
                 </div>
                 <div class="form-grid">
                   <div class="nds-form-container">
@@ -390,13 +463,17 @@
                     <div class="nds-form-control textarea-control"><textarea class="nds-input" id="shellSecurityDescription" name="shellSecurityDescription" rows="3"></textarea></div>
                   </div>
                 </div>
+                </section>
+                <section class="admin-settings-section" data-settings-section-panel="interface" hidden>
                 <div class="panel-heading compact-heading">
                   <div>
                     <h3 class="section-minor-title">نصوص الواجهة والصفحات</h3>
                     <p class="nds-card-description">عدّل العناوين والرسائل الثابتة مثل رسائل الفراغ وأزرار الصفحات والتذييل.</p>
                   </div>
+                  <button class="nds-btn nds-primary" type="submit"><span class="nds-label">حفظ الإعدادات</span></button>
                 </div>
                 <div class="form-grid" data-interface-text-fields></div>
+                </section>
               </div>
             </div>
           </form>
@@ -414,6 +491,7 @@
                     <button class="nds-btn nds-primary" type="submit"><span class="nds-label" data-admin-home-save-button>حفظ الرئيسية</span></button>
                   </div>
                 </div>
+                <section class="admin-panel-section" data-home-section-panel="profile">
                 <div class="form-grid">
                   <div class="nds-form-container">
                     <div class="nds-form-header"><label for="ownerName"><span class="nds-label">اسم صاحب الموقع</span></label></div>
@@ -435,6 +513,8 @@
                     <div class="nds-form-control upload-file-control" data-upload-label="رفع صورة"><input class="nds-input file-input" type="file" data-media-upload="avatar-image" data-upload-target-name="avatar" accept=".jpg,.jpeg,.png,.webp,.svg"></div>
                   </div>
                 </div>
+                </section>
+                <section class="admin-panel-section" data-home-section-panel="media" hidden>
                 <div class="hero-editor-block">
                   <div class="panel-heading compact-heading">
                     <div>
@@ -445,6 +525,8 @@
                   </div>
                   <div class="editor-list compact-editor-list" data-hero-slides-editor></div>
                 </div>
+                </section>
+                <section class="admin-panel-section" data-home-section-panel="content" hidden>
                 <div class="nds-form-container">
                   <div class="nds-form-header"><label for="biography"><span class="nds-label" data-ui-text="biographySubtitle" data-ui-text-fallback="نص السيرة">نص السيرة</span></label></div>
                   <div class="nds-form-control textarea-control"><textarea class="nds-input" id="biography" name="biography" rows="6"></textarea></div>
@@ -482,6 +564,8 @@
                   </div>
                   <div class="editor-list compact-editor-list" data-skills-editor></div>
                 </div>
+                </section>
+
               </div>
             </div>
           </form>
@@ -497,6 +581,7 @@
                   <button class="nds-btn nds-primary" type="submit"><span class="nds-label">حفظ التذييل</span></button>
                 </div>
 
+                <section class="admin-panel-section" data-footer-section-panel="labels">
                 <div class="form-grid">
                   <div class="nds-form-container">
                     <div class="nds-form-header"><label for="footerLinksHeading"><span class="nds-label">عنوان الروابط السريعة</span></label></div>
@@ -526,7 +611,9 @@
                     <div class="nds-form-control textarea-control"><textarea class="nds-input" id="footerLegalText" name="footerLegalText" rows="3"></textarea></div>
                   </div>
                 </div>
+                </section>
 
+                <section class="admin-panel-section" data-footer-section-panel="links" hidden>
                 <div class="contact-editor-block footer-links-admin-block">
                   <div class="panel-heading compact-heading">
                     <div>
@@ -551,7 +638,9 @@
                   </div>
                   <div class="editor-list" data-footer-columns-editor></div>
                 </div>
+                </section>
 
+                <section class="admin-panel-section" data-footer-section-panel="social" hidden>
                 <div class="contact-editor-block">
                   <div class="panel-heading compact-heading">
                     <div>
@@ -584,6 +673,54 @@
                   </div>
                   <div class="editor-list" data-footer-logos-editor></div>
                 </div>
+                </section>
+
+                <section class="admin-panel-section" data-footer-section-panel="cookies" hidden>
+                <div class="contact-editor-block">
+                  <div class="panel-heading compact-heading">
+                    <div>
+                      <h3 class="section-minor-title">إشعار ملفات الارتباط</h3>
+                      <p class="nds-card-description">إدارة نافذة الموافقة التي تظهر من أسفل الصفحة. روابط النافذة تظهر تلقائياً من الصفحات التي تم تفعيل خيار إظهار رابط تذييل لها.</p>
+                    </div>
+                    <div class="nds-section-action">
+                      <button class="nds-btn nds-secondary-outline nds-md" type="button" data-admin-tab-link="pages"><span class="nds-label">فتح الصفحات</span></button>
+                      <button class="nds-btn nds-secondary-outline nds-md" type="button" data-cookie-preview><span class="nds-label">معاينة الإشعار</span></button>
+                    </div>
+                  </div>
+
+                  <div class="form-grid">
+                    <div class="nds-form-container">
+                      <div class="nds-form-header"><label for="footerCookieEnabled"><span class="nds-label">تفعيل إشعار ملفات الارتباط</span></label></div>
+                      <label class="check-line"><input class="nds-check" type="checkbox" id="footerCookieEnabled" name="footerCookieEnabled" checked> <span>إظهار نافذة الموافقة للزوار عند عدم وجود اختيار محفوظ</span></label>
+                    </div>
+                    <div class="nds-form-container">
+                      <div class="nds-form-header"><label for="footerCookieTitle"><span class="nds-label">عنوان النافذة</span></label></div>
+                      <div class="nds-form-control"><input class="nds-input" id="footerCookieTitle" name="footerCookieTitle" type="text"></div>
+                    </div>
+                    <div class="nds-form-container">
+                      <div class="nds-form-header"><label for="footerCookieAcceptLabel"><span class="nds-label">نص زر القبول</span></label></div>
+                      <div class="nds-form-control"><input class="nds-input" id="footerCookieAcceptLabel" name="footerCookieAcceptLabel" type="text"></div>
+                    </div>
+                    <div class="nds-form-container">
+                      <div class="nds-form-header"><label for="footerCookieDeclineLabel"><span class="nds-label">نص زر الرفض</span></label></div>
+                      <div class="nds-form-control"><input class="nds-input" id="footerCookieDeclineLabel" name="footerCookieDeclineLabel" type="text"></div>
+                    </div>
+                  </div>
+
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="footerCookieContent"><span class="nds-label">نص الإشعار</span></label></div>
+                    <div class="nds-form-control textarea-control"><textarea class="nds-input" id="footerCookieContent" name="footerCookieContent" rows="4"></textarea></div>
+                  </div>
+
+                  <div class="footer-cookie-pages-summary">
+                    <div class="nested-editor-heading">
+                      <span class="nds-label">الصفحات التي ستظهر كرابط داخل النافذة</span>
+                      <button class="nds-btn nds-secondary-outline nds-sm" type="button" data-admin-tab-link="pages"><span class="nds-label">إدارة الصفحات</span></button>
+                    </div>
+                    <div class="editor-list compact-editor-list footer-cookie-page-list" data-cookie-footer-pages-list></div>
+                  </div>
+                </div>
+                </section>
               </div>
             </div>
           </form>
@@ -671,6 +808,7 @@
                     <p class="nds-card-description">إدارة إعدادات التكاملات العامة مثل الدفع والتحليلات والواجهات البرمجية.</p>
                   </div>
                   <div class="nds-section-action">
+                    <button class="nds-btn nds-secondary-outline" type="button" data-add-ga-integration><span class="nds-label">إضافة Google Analytics</span></button>
                     <button class="nds-btn nds-secondary-outline" type="button" data-add-integration><span class="nds-label">إضافة تكامل</span></button>
                     <button class="nds-btn nds-primary" type="button" data-save-integrations><span class="nds-label">حفظ التكاملات</span></button>
                   </div>
@@ -700,23 +838,91 @@
               <div class="nds-card-content">
                 <div class="panel-heading">
                   <div>
-                    <h2 class="nds-card-title">النسخ الاحتياطي والاستعادة</h2>
-                    <p class="nds-card-description">تصدير واستيراد نسخة JSON من محتوى قاعدة البيانات، مع خيار نقل بيانات localStorage القديمة.</p>
+                    <h2 class="nds-card-title">أدوات النظام</h2>
+                    <p class="nds-card-description">متابعة صحة النظام، إدارة النسخ الاحتياطية، وتشغيل أدوات الصيانة من مكان واحد.</p>
                   </div>
                   <div class="nds-section-action">
-                    <button class="nds-btn nds-secondary-outline" type="button" data-export-json><span class="nds-label">تصدير JSON</span></button>
-                    <button class="nds-btn nds-primary" type="button" data-import-json><span class="nds-label">استيراد JSON</span></button>
-                    <button class="nds-btn nds-secondary-outline" type="button" data-import-local-cache><span class="nds-label">نقل بيانات localStorage القديمة</span></button>
-                    <button class="nds-btn nds-secondary-outline nds-destructive" type="button" data-reset-content><span class="nds-label">إعادة التعيين</span></button>
+                    <button class="nds-btn nds-secondary-outline" type="button" data-refresh-system-status><span class="nds-label">تحديث الحالة</span></button>
+                    <button class="nds-btn nds-primary" type="button" data-export-json><span class="nds-label">تصدير نسخة</span></button>
                   </div>
                 </div>
-                <div class="nds-form-container">
-                  <div class="nds-form-header"><label for="jsonFile"><span class="nds-label">اختيار ملف JSON</span></label></div>
-                  <div class="nds-form-control" data-upload-label="اختيار ملف JSON"><input class="nds-input file-input" id="jsonFile" type="file" accept="application/json" data-json-file></div>
-                </div>
-                <div class="nds-form-container">
-                  <div class="nds-form-header"><label for="jsonBox"><span class="nds-label">محتوى JSON</span></label></div>
-                  <div class="nds-form-control textarea-control"><textarea class="nds-input" id="jsonBox" name="jsonBox" rows="14"></textarea></div>
+
+                <div class="system-console-stack">
+                  <section class="system-console-block" aria-labelledby="systemStatusTitle">
+                    <div class="system-console-heading">
+                      <div>
+                        <h3 class="nds-card-title" id="systemStatusTitle">حالة النظام</h3>
+                        <p class="nds-card-description">ملخص سريع لحالة الاتصال، حجم البيانات، والمكونات المنشورة.</p>
+                      </div>
+                    </div>
+                    <div class="system-status-grid" data-system-status-grid></div>
+                  </section>
+
+                  <section class="system-console-block" aria-labelledby="systemBackupTitle">
+                    <div class="system-console-heading">
+                      <div>
+                        <h3 class="nds-card-title" id="systemBackupTitle">النسخ الاحتياطي والاستعادة</h3>
+                        <p class="nds-card-description">تصدير واستيراد نسخة JSON من محتوى قاعدة البيانات، مع خيار نقل بيانات localStorage القديمة.</p>
+                      </div>
+                      <div class="nds-section-action">
+                        <button class="nds-btn nds-secondary-outline" type="button" data-download-backup><span class="nds-label">تنزيل نسخة الآن</span></button>
+                        <button class="nds-btn nds-secondary-outline" type="button" data-copy-json><span class="nds-label">نسخ JSON</span></button>
+                        <button class="nds-btn nds-primary" type="button" data-import-json><span class="nds-label">استيراد JSON</span></button>
+                      </div>
+                    </div>
+                    <div class="system-backup-layout">
+                      <div class="nds-form-container">
+                        <div class="nds-form-header"><label for="jsonFile"><span class="nds-label">اختيار ملف JSON</span></label></div>
+                        <div class="nds-form-control" data-upload-label="اختيار ملف JSON"><input class="nds-input file-input" id="jsonFile" type="file" accept="application/json" data-json-file></div>
+                      </div>
+                      <div class="nds-form-container">
+                        <div class="nds-form-header"><label for="jsonBox"><span class="nds-label">محتوى JSON</span></label></div>
+                        <div class="nds-form-control textarea-control"><textarea class="nds-input" id="jsonBox" name="jsonBox" rows="12" spellcheck="false"></textarea></div>
+                      </div>
+                      <div class="nds-section-action system-backup-actions">
+                        <button class="nds-btn nds-secondary-outline" type="button" data-import-local-cache><span class="nds-label">نقل بيانات localStorage القديمة</span></button>
+                        <button class="nds-btn nds-secondary-outline nds-destructive" type="button" data-reset-content><span class="nds-label">إعادة التعيين</span></button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="system-console-block" aria-labelledby="systemMaintenanceTitle">
+                    <div class="system-console-heading">
+                      <div>
+                        <h3 class="nds-card-title" id="systemMaintenanceTitle">الصيانة</h3>
+                        <p class="nds-card-description">أدوات آمنة لا تغيّر المحتوى المنشور إلا عند تأكيدك.</p>
+                      </div>
+                    </div>
+                    <div class="system-action-grid">
+                      <button class="system-action-item nds-btn nds-subtle" type="button" data-check-broken-links>
+                        <span class="system-action-icon"><i class="nds-icon nds-hgi-link-04" aria-hidden="true"></i></span>
+                        <span class="system-action-text"><span class="nds-label">فحص الروابط</span><span class="nds-info">يتحقق من الروابط الفارغة أو غير الصالحة داخل المحتوى.</span></span>
+                      </button>
+                      <button class="system-action-item nds-btn nds-subtle" type="button" data-clear-preview-cache>
+                        <span class="system-action-icon"><i class="nds-icon nds-hgi-eye" aria-hidden="true"></i></span>
+                        <span class="system-action-text"><span class="nds-label">مسح المعاينة المؤقتة</span><span class="nds-info">يزيل بيانات المعاينة المخزنة في هذا المتصفح.</span></span>
+                      </button>
+                      <button class="system-action-item nds-btn nds-subtle" type="button" data-reset-cookie-consent>
+                        <span class="system-action-icon"><i class="nds-icon nds-hgi-cookie" aria-hidden="true"></i></span>
+                        <span class="system-action-text"><span class="nds-label">إعادة طلب موافقة الملفات</span><span class="nds-info">يمسح قرار ملفات الارتباط لهذا المتصفح فقط.</span></span>
+                      </button>
+                    </div>
+                    <div class="integration-status-card system-maintenance-result" data-system-maintenance-result hidden>
+                      <span class="integration-status-dot" aria-hidden="true"></span>
+                      <span class="nds-label" data-system-maintenance-message></span>
+                    </div>
+                  </section>
+
+                  <section class="system-console-block" aria-labelledby="systemActivityTitle">
+                    <div class="system-console-heading">
+                      <div>
+                        <h3 class="nds-card-title" id="systemActivityTitle">سجل النشاط</h3>
+                        <p class="nds-card-description">آخر الإجراءات المهمة التي تمت من لوحة الإدارة في هذا المتصفح.</p>
+                      </div>
+                      <button class="nds-btn nds-secondary-outline nds-sm" type="button" data-clear-activity-log><span class="nds-label">مسح السجل</span></button>
+                    </div>
+                    <div class="system-activity-list" data-system-activity-log></div>
+                  </section>
                 </div>
               </div>
             </div>
@@ -772,8 +978,8 @@
     </div>
   </footer>
 
-  <script src="js/default-data.js?v=notification-refit-20260530"></script>
-  <script src="js/store.js"></script>
+  <script src="js/default-data.js?v=release-qa-20260601"></script>
+  <script src="js/store.js?v=release-qa-20260601"></script>
   <script src="assets/vendor/nds/components/js/nds-core.js"></script>
   <script src="assets/vendor/nds/components/js/nds-backdrop.js"></script>
   <script src="assets/vendor/nds/components/js/nds-mainnav.js"></script>
@@ -786,9 +992,10 @@
   <script src="assets/vendor/nds/components/js/nds-upload.js"></script>
   <script src="assets/vendor/nds/components/js/nds-forms.js"></script>
   <script src="assets/vendor/nds/components/js/nds-alert.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-cookies.js"></script>
   <script src="assets/vendor/nds/components/js/nds-breadcrumb.js"></script>
   <script src="js/nds-local-components.js"></script>
-  <script src="js/app.js?v=notification-refit-20260530"></script>
-  <script src="js/admin.js?v=accordion-motion-trash-20260531"></script>
+  <script src="js/app.js?v=release-qa-20260601"></script>
+  <script src="js/admin.js?v=release-qa-20260601"></script>
 </body>
 </html>

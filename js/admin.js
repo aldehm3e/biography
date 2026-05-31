@@ -12,9 +12,18 @@
   var pendingSaveSignature = "";
   var lastSavedSnapshot = null;
   var adminConfirmResolver = null;
+  var adminSidemenuPeekDelayReady = false;
+  var adminSidemenuDelayedOpen = false;
+  var adminInlineDropmenuTimers = new WeakMap();
+  var activeAdminSections = {
+    settings: "identity",
+    home: "profile",
+    footer: "labels"
+  };
   var adminUsers = [];
   var adminPermissions = [];
   var adminUsersLoaded = false;
+  var ADMIN_ACTIVITY_KEY = "websiteDemo:adminActivityLog";
   var MAX_FOOTER_COLUMNS = 3;
   var MAX_FOOTER_ICON_GROUPS = 2;
   var PAGE_EDITOR_FONTS = [
@@ -128,6 +137,7 @@
   function field(name) { return qs('[name="' + name + '"]'); }
   function value(name) { var input = field(name); return input ? input.value.trim() : ""; }
   function setValue(name, text) { var input = field(name); if (input) input.value = text || ""; }
+  function setChecked(name, checked) { var input = field(name); if (input) input.checked = Boolean(checked); }
   function hasAdminText(value) { return Boolean(String(value || "").trim()); }
   function currentAdminUser() {
     return window.SiteStore && window.SiteStore.currentUser ? window.SiteStore.currentUser() : null;
@@ -145,9 +155,21 @@
   function firstAllowedTab() {
     var first = qsa("[data-admin-tab]").find(function (button) {
       var permissionNode = button.closest("[data-permission]");
-      return !permissionNode || !permissionNode.hidden;
+      return (!permissionNode || !permissionNode.hidden) && !button.closest("[hidden]");
     });
     return first ? first.dataset.adminTab : "account";
+  }
+  function applyAdminPanelSection(target, section) {
+    var panelAttr = "data-" + target + "-section-panel";
+    var sectionAttr = "data-" + target + "-section";
+    var panels = qsa("[" + panelAttr + "]");
+    if (!panels.length) return;
+    var defaultButton = qs('[data-admin-tab="' + target + '"][' + sectionAttr + "]");
+    var activeSection = section || activeAdminSections[target] || (defaultButton && defaultButton.getAttribute(sectionAttr)) || panels[0].getAttribute(panelAttr);
+    activeAdminSections[target] = activeSection;
+    panels.forEach(function (panel) {
+      panel.hidden = panel.getAttribute(panelAttr) !== activeSection;
+    });
   }
   function clearNdsState(element) {
     if (!element) return;
@@ -156,6 +178,19 @@
     } else {
       element.removeAttribute("data-state");
     }
+  }
+  function addNdsState(element) {
+    if (!element) return;
+    var states = Array.prototype.slice.call(arguments, 1);
+    if (window.NDS && window.NDS.State && window.NDS.State.add) {
+      window.NDS.State.add.apply(window.NDS.State, [element].concat(states));
+      return;
+    }
+    var current = (element.getAttribute("data-state") || "").split(/\s+/).filter(Boolean);
+    states.forEach(function (state) {
+      if (current.indexOf(state) === -1) current.push(state);
+    });
+    if (current.length) element.setAttribute("data-state", current.join(" "));
   }
   function closeAdminSidemenuOverlay() {
     var menu = qs(".admin-sidemenu");
@@ -166,6 +201,7 @@
     clearNdsState(menu);
     clearNdsState(toggle);
     if (!menu.classList.contains("nds-top")) menu.classList.add("nds-peek");
+    if (toggle && !menu.classList.contains("nds-top")) toggle.classList.add("nds-peek");
     menu.style.removeProperty("z-index");
     menu.style.removeProperty("padding-top");
     if (drawer) drawer.style.removeProperty("--drawer-max-height");
@@ -196,6 +232,8 @@
     clearNdsState(menu);
     clearNdsState(drawer);
     clearNdsState(toggle);
+    if (!menu.classList.contains("nds-top")) menu.classList.add("nds-peek");
+    if (toggle && !menu.classList.contains("nds-top")) toggle.classList.add("nds-peek");
     if (toggle) toggle.setAttribute("aria-expanded", "false");
     if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.reset) {
       window.NDS.Backdrop.reset();
@@ -206,19 +244,88 @@
     document.body.style.removeProperty("top");
     document.body.style.removeProperty("width");
   }
-  function setupAdminSidemenuToggle() {
+  function syncAdminSidemenuGroups(activeButton) {
+    qsa(".admin-tabs li").forEach(function (group) {
+      var submenu = qs(":scope > ul", group);
+      var groupButton = qs(":scope > .nds-btn", group);
+      if (!submenu || !groupButton) return;
+      var shouldOpen = Boolean(activeButton && group.contains(activeButton));
+      if (shouldOpen) {
+        addNdsState(group, "open");
+        addNdsState(submenu, "open");
+        if (groupButton) {
+          groupButton.setAttribute("aria-expanded", "true");
+          addNdsState(groupButton, "active");
+        }
+        return;
+      }
+      clearNdsState(group);
+      clearNdsState(submenu);
+      clearNdsState(groupButton);
+      if (groupButton) groupButton.setAttribute("aria-expanded", "false");
+    });
+  }
+  function refreshAdminSidemenuComponents() {
+    var menu = qs(".admin-sidemenu");
+    if (!menu) return;
+    if (window.NDS && window.NDS.Drawer && window.NDS.Drawer.create) {
+      qsa(".nds-drawer", menu).forEach(function (drawer) {
+        window.NDS.Drawer.create(drawer);
+      });
+    }
+    if (window.NDS && window.NDS.ScrollMore && window.NDS.ScrollMore.create) {
+      qsa(".nds-scroll-more", menu).forEach(function (scrollMore) {
+        window.NDS.ScrollMore.create(scrollMore);
+        if (window.NDS.ScrollMore.checkOverflow) {
+          window.requestAnimationFrame(function () {
+            window.NDS.ScrollMore.checkOverflow(scrollMore);
+          });
+          window.setTimeout(function () {
+            window.NDS.ScrollMore.checkOverflow(scrollMore);
+          }, 120);
+        }
+      });
+    }
+    if (window.NDS && window.NDS.Sidemenu && window.NDS.Sidemenu.init) window.NDS.Sidemenu.init();
+    var selectedTab = qs("[data-admin-tab][data-state~='selected']", menu);
+    if (selectedTab) syncAdminSidemenuGroups(selectedTab);
+    var toggle = qs(".nds-sidemenu-toggle", menu);
+    var isOpen = /\bopen\b/.test(menu.getAttribute("data-state") || "");
+    if (!isOpen && !menu.classList.contains("nds-top")) {
+      menu.classList.add("nds-peek");
+      if (toggle) toggle.classList.add("nds-peek");
+    }
+  }
+  function setupAdminSidemenuPeekDelay() {
+    if (adminSidemenuPeekDelayReady) return;
+    adminSidemenuPeekDelayReady = true;
     document.addEventListener("click", function (event) {
       var toggle = event.target.closest(".admin-sidemenu .nds-sidemenu-toggle");
-      if (!toggle) return;
+      if (!toggle || adminSidemenuDelayedOpen) return;
+      var menu = toggle.closest(".admin-sidemenu");
+      if (!menu || menu.classList.contains("nds-top")) return;
+      if (window.matchMedia && !window.matchMedia("(max-width: 960px)").matches) return;
+      var state = menu.getAttribute("data-state") || "";
+      if (/\b(open|opening|closing)\b/.test(state)) return;
+      if (!menu.classList.contains("nds-peek") && !toggle.classList.contains("nds-peek")) return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      var menu = toggle.closest(".admin-sidemenu");
-      var isOpen = menu && (menu.dataset.state || "").indexOf("open") !== -1;
-      setAdminSidemenuOpen(!isOpen);
+      menu.classList.add("nds-peek");
+      toggle.classList.add("nds-peek");
+      window.setTimeout(function () {
+        if (!toggle.isConnected) return;
+        adminSidemenuDelayedOpen = true;
+        toggle.click();
+        window.setTimeout(function () {
+          adminSidemenuDelayedOpen = false;
+        }, 0);
+      }, 180);
     }, true);
   }
-  function activateAdminTab(target, scrollToPanel) {
-    var button = qs('[data-admin-tab="' + target + '"]');
+  function activateAdminTab(target, scrollToPanel, sourceButton) {
+    var button = sourceButton && sourceButton.dataset && sourceButton.dataset.adminTab === target
+      ? sourceButton
+      : qs('[data-admin-tab="' + target + '"]');
     var panel = qs('[data-admin-panel="' + target + '"]');
     var adminSection = qs(".admin-content-layout") || qs(".admin-section");
     var header = qs(".site-header");
@@ -236,10 +343,12 @@
     });
     button.dataset.state = "selected";
     if (button.closest("li")) button.closest("li").dataset.state = "active";
+    applyAdminPanelSection(target, button.getAttribute("data-" + target + "-section"));
+    syncAdminSidemenuGroups(button);
     var sidemenuLabel = qs(".admin-sidemenu .nds-sidemenu-toggle .nds-label");
     if (sidemenuLabel) sidemenuLabel.textContent = (button.textContent || "").trim();
     if (target === "users" && hasPermission("users")) loadAdminUsers();
-    if (window.NDS && window.NDS.Sidemenu && window.NDS.Sidemenu.init) window.NDS.Sidemenu.init();
+    refreshAdminSidemenuComponents();
     setAdminSidemenuOpen(false);
     if (scrollToPanel && adminSection) {
       window.scrollTo({
@@ -251,6 +360,13 @@
   function applyPermissionVisibility() {
     qsa("[data-permission]").forEach(function (item) {
       item.hidden = !hasPermission(item.dataset.permission);
+    });
+    qsa(".admin-tabs > li[data-admin-group]").forEach(function (group) {
+      var tabs = qsa("[data-admin-tab]", group);
+      group.hidden = tabs.length > 0 && !tabs.some(function (button) {
+        var item = button.closest("li");
+        return !button.hidden && !button.closest("[hidden]") && item && !item.hidden;
+      });
     });
     var selected = qs("[data-admin-tab][data-state~='selected']");
     var selectedWrap = selected ? selected.closest("[data-permission]") : null;
@@ -626,6 +742,7 @@
     return window.SiteStore.save(data).then(function (savedData) {
       data = savedData;
       rememberSavedData();
+      renderSystemConsole();
       return data;
     }).catch(function (error) {
       toast(error.message || "تعذر حفظ البيانات", "error");
@@ -639,6 +756,374 @@
       .replace(/</g, "&lt;")
       .replace(/>/g, "&gt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function adminNowIso() {
+    return new Date().toISOString();
+  }
+
+  function formatAdminDateTime(value) {
+    if (!value) return "";
+    try {
+      return new Intl.DateTimeFormat("ar-SA-u-nu-latn", {
+        dateStyle: "medium",
+        timeStyle: "short"
+      }).format(new Date(value));
+    } catch (error) {
+      return String(value || "");
+    }
+  }
+
+  function formatBytes(bytes) {
+    var size = Number(bytes) || 0;
+    var units = ["B", "KB", "MB", "GB"];
+    var index = 0;
+    while (size >= 1024 && index < units.length - 1) {
+      size /= 1024;
+      index += 1;
+    }
+    return (index ? size.toFixed(size >= 10 ? 1 : 2) : Math.round(size)) + " " + units[index];
+  }
+
+  function jsonByteSize(text) {
+    try {
+      return new Blob([String(text || "")]).size;
+    } catch (error) {
+      return String(text || "").length;
+    }
+  }
+
+  function readAdminActivityLog() {
+    try {
+      var parsed = JSON.parse(localStorage.getItem(ADMIN_ACTIVITY_KEY) || "[]");
+      return Array.isArray(parsed) ? parsed.filter(Boolean) : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  function writeAdminActivityLog(items) {
+    try {
+      localStorage.setItem(ADMIN_ACTIVITY_KEY, JSON.stringify((items || []).slice(0, 30)));
+    } catch (error) {
+      return;
+    }
+  }
+
+  function addAdminActivity(title, description, status) {
+    var items = readAdminActivityLog();
+    items.unshift({
+      title: title || "إجراء إداري",
+      description: description || "",
+      status: status || "success",
+      at: adminNowIso()
+    });
+    writeAdminActivityLog(items);
+    renderAdminActivityLog();
+    renderSystemStatus();
+  }
+
+  function clearAdminActivityLog() {
+    writeAdminActivityLog([]);
+    renderAdminActivityLog();
+    renderSystemStatus();
+  }
+
+  function collectCurrentAdminDrafts() {
+    if (!data) return;
+    data.settings = data.settings || {};
+    data.navigation = data.navigation || {};
+    data.home = data.home || {};
+    data.texts = data.texts || {};
+    try { collectInterfaceTextFields(); } catch (error) { /* Form not mounted yet. */ }
+    try { collectHomeDraft(); } catch (error) { /* Form not mounted yet. */ }
+    try { collectFooterDraft(); } catch (error) { /* Form not mounted yet. */ }
+    try { collectProjects({ keepDrafts: true }); } catch (error) { /* Form not mounted yet. */ }
+    try { collectPages(); } catch (error) { /* Form not mounted yet. */ }
+    try { collectIntegrations({ keepDrafts: true }); } catch (error) { /* Form not mounted yet. */ }
+  }
+
+  function dataJsonSnapshot() {
+    collectCurrentAdminDrafts();
+    return JSON.stringify(data || {}, null, 2);
+  }
+
+  function visibleCount(items) {
+    return (items || []).filter(function (item) {
+      return item && item.visible !== false;
+    }).length;
+  }
+
+  function countFooterLinks() {
+    var total = 0;
+    var visible = 0;
+    function count(items) {
+      (items || []).forEach(function (item) {
+        if (!item) return;
+        total += 1;
+        if (item.visible !== false) visible += 1;
+      });
+    }
+    count(data && data.home && data.home.footerLinks);
+    count(data && data.footer && data.footer.bottomLinks);
+    ((data && data.footer && data.footer.columns) || []).forEach(function (column) {
+      count(column && column.links);
+    });
+    return { total: total, visible: visible };
+  }
+
+  function enabledIntegrationCount() {
+    return ((data && data.integrations) || []).filter(function (integration) {
+      return integration && integration.enabled !== false;
+    }).length;
+  }
+
+  function cookieConsentLabel() {
+    var value = "";
+    if (window.NDS && window.NDS.Cookies && window.NDS.Cookies.getConsent) {
+      value = window.NDS.Cookies.getConsent();
+    }
+    if (!value) {
+      var match = document.cookie.match(/(?:^|;\s*)cookieConsent=([^;]+)/);
+      value = match ? decodeURIComponent(match[1]) : "";
+    }
+    if (value === "accepted") return "مقبولة";
+    if (value === "declined") return "مرفوضة";
+    return "لم يحدد";
+  }
+
+  function systemStatusTagHtml(status, label) {
+    if (!label) return "";
+    return '<span class="system-status-tag" data-status="' + safeText(status || "info") + '">' + safeText(label) + '</span>';
+  }
+
+  function systemStatusItemHtml(title, value, meta, status, label) {
+    return [
+      '<article class="system-status-item">',
+      '<div class="system-status-row">',
+      '<span class="system-status-title">' + safeText(title) + '</span>',
+      systemStatusTagHtml(status, label),
+      '</div>',
+      '<strong class="system-status-value">' + safeText(value) + '</strong>',
+      '<span class="system-status-meta">' + safeText(meta) + '</span>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderSystemStatus() {
+    var root = qs("[data-system-status-grid]");
+    var projects;
+    var pages;
+    var footerLinks;
+    var integrations;
+    var json;
+    var previewKey;
+    var previewRaw;
+    var cookies;
+    var user;
+    var activityCount;
+    if (!root || !data) return;
+    projects = data.projects || [];
+    pages = data.pages || [];
+    footerLinks = countFooterLinks();
+    integrations = data.integrations || [];
+    json = JSON.stringify(data || {});
+    previewKey = (window.SiteStore && window.SiteStore.previewKey) || "websiteDemo:previewData";
+    previewRaw = localStorage.getItem(previewKey);
+    cookies = data.footer && data.footer.cookies || {};
+    user = currentAdminUser() || {};
+    activityCount = readAdminActivityLog().length;
+    root.innerHTML = [
+      systemStatusItemHtml("حجم المحتوى", formatBytes(jsonByteSize(json)), "حجم JSON الحالي في لوحة الإدارة", "success", "جاهز"),
+      systemStatusItemHtml("المشاريع", visibleCount(projects) + " / " + projects.length, "منشورة من إجمالي المشاريع", projects.length ? "success" : "info", projects.length ? "نشط" : "فارغ"),
+      systemStatusItemHtml("الصفحات", visibleCount(pages) + " / " + pages.length, "صفحات ظاهرة من إجمالي الصفحات", pages.length ? "success" : "info", pages.length ? "نشط" : "فارغ"),
+      systemStatusItemHtml("روابط التذييل", footerLinks.visible + " / " + footerLinks.total, "روابط مفعلة داخل التذييل", footerLinks.total ? "success" : "info", footerLinks.total ? "منظم" : "فارغ"),
+      systemStatusItemHtml("التكاملات", enabledIntegrationCount() + " / " + integrations.length, "تكاملات مفعلة من إجمالي التكاملات", enabledIntegrationCount() ? "success" : "info", enabledIntegrationCount() ? "مفعل" : "غير مفعل"),
+      systemStatusItemHtml("إشعار الكوكيز", cookies.enabled === false ? "متوقف" : "مفعل", cookieConsentLabel(), cookies.enabled === false ? "error" : "success", cookies.enabled === false ? "متوقف" : "مفعل"),
+      systemStatusItemHtml("المعاينة", previewRaw ? formatBytes(jsonByteSize(previewRaw)) : "لا توجد", "بيانات المعاينة المؤقتة في هذا المتصفح", previewRaw ? "info" : "success", previewRaw ? "مؤقت" : "نظيف"),
+      systemStatusItemHtml("المستخدم", user.displayName || user.email || "جلسة الإدارة", roleLabel(user.role), user ? "success" : "info", user.role || "admin"),
+      systemStatusItemHtml("سجل النشاط", String(activityCount), "آخر إجراءات هذا المتصفح", activityCount ? "info" : "success", activityCount ? "نشط" : "نظيف")
+    ].join("");
+  }
+
+  function renderAdminActivityLog() {
+    var root = qs("[data-system-activity-log]");
+    var items;
+    if (!root) return;
+    items = readAdminActivityLog();
+    if (!items.length) {
+      root.innerHTML = [
+        '<div class="integration-status-card">',
+        '<span class="integration-status-dot" aria-hidden="true"></span>',
+        '<span class="nds-label">لا توجد إجراءات مسجلة في هذا المتصفح.</span>',
+        '</div>'
+      ].join("");
+      return;
+    }
+    root.innerHTML = items.slice(0, 8).map(function (item) {
+      return [
+        '<article class="system-activity-item" data-status="' + safeText(item.status || "info") + '">',
+        '<span class="system-activity-dot" aria-hidden="true"></span>',
+        '<span class="system-activity-text">',
+        '<strong class="system-activity-title">' + safeText(item.title) + '</strong>',
+        '<span class="system-activity-desc">' + safeText(item.description) + '</span>',
+        '</span>',
+        '<time class="system-activity-time" datetime="' + safeText(item.at) + '">' + safeText(formatAdminDateTime(item.at)) + '</time>',
+        '</article>'
+      ].join("");
+    }).join("");
+  }
+
+  function renderSystemConsole() {
+    renderSystemStatus();
+    renderAdminActivityLog();
+  }
+
+  function setMaintenanceResult(status, message) {
+    var box = qs("[data-system-maintenance-result]");
+    var label = qs("[data-system-maintenance-message]");
+    if (!box || !label) return;
+    box.hidden = false;
+    box.dataset.status = status || "info";
+    label.textContent = message || "";
+  }
+
+  function validateAdminUrl(url) {
+    var value = String(url || "").trim();
+    if (!value) return false;
+    if (/^javascript:/i.test(value)) return false;
+    if (/\s/.test(value)) return false;
+    if (value.charAt(0) === "#") return true;
+    try {
+      new URL(value, window.location.href);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function validateAdminLinks() {
+    var issues = [];
+    function inspect(label, url, required) {
+      var cleanUrl = String(url || "").trim();
+      if (!cleanUrl && required) {
+        issues.push(label + ": رابط مفقود");
+        return;
+      }
+      if (cleanUrl && !validateAdminUrl(cleanUrl)) {
+        issues.push(label + ": رابط غير صالح");
+      }
+    }
+    collectCurrentAdminDrafts();
+    ((data.home && data.home.footerLinks) || []).forEach(function (link, index) {
+      if (!link || link.visible === false) return;
+      inspect(link.label || ("رابط التذييل " + (index + 1)), link.url, true);
+    });
+    ((data.footer && data.footer.columns) || []).forEach(function (column) {
+      ((column && column.links) || []).forEach(function (link, index) {
+        if (!link || link.visible === false) return;
+        inspect((column.title || "عمود التذييل") + " - " + (link.label || ("رابط " + (index + 1))), link.url, true);
+      });
+    });
+    ((data.footer && data.footer.bottomLinks) || []).forEach(function (link, index) {
+      if (!link || link.visible === false) return;
+      inspect(link.label || ("رابط سفلي " + (index + 1)), link.url, true);
+    });
+    ((data.home && data.home.contacts) || []).forEach(function (contact, index) {
+      if (!contact || contact.visible === false) return;
+      inspect(contact.label || ("وسيلة تواصل " + (index + 1)), contact.url, true);
+    });
+    ((data.projects) || []).forEach(function (project, index) {
+      if (!project || project.visible === false || !project.url) return;
+      inspect(project.title || ("مشروع " + (index + 1)), project.url, false);
+    });
+    return issues;
+  }
+
+  function runSystemLinkCheck() {
+    var issues = validateAdminLinks();
+    if (issues.length) {
+      setMaintenanceResult("error", "تم العثور على " + issues.length + " ملاحظة. أول ملاحظة: " + issues[0]);
+      addAdminActivity("فحص الروابط", "تم العثور على " + issues.length + " رابط يحتاج مراجعة.", "error");
+      return;
+    }
+    setMaintenanceResult("success", "كل الروابط الإدارية الظاهرة اجتازت الفحص الأساسي.");
+    addAdminActivity("فحص الروابط", "لم يتم العثور على روابط مفقودة أو غير صالحة.", "success");
+  }
+
+  function clearPreviewCache() {
+    localStorage.removeItem((window.SiteStore && window.SiteStore.previewKey) || "websiteDemo:previewData");
+    setMaintenanceResult("success", "تم مسح بيانات المعاينة المؤقتة لهذا المتصفح.");
+    addAdminActivity("مسح المعاينة المؤقتة", "تم حذف بيانات المعاينة من localStorage.", "success");
+  }
+
+  function resetCookieConsent() {
+    if (window.NDS && window.NDS.Cookies && window.NDS.Cookies.delete) {
+      window.NDS.Cookies.delete("cookieConsent");
+    } else {
+      document.cookie = "cookieConsent=; Max-Age=0; path=/";
+    }
+    if (window.SiteApp && window.SiteApp.renderCookieConsent) {
+      window.SiteApp.renderCookieConsent(data, { preview: true });
+    }
+    setMaintenanceResult("success", "تم مسح قرار الكوكيز. سيظهر الإشعار مرة أخرى لهذا المتصفح.");
+    addAdminActivity("إعادة طلب موافقة الكوكيز", "تم حذف قرار الكوكيز المحلي وإظهار المعاينة.", "success");
+  }
+
+  function systemBackupFilename() {
+    return "site-content-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".json";
+  }
+
+  function downloadJsonFile(filename, json) {
+    var blob = new Blob([json], { type: "application/json" });
+    var link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    window.setTimeout(function () {
+      URL.revokeObjectURL(link.href);
+      link.remove();
+    }, 0);
+  }
+
+  function downloadSystemBackup(filename) {
+    var json = dataJsonSnapshot();
+    setValue("jsonBox", json);
+    downloadJsonFile(filename || systemBackupFilename(), json);
+    addAdminActivity("تصدير نسخة احتياطية", "تم تنزيل ملف JSON بحجم " + formatBytes(jsonByteSize(json)) + ".", "success");
+    toast("تم تجهيز ملف التصدير");
+  }
+
+  function copyJsonSnapshot() {
+    var json = dataJsonSnapshot();
+    var textarea;
+    setValue("jsonBox", json);
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(json).then(function () {
+        addAdminActivity("نسخ JSON", "تم نسخ نسخة المحتوى إلى الحافظة.", "success");
+        toast("تم نسخ JSON");
+      }).catch(function () {
+        toast("تعذر نسخ JSON", "error");
+      });
+      return;
+    }
+    textarea = document.createElement("textarea");
+    textarea.value = json;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.inset = "0 auto auto 0";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.select();
+    try {
+      document.execCommand("copy");
+      addAdminActivity("نسخ JSON", "تم نسخ نسخة المحتوى إلى الحافظة.", "success");
+      toast("تم نسخ JSON");
+    } catch (error) {
+      toast("تعذر نسخ JSON", "error");
+    }
+    textarea.remove();
   }
 
   function dragHandleHtml(label) {
@@ -760,6 +1245,7 @@
     setValue("footerVersion", data.texts.footerVersion);
     setValue("footerCopyrightText", data.footer && data.footer.copyrightText);
     setValue("footerLegalText", data.footer && Object.prototype.hasOwnProperty.call(data.footer, "legalText") ? data.footer.legalText : data.texts.footerDisclaimer);
+    fillFooterCookieFields();
 
     renderHeroSlidesEditor();
     renderContentRowsEditor("experience");
@@ -768,7 +1254,9 @@
     renderFooterEditors();
     renderProjectsEditor();
     renderPagesEditor();
+    renderFooterCookiePagesList();
     renderIntegrationsEditor();
+    renderSystemConsole();
     prepareUploadControls();
     rememberLoadedEditorState();
   }
@@ -835,6 +1323,7 @@
     data.settings.shellNoticeText = value("shellNoticeText");
     collectInterfaceTextFields();
     saveData().then(function () {
+      addAdminActivity("حفظ الإعدادات", "تم تحديث إعدادات الهوية والواجهة.", "success");
       toast("تم حفظ إعدادات الموقع");
     });
   }
@@ -847,8 +1336,10 @@
     data.navigation.homeLabel = value("homeLabel") || "الرئيسية";
     data.navigation.projectsLabel = value("projectsLabel") || "المشاريع";
     data.navigation.adminLabel = value("adminLabel") || "الإدارة";
-    saveData();
-    toast("تم حفظ إعدادات التنقل");
+    saveData().then(function () {
+      addAdminActivity("حفظ التنقل", "تم تحديث تسميات ومسارات التنقل.", "success");
+      toast("تم حفظ إعدادات التنقل");
+    });
   }
 
   function collectHomeDraft() {
@@ -898,6 +1389,7 @@
     data.footer.iconGroups = collectFooterIconGroups();
     data.footer.bottomLinks = collectFooterBottomLinks();
     data.footer.logos = collectFooterLogos();
+    data.footer.cookies = collectFooterCookies();
   }
 
   function saveFooter(event) {
@@ -906,6 +1398,7 @@
     collectFooterDraft();
     saveData().then(function () {
       refreshPublicShell();
+      addAdminActivity("حفظ التذييل", "تم تحديث روابط التذييل وإعدادات الكوكيز.", "success");
       toast("تم حفظ التذييل");
     });
   }
@@ -919,6 +1412,7 @@
     if (!savePromise) return;
     savePromise.then(function () {
       if (!notifyAddedHomeItems(previousData)) notifyHomeUpdated();
+      addAdminActivity("حفظ الرئيسية", "تم تحديث محتوى الصفحة الرئيسية.", "success");
       toast("تم حفظ محتوى الصفحة الرئيسية");
     });
   }
@@ -1424,7 +1918,7 @@
       uploadableInputHtml("heroMobileVideo", "مسار فيديو الجوال اختياري", slide.mobileVideo, "hero-video", "اتركه فارغا لاستخدام نفس الفيديو"),
       '</div>',
       inputHtml("heroAlt", "وصف الصورة اختياري", slide.alt),
-      '<label class="check-line"><input type="checkbox" data-hero-slide-visible ' + (slide.visible === false ? "" : "checked") + '> <span>إظهار هذه الوسائط في السلايدر</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-hero-slide-visible ' + (slide.visible === false ? "" : "checked") + '> <span>إظهار هذه الوسائط في السلايدر</span></label>',
       '</div>',
       '</div>',
       '</div>',
@@ -1489,7 +1983,7 @@
       inputHtml("rowMeta", "البيانات المختصرة", item.meta),
       '</div>',
       textareaHtml("rowDescription", "الوصف", item.description, 3),
-      '<label class="check-line"><input type="checkbox" data-row-visible ' + (item.visible === false ? "" : "checked") + '> <span>إظهار العنصر</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-row-visible ' + (item.visible === false ? "" : "checked") + '> <span>إظهار العنصر</span></label>',
       '</div>',
       '</article>'
     ].join("");
@@ -1586,7 +2080,7 @@
       adminDeleteButton("data-delete-skill", index, "حذف المهارة"),
       '</div>',
       inputHtml("skillName", "اسم المهارة", name),
-      '<label class="check-line"><input type="checkbox" data-skill-visible ' + (visible ? "checked" : "") + '> <span>إظهار المهارة</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-skill-visible ' + (visible ? "checked" : "") + '> <span>إظهار المهارة</span></label>',
       '</div>',
       '</article>'
     ].join("");
@@ -1642,7 +2136,7 @@
       iconTypeDropmenuHtml("contactIconType", "نوع الأيقونة", contact.iconType || "website"),
       uploadableInputHtml("contactIconPath", "مسار شعار مخصص اختياري", contact.iconPath, "contact-icon"),
       '</div>',
-      '<label class="check-line"><input type="checkbox" data-contact-visible ' + (contact.visible === false ? "" : "checked") + '> <span>إظهار وسيلة التواصل</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-contact-visible ' + (contact.visible === false ? "" : "checked") + '> <span>إظهار وسيلة التواصل</span></label>',
       '</div>',
       '</div>',
       '</div>',
@@ -1694,7 +2188,7 @@
       uploadableInputHtml("projectImage", "مسار الصورة أو الأيقونة", project.image, "project-image"),
       inputHtml("projectUrl", "رابط تصفح المشروع", project.url, "مثال: https://example.com"),
       textareaHtml("projectDescription", "الوصف", project.description, 4),
-      '<label class="check-line"><input type="checkbox" data-project-visible ' + (project.visible === false ? "" : "checked") + '> <span>إظهار المشروع</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-project-visible ' + (project.visible === false ? "" : "checked") + '> <span>إظهار المشروع</span></label>',
       '</div>',
       '</div>',
       '</div>',
@@ -1876,9 +2370,9 @@
       uploadableInputHtml("pageVideo", "فيديو الصفحة", page.video, "page-video", "مثال: uploads/video/page.webm"),
       '</div>',
       '<div class="admin-check-stack">',
-      '<label class="check-line"><input type="checkbox" data-page-visible ' + (page.visible ? "checked" : "") + '> <span>نشر الصفحة</span></label>',
-      '<label class="check-line"><input type="checkbox" data-page-navigation-link ' + (showInNavigation ? "checked" : "") + '> <span>إظهار في الهيدر</span></label>',
-      '<label class="check-line"><input type="checkbox" data-page-footer-link ' + (page.showInFooter ? "checked" : "") + '> <span>رابط تذييل</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-page-visible ' + (page.visible ? "checked" : "") + '> <span>نشر الصفحة</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-page-navigation-link ' + (showInNavigation ? "checked" : "") + '> <span>إظهار في الهيدر</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-page-footer-link ' + (page.showInFooter ? "checked" : "") + '> <span>رابط تذييل</span></label>',
       '</div>',
       pageContentEditorHtml(page),
       isChild ? '' : pageChildrenSectionHtml(page, pageId, childEntries),
@@ -1958,6 +2452,7 @@
     if (!data.pages.length) {
       root.append(window.SiteApp.emptyState("لا توجد صفحات إضافية", "استخدم زر إضافة صفحة لإنشاء صفحة جديدة."));
     }
+    renderFooterCookiePagesList();
   }
 
   function syncPageContentEditorMode(item) {
@@ -2295,6 +2790,79 @@
     data.footer.iconGroups = Array.isArray(data.footer.iconGroups) ? data.footer.iconGroups : [];
     data.footer.bottomLinks = Array.isArray(data.footer.bottomLinks) ? data.footer.bottomLinks : [];
     data.footer.logos = Array.isArray(data.footer.logos) ? data.footer.logos : [];
+    data.footer.cookies = Object.assign(defaultFooterCookies(), data.footer.cookies || {});
+    data.footer.cookies.enabled = data.footer.cookies.enabled !== false;
+  }
+
+  function defaultFooterCookies() {
+    var defaults = window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.footer && window.DEFAULT_SITE_DATA.footer.cookies;
+    return cloneData(defaults || {
+      enabled: true,
+      title: "ملفات تعريف الارتباط",
+      content: "يستخدم هذا الموقع ملفات تعريف الارتباط لتحسين تجربة التصفح وتسهيل الاستخدام. بالمتابعة في استخدام الموقع، فإنك توافق على استخدام ملفات الارتباط.",
+      acceptLabel: "قبول",
+      declineLabel: "رفض",
+      linkPageSlugs: []
+    });
+  }
+
+  function ensureFooterCookies() {
+    ensureFooterData();
+    data.footer.cookies.linkPageSlugs = Array.isArray(data.footer.cookies.linkPageSlugs) ? data.footer.cookies.linkPageSlugs : [];
+    return data.footer.cookies;
+  }
+
+  function fillFooterCookieFields() {
+    var cookies = ensureFooterCookies();
+    setChecked("footerCookieEnabled", cookies.enabled !== false);
+    setValue("footerCookieTitle", cookies.title);
+    setValue("footerCookieContent", cookies.content);
+    setValue("footerCookieAcceptLabel", cookies.acceptLabel);
+    setValue("footerCookieDeclineLabel", cookies.declineLabel);
+  }
+
+  function collectFooterCookies() {
+    var defaults = defaultFooterCookies();
+    return {
+      enabled: field("footerCookieEnabled") ? field("footerCookieEnabled").checked : defaults.enabled !== false,
+      title: value("footerCookieTitle") || defaults.title,
+      content: value("footerCookieContent") || defaults.content,
+      acceptLabel: value("footerCookieAcceptLabel") || defaults.acceptLabel,
+      declineLabel: value("footerCookieDeclineLabel") || defaults.declineLabel,
+      linkPageSlugs: qsa("[data-cookie-popup-page-slug]:checked").map(function (input) {
+        return input.value;
+      }).filter(Boolean)
+    };
+  }
+
+  function renderFooterCookiePagesList() {
+    var root = qs("[data-cookie-footer-pages-list]");
+    var pages;
+    var selectedSlugs;
+    if (!root) return;
+    selectedSlugs = ensureFooterCookies().linkPageSlugs || [];
+    pages = (data.pages || []).filter(function (page) {
+      return page && page.showInFooter === true && hasAdminText(page.title || page.slug);
+    });
+    root.innerHTML = "";
+    if (!pages.length) {
+      root.append(window.SiteApp.emptyState("لا توجد صفحات مفعلة للتذييل", "افتح الصفحات، ثم فعّل خيار إظهار رابط تذييل للصفحات التي تريد ظهورها داخل نافذة ملفات الارتباط."));
+      return;
+    }
+    root.innerHTML = pages.map(function (page) {
+      return [
+        '<article class="footer-cookie-page-row nds-card nds-stroke">',
+        '<div class="nds-card-content compact-card-content">',
+        '<div class="editor-item-head">',
+        '<span class="nds-card-title">' + safeText(page.title || page.slug) + '</span>',
+        '<span class="admin-inline-badge">إظهار رابط تذييل</span>',
+        '</div>',
+        '<p class="nds-card-description">' + safeText(page.slug || "") + '</p>',
+        '<label class="check-line"><input class="nds-check" type="checkbox" data-cookie-popup-page-slug value="' + safeText(page.slug || "") + '" ' + (selectedSlugs.indexOf(page.slug || "") !== -1 ? "checked" : "") + '> <span>إظهار هذه الصفحة داخل نافذة ملفات الارتباط</span></label>',
+        '</div>',
+        '</article>'
+      ].join("");
+    }).join("");
   }
 
   function footerManagedLinkTemplate(link, prefix, columnIndex, linkIndex) {
@@ -2321,7 +2889,7 @@
       prefix === "footerIconLink" ? iconTypeDropmenuHtml(prefix + "IconType", "نوع الأيقونة", link.iconType || "website") : "",
       prefix === "footerIconLink" ? uploadableInputHtml(prefix + "IconPath", "مسار شعار مخصص اختياري", link.iconPath, "contact-icon") : "",
       '</div>',
-      '<label class="check-line"><input type="checkbox" data-footer-managed-link-visible ' + (link.visible === false ? "" : "checked") + '> <span>إظهار الرابط</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-footer-managed-link-visible ' + (link.visible === false ? "" : "checked") + '> <span>إظهار الرابط</span></label>',
       '</div>',
       '</article>'
     ].join("");
@@ -2341,7 +2909,7 @@
       '<div class="form-grid">',
       inputHtml("footerColumnTitle", "عنوان العمود", column.title),
       '</div>',
-      '<label class="check-line"><input type="checkbox" data-footer-column-visible ' + (column.visible === false ? "" : "checked") + '> <span>إظهار العمود</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-footer-column-visible ' + (column.visible === false ? "" : "checked") + '> <span>إظهار العمود</span></label>',
       '<div class="nested-editor-heading">',
       '<span class="nds-label">روابط وسطور العمود</span>',
       '<button class="nds-btn nds-secondary-outline nds-sm" type="button" data-add-footer-column-link="' + index + '"><span class="nds-label">إضافة رابط أو سطر</span></button>',
@@ -2418,7 +2986,7 @@
       '<div class="form-grid">',
       inputHtml("footerIconGroupTitle", "عنوان المجموعة", group.title),
       '</div>',
-      '<label class="check-line"><input type="checkbox" data-footer-icon-group-visible ' + (group.visible === false ? "" : "checked") + '> <span>إظهار المجموعة</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-footer-icon-group-visible ' + (group.visible === false ? "" : "checked") + '> <span>إظهار المجموعة</span></label>',
       '<div class="nested-editor-heading">',
       '<span class="nds-label">روابط الأيقونات</span>',
       '<button class="nds-btn nds-secondary-outline nds-sm" type="button" data-add-footer-icon-link="' + index + '"><span class="nds-label">إضافة أيقونة</span></button>',
@@ -2521,7 +3089,7 @@
       inputHtml("footerLogoUrl", "رابط الشعار الداخلي أو الخارجي", logo.url, "index.html أو https://google.com"),
       uploadableInputHtml("footerLogoSrc", "مسار الصورة", logo.src || logo.image || logo.logo, "footer-logo"),
       '</div>',
-      '<label class="check-line"><input type="checkbox" data-footer-logo-visible ' + (logo.visible === false ? "" : "checked") + '> <span>إظهار الشعار</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-footer-logo-visible ' + (logo.visible === false ? "" : "checked") + '> <span>إظهار الشعار</span></label>',
       '</div>',
       '</article>'
     ].join("");
@@ -2581,7 +3149,7 @@
       selectHtml("footerLinkPage", "اختر صفحة داخلية", selectedPage, footerPageOptions()),
       inputHtml("footerLinkUrl", "الرابط اليدوي أو الناتج", link.url, "اختر صفحة داخلية أو اكتب رابطا مثل privacy.html أو https://example.com/privacy"),
       '</div>',
-      '<label class="check-line"><input type="checkbox" data-footer-link-visible ' + (link.visible === false ? "" : "checked") + '> <span>إظهار الرابط في التذييل</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-footer-link-visible ' + (link.visible === false ? "" : "checked") + '> <span>إظهار الرابط في التذييل</span></label>',
       '</div>',
       '</article>'
     ].join("");
@@ -2779,7 +3347,96 @@
   }
 
   function integrationLabel(integration) {
+    if (integration && integration.type === "analytics") return integration.name || integration.provider || "Google Analytics";
     return integration.name || integration.provider || "تكامل";
+  }
+
+  function integrationHiddenInputHtml(key, value) {
+    return '<input type="hidden" data-field="' + safeText(key) + '" value="' + safeText(value || "") + '">';
+  }
+
+  function normalizeGaMeasurementId(value) {
+    var id = String(value || "").trim().toUpperCase();
+    if (/^(G|GT|AW)-[A-Z0-9-]+$/.test(id) || /^UA-\d+-\d+$/.test(id)) return id;
+    return "";
+  }
+
+  function gaMeasurementInputHtml(value) {
+    return [
+      '<div class="nds-form-container">',
+      '<div class="nds-form-header"><label><span class="nds-label">Measurement ID</span></label></div>',
+      '<div class="nds-form-control"><input class="nds-input integration-measurement-input" data-field="integrationPublicKey" data-ga-measurement-input type="text" dir="ltr" value="' + safeText(value) + '" placeholder="G-XXXXXXXXXX"></div>',
+      '</div>'
+    ].join("");
+  }
+
+  function gaMeasurementStatusHtml(integration) {
+    var id = normalizeGaMeasurementId(integration.publicKey);
+    var hasValue = hasAdminText(integration.publicKey);
+    var status = id ? "success" : (hasValue ? "error" : "info");
+    var message = id
+      ? "جاهز. سيتم تحميل Google Analytics بعد قبول ملفات الارتباط فقط."
+      : (hasValue ? "تحقق من Measurement ID. الصيغة المتوقعة مثل G-XXXXXXXXXX." : "أدخل Measurement ID من Google Analytics 4.");
+    return [
+      '<div class="integration-status-card" data-ga-measurement-status data-status="' + status + '">',
+      '<span class="integration-status-dot" aria-hidden="true"></span>',
+      '<span class="nds-label">' + safeText(message) + '</span>',
+      '</div>'
+    ].join("");
+  }
+
+  function syncGaMeasurementStatus(input) {
+    var item = input ? input.closest("[data-integration-index]") : null;
+    var status = item ? qs("[data-ga-measurement-status]", item) : null;
+    var label = status ? qs(".nds-label", status) : null;
+    var id = normalizeGaMeasurementId(input && input.value);
+    var hasValue = hasAdminText(input && input.value);
+    if (!status || !label) return;
+    status.dataset.status = id ? "success" : (hasValue ? "error" : "info");
+    label.textContent = id
+      ? "جاهز. سيتم تحميل Google Analytics بعد قبول ملفات الارتباط فقط."
+      : (hasValue ? "تحقق من Measurement ID. الصيغة المتوقعة مثل G-XXXXXXXXXX." : "أدخل Measurement ID من Google Analytics 4.");
+  }
+
+  function analyticsIntegrationFieldsHtml(integration) {
+    return [
+      '<div class="integration-preset-note">',
+      '<strong>Google Analytics</strong>',
+      '<span>هذا التكامل مرتبط بموافقة ملفات الارتباط. إذا رفض الزائر، لن يتم تشغيل التحليلات.</span>',
+      '</div>',
+      '<div class="form-grid">',
+      selectHtml("integrationType", "نوع التكامل", integration.type || "analytics", window.INTEGRATION_TYPES || []),
+      inputHtml("integrationName", "اسم التكامل", integration.name || "Google Analytics"),
+      inputHtml("integrationProvider", "مزود التحليلات", integration.provider || "Google Analytics"),
+      selectHtml("integrationEnvironment", "البيئة", integration.environment || "live", window.INTEGRATION_ENVIRONMENTS || []),
+      gaMeasurementInputHtml(integration.publicKey || ""),
+      '</div>',
+      gaMeasurementStatusHtml(integration),
+      integrationHiddenInputHtml("integrationEndpointUrl", integration.endpointUrl),
+      integrationHiddenInputHtml("integrationWebhookUrl", integration.webhookUrl),
+      integrationHiddenInputHtml("integrationSecretEnvKey", integration.secretEnvKey),
+      textareaHtml("integrationConfigJson", "إعدادات اختيارية JSON", integration.configJson, 3, "اتركها فارغة عادة. استخدمها فقط لإعدادات عامة إضافية.")
+    ].join("");
+  }
+
+  function genericIntegrationFieldsHtml(integration) {
+    return [
+      '<div class="form-grid">',
+      selectHtml("integrationType", "نوع التكامل", integration.type || "payment", window.INTEGRATION_TYPES || []),
+      inputHtml("integrationName", "اسم التكامل", integration.name),
+      inputHtml("integrationProvider", "مزود الخدمة", integration.provider, "مثال: Moyasar أو HyperPay أو Stripe"),
+      selectHtml("integrationEnvironment", "البيئة", integration.environment || "test", window.INTEGRATION_ENVIRONMENTS || []),
+      inputHtml("integrationEndpointUrl", "رابط الخدمة أو صفحة الدفع", integration.endpointUrl),
+      inputHtml("integrationWebhookUrl", "رابط Webhook", integration.webhookUrl),
+      inputHtml("integrationPublicKey", "المفتاح العام أو Client ID", integration.publicKey),
+      inputHtml("integrationSecretEnvKey", "اسم متغير المفتاح السري في الخادم", integration.secretEnvKey, "مثال: PAYMENT_SECRET_KEY"),
+      '</div>',
+      textareaHtml("integrationConfigJson", "إعدادات عامة JSON", integration.configJson, 4, "استخدمها للإعدادات العامة فقط")
+    ].join("");
+  }
+
+  function integrationFieldsHtml(integration) {
+    return integration.type === "analytics" ? analyticsIntegrationFieldsHtml(integration) : genericIntegrationFieldsHtml(integration);
   }
 
   function integrationTemplate(integration, index) {
@@ -2800,18 +3457,8 @@
       '<div class="editor-accordion-collapse nds-accordion-collapse" id="' + panelId + '"' + (isOpen ? ' data-state="open" aria-hidden="false"' : ' aria-hidden="true"') + '>',
       '<div class="editor-accordion-content nds-accordion-content">',
       '<div class="compact-editor-body editor-accordion-body nds-accordion-body">',
-      '<div class="form-grid">',
-      selectHtml("integrationType", "نوع التكامل", integration.type || "payment", window.INTEGRATION_TYPES || []),
-      inputHtml("integrationName", "اسم التكامل", integration.name),
-      inputHtml("integrationProvider", "مزود الخدمة", integration.provider, "مثال: Moyasar أو HyperPay أو Stripe"),
-      selectHtml("integrationEnvironment", "البيئة", integration.environment || "test", window.INTEGRATION_ENVIRONMENTS || []),
-      inputHtml("integrationEndpointUrl", "رابط الخدمة أو صفحة الدفع", integration.endpointUrl),
-      inputHtml("integrationWebhookUrl", "رابط Webhook", integration.webhookUrl),
-      inputHtml("integrationPublicKey", "المفتاح العام أو Client ID", integration.publicKey),
-      inputHtml("integrationSecretEnvKey", "اسم متغير المفتاح السري في الخادم", integration.secretEnvKey, "مثال: PAYMENT_SECRET_KEY"),
-      '</div>',
-      textareaHtml("integrationConfigJson", "إعدادات عامة JSON", integration.configJson, 4, "استخدمها للإعدادات العامة فقط"),
-      '<label class="check-line"><input type="checkbox" data-integration-enabled ' + (integration.enabled === false ? "" : "checked") + '> <span>تفعيل التكامل</span></label>',
+      integrationFieldsHtml(integration),
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-integration-enabled ' + (integration.enabled === false ? "" : "checked") + '> <span>تفعيل التكامل</span></label>',
       '</div>',
       '</div>',
       '</div>',
@@ -2833,18 +3480,22 @@
 
   function collectIntegrations(options) {
     var keepDrafts = options && options.keepDrafts;
+    function itemValue(item, key) {
+      var input = qs('[data-field="' + key + '"]', item);
+      return input ? input.value.trim() : "";
+    }
     data.integrations = qsa("[data-integration-index]").map(function (item) {
       return {
         id: item.dataset.integrationId || newEntityId("integration"),
-        type: qs('[data-field="integrationType"]', item).value,
-        name: qs('[data-field="integrationName"]', item).value.trim(),
-        provider: qs('[data-field="integrationProvider"]', item).value.trim(),
-        environment: qs('[data-field="integrationEnvironment"]', item).value,
-        endpointUrl: qs('[data-field="integrationEndpointUrl"]', item).value.trim(),
-        webhookUrl: qs('[data-field="integrationWebhookUrl"]', item).value.trim(),
-        publicKey: qs('[data-field="integrationPublicKey"]', item).value.trim(),
-        secretEnvKey: qs('[data-field="integrationSecretEnvKey"]', item).value.trim(),
-        configJson: qs('[data-field="integrationConfigJson"]', item).value.trim(),
+        type: itemValue(item, "integrationType") || "custom",
+        name: itemValue(item, "integrationName"),
+        provider: itemValue(item, "integrationProvider"),
+        environment: itemValue(item, "integrationEnvironment") || "test",
+        endpointUrl: itemValue(item, "integrationEndpointUrl"),
+        webhookUrl: itemValue(item, "integrationWebhookUrl"),
+        publicKey: itemValue(item, "integrationPublicKey"),
+        secretEnvKey: itemValue(item, "integrationSecretEnvKey"),
+        configJson: itemValue(item, "integrationConfigJson"),
         enabled: qs("[data-integration-enabled]", item).checked
       };
     }).filter(function (integration) {
@@ -2876,7 +3527,7 @@
       return [
         '<label class="permission-check admin-check-control" for="' + inputId + '">',
         '<span class="nds-form-control admin-check-box">',
-        '<input id="' + inputId + '" type="checkbox" data-user-permission="' + safeText(permission) + '" ' + (checked ? "checked" : "") + (isOwner ? " disabled" : "") + '>',
+        '<input id="' + inputId + '" class="nds-check" type="checkbox" data-user-permission="' + safeText(permission) + '" ' + (checked ? "checked" : "") + (isOwner ? " disabled" : "") + '>',
         '</span>',
         '<span class="nds-label">' + safeText(ADMIN_PERMISSION_LABELS[permission] || permission) + '</span>',
         '</label>'
@@ -2914,7 +3565,7 @@
       '</div>',
       '<label class="nds-form-container nds-check-container nds-md admin-check-control admin-active-check" for="' + activeInputId + '">',
       '<span class="nds-form-control admin-check-box">',
-      '<input id="' + activeInputId + '" type="checkbox" data-user-active ' + (user.active === false ? "" : "checked") + (isSelf ? " disabled" : "") + '>',
+      '<input id="' + activeInputId + '" class="nds-check" type="checkbox" data-user-active ' + (user.active === false ? "" : "checked") + (isSelf ? " disabled" : "") + '>',
       '</span>',
       '<span class="nds-label">الحساب نشط</span>',
       '</label>',
@@ -3043,6 +3694,7 @@
         return notifyProjectChange(project, findPreviousItem(previousData.projects, project));
       }));
     }).then(function () {
+      addAdminActivity("حفظ المشاريع", "تم تحديث قائمة المشاريع.", "success");
       toast("تم حفظ المشاريع");
     });
     renderProjectsEditor();
@@ -3065,6 +3717,7 @@
     }).then(function () {
       toast("تم حفظ الصفحات");
       refreshPublicShell();
+      addAdminActivity("حفظ الصفحات", "تم تحديث الصفحات العامة والفرعية.", "success");
     });
     renderPagesEditor();
   }
@@ -3076,6 +3729,8 @@
     if (!savePromise) return;
     savePromise.then(function () {
       toast("تم حفظ التكاملات");
+      refreshPublicShell();
+      addAdminActivity("حفظ التكاملات", "تم تحديث إعدادات التكاملات والتحليلات.", "success");
     });
     renderIntegrationsEditor();
   }
@@ -3287,7 +3942,7 @@
   function setupTabs() {
     qsa("[data-admin-tab]").forEach(function (button) {
       button.addEventListener("click", function () {
-        activateAdminTab(button.dataset.adminTab, true);
+        activateAdminTab(button.dataset.adminTab, true, button);
       });
     });
   }
@@ -3627,6 +4282,18 @@
     qs("[data-navigation-form]").addEventListener("submit", saveNavigation);
     qs("[data-home-form]").addEventListener("submit", saveHome);
     if (qs("[data-footer-form]")) qs("[data-footer-form]").addEventListener("submit", saveFooter);
+    if (qs("[data-cookie-preview]")) qs("[data-cookie-preview]").addEventListener("click", function () {
+      collectFooterDraft();
+      if (!data.footer.cookies || data.footer.cookies.enabled === false) {
+        toast("فعّل إشعار ملفات الارتباط أولاً.", "info");
+        return;
+      }
+      if (window.SiteApp && window.SiteApp.renderCookieConsent) {
+        window.SiteApp.renderCookieConsent(data, { preview: true });
+      } else if (window.NDS && window.NDS.Cookies && window.NDS.Cookies.show) {
+        window.NDS.Cookies.show();
+      }
+    });
     qs("[data-save-projects]").addEventListener("click", saveProjects);
     qs("[data-save-pages]").addEventListener("click", savePages);
     if (qs("[data-save-integrations]")) qs("[data-save-integrations]").addEventListener("click", saveIntegrations);
@@ -3640,6 +4307,9 @@
     document.addEventListener("input", function (event) {
       if (event.target.matches('[data-field="projectTitle"]')) {
         syncProjectSlugFromTitle(event.target);
+      }
+      if (event.target.matches("[data-ga-measurement-input]")) {
+        syncGaMeasurementStatus(event.target);
       }
     });
 
@@ -3742,11 +4412,35 @@
       saveData();
     });
 
-    if (qs("[data-add-integration]")) qs("[data-add-integration]").addEventListener("click", function () {
+    if (qs("[data-add-ga-integration]")) qs("[data-add-ga-integration]").addEventListener("click", function () {
+      var integrationId;
       if (!ensurePermission("integrations")) return;
       collectIntegrations({ keepDrafts: true });
+      integrationId = newEntityId("integration");
       data.integrations.unshift({
-        id: newEntityId("integration"),
+        id: integrationId,
+        type: "analytics",
+        name: "Google Analytics",
+        provider: "Google Analytics",
+        environment: "live",
+        endpointUrl: "",
+        webhookUrl: "",
+        publicKey: "",
+        secretEnvKey: "",
+        configJson: "",
+        enabled: true
+      });
+      openEditorAccordions.add("integrations:" + integrationId);
+      renderIntegrationsEditor();
+    });
+
+    if (qs("[data-add-integration]")) qs("[data-add-integration]").addEventListener("click", function () {
+      var integrationId;
+      if (!ensurePermission("integrations")) return;
+      collectIntegrations({ keepDrafts: true });
+      integrationId = newEntityId("integration");
+      data.integrations.unshift({
+        id: integrationId,
         type: "payment",
         name: "",
         provider: "",
@@ -3758,6 +4452,7 @@
         configJson: "",
         enabled: true
       });
+      openEditorAccordions.add("integrations:" + integrationId);
       renderIntegrationsEditor();
     });
 
@@ -4020,28 +4715,39 @@
       }
     });
 
-    qs("[data-export-json]").addEventListener("click", function () {
-      window.SiteStore.exportJson().then(function (json) {
-        setValue("jsonBox", json);
-        var blob = new Blob([json], { type: "application/json" });
-        var link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        link.download = "site-content.json";
-        link.click();
-        URL.revokeObjectURL(link.href);
-        toast("تم تجهيز ملف التصدير");
-      }).catch(function (error) {
-        toast(error.message || "تعذر التصدير", "error");
-      });
+    if (qs("[data-refresh-system-status]")) qs("[data-refresh-system-status]").addEventListener("click", function () {
+      collectCurrentAdminDrafts();
+      renderSystemConsole();
+      toast("تم تحديث حالة النظام");
     });
 
-    qs("[data-import-json]").addEventListener("click", function () {
+    if (qs("[data-export-json]")) qs("[data-export-json]").addEventListener("click", function () {
+      downloadSystemBackup("site-content.json");
+    });
+
+    if (qs("[data-download-backup]")) qs("[data-download-backup]").addEventListener("click", function () {
+      downloadSystemBackup();
+    });
+
+    if (qs("[data-copy-json]")) qs("[data-copy-json]").addEventListener("click", copyJsonSnapshot);
+
+    if (qs("[data-check-broken-links]")) qs("[data-check-broken-links]").addEventListener("click", runSystemLinkCheck);
+    if (qs("[data-clear-preview-cache]")) qs("[data-clear-preview-cache]").addEventListener("click", clearPreviewCache);
+    if (qs("[data-reset-cookie-consent]")) qs("[data-reset-cookie-consent]").addEventListener("click", resetCookieConsent);
+    if (qs("[data-clear-activity-log]")) qs("[data-clear-activity-log]").addEventListener("click", function () {
+      clearAdminActivityLog();
+      toast("تم مسح سجل النشاط");
+    });
+
+    if (qs("[data-import-json]")) qs("[data-import-json]").addEventListener("click", function () {
       var json = value("jsonBox");
       if (!json) { toast("ضع محتوى JSON أولا"); return; }
       try {
         window.SiteStore.importJson(json).then(function (importedData) {
           data = importedData;
-          fillForms();
+          return fillForms();
+        }).then(function () {
+          addAdminActivity("استيراد JSON", "تم استيراد نسخة محتوى من مربع JSON.", "success");
           toast("تم استيراد البيانات");
         }).catch(function (error) {
           toast(error.message || "تعذر الاستيراد", "error");
@@ -4054,19 +4760,23 @@
     if (qs("[data-import-local-cache]")) qs("[data-import-local-cache]").addEventListener("click", function () {
       window.SiteStore.importLocalCache().then(function (importedData) {
         data = importedData;
-        fillForms();
+        return fillForms();
+      }).then(function () {
+        addAdminActivity("نقل localStorage", "تم نقل البيانات المحلية القديمة إلى قاعدة البيانات.", "success");
         toast("تم نقل بيانات localStorage إلى قاعدة البيانات");
       }).catch(function (error) {
         toast(error.message || "لا توجد بيانات محلية للنقل", "error");
       });
     });
 
-    qs("[data-reset-content]").addEventListener("click", function () {
+    if (qs("[data-reset-content]")) qs("[data-reset-content]").addEventListener("click", function () {
       confirmAdminDeleteThen("هل تريد إعادة تعيين كل المحتوى؟ سيتم حذف التعديلات الحالية.", function () {
         window.SiteStore.reset().then(function (resetData) {
           data = resetData;
-          fillForms();
           setValue("jsonBox", "");
+          return fillForms();
+        }).then(function () {
+          addAdminActivity("إعادة تعيين المحتوى", "تمت إعادة الموقع إلى البيانات الافتراضية.", "success");
           toast("تمت إعادة التعيين");
         }).catch(function (error) {
           toast(error.message || "تعذر إعادة التعيين", "error");
@@ -4074,11 +4784,14 @@
       });
     });
 
-    qs("[data-json-file]").addEventListener("change", function (event) {
+    if (qs("[data-json-file]")) qs("[data-json-file]").addEventListener("change", function (event) {
       var file = event.target.files && event.target.files[0];
       if (!file) return;
       var reader = new FileReader();
-      reader.onload = function () { setValue("jsonBox", String(reader.result || "")); };
+      reader.onload = function () {
+        setValue("jsonBox", String(reader.result || ""));
+        addAdminActivity("تحميل ملف JSON", "تم تجهيز الملف " + file.name + " داخل مربع الاستيراد.", "info");
+      };
       reader.readAsText(file);
     });
   }
@@ -4093,18 +4806,92 @@
     setEditorAccordionState(button, !isOpen);
   }
 
+  function clearInlineDropmenuTimer(menuPanel) {
+    var timer = menuPanel ? adminInlineDropmenuTimers.get(menuPanel) : null;
+    if (!timer) return;
+    window.clearTimeout(timer);
+    adminInlineDropmenuTimers.delete(menuPanel);
+  }
+
+  function inlineDropmenuTransitionMs(menuPanel) {
+    var styles;
+    var values;
+    if (!menuPanel || !window.getComputedStyle) return 220;
+    styles = window.getComputedStyle(menuPanel);
+    values = (styles.transitionDuration || "").split(",").map(function (value) {
+      value = value.trim();
+      if (value.endsWith("ms")) return parseFloat(value) || 0;
+      if (value.endsWith("s")) return (parseFloat(value) || 0) * 1000;
+      return 0;
+    });
+    return Math.max.apply(Math, values.concat([180])) + 40;
+  }
+
+  function openInlineDropmenu(menu, trigger, menuPanel) {
+    function promoteOpenState() {
+      if (!menuPanel.isConnected || menuPanel.hidden || menuPanel.dataset.state !== "opening") return;
+      menuPanel.dataset.state = "open";
+      menu.dataset.state = "open";
+    }
+    clearInlineDropmenuTimer(menuPanel);
+    menuPanel.hidden = false;
+    menuPanel.setAttribute("aria-hidden", "false");
+    menuPanel.dataset.state = "opening";
+    menu.dataset.state = "opening";
+    trigger.setAttribute("aria-expanded", "true");
+    menuPanel.offsetHeight;
+    window.requestAnimationFrame(function () {
+      promoteOpenState();
+    });
+    window.setTimeout(promoteOpenState, 40);
+    scrollAdminInlineMenuIntoView(menuPanel);
+  }
+
+  function closeInlineDropmenu(menu, trigger, menuPanel, immediate) {
+    var timer;
+    if (!menuPanel) return;
+    clearInlineDropmenuTimer(menuPanel);
+    if (trigger) trigger.setAttribute("aria-expanded", "false");
+    if (immediate || menuPanel.hidden) {
+      menuPanel.hidden = true;
+      menuPanel.setAttribute("aria-hidden", "true");
+      menuPanel.dataset.state = "";
+      if (menu) menu.dataset.state = "";
+      return;
+    }
+    menuPanel.setAttribute("aria-hidden", "true");
+    menuPanel.dataset.state = "closing";
+    if (menu) menu.dataset.state = "closing";
+    timer = window.setTimeout(function () {
+      if (!menuPanel.isConnected || menuPanel.dataset.state !== "closing") return;
+      menuPanel.hidden = true;
+      menuPanel.dataset.state = "";
+      if (menu) menu.dataset.state = "";
+      adminInlineDropmenuTimers.delete(menuPanel);
+    }, inlineDropmenuTransitionMs(menuPanel));
+    adminInlineDropmenuTimers.set(menuPanel, timer);
+  }
+
+  function toggleInlineDropmenu(trigger, menuSelector) {
+    var menu = trigger.closest(menuSelector);
+    var menuPanel = menu ? qs(".nds-dropmenu-menu", menu) : null;
+    var state = menuPanel ? menuPanel.dataset.state || "" : "";
+    var willOpen = menuPanel && (menuPanel.hidden || !/\bopen\b/.test(state));
+    if (!menuPanel) return;
+    if (willOpen) {
+      closeAdminInlineDropmenus(menu);
+      openInlineDropmenu(menu, trigger, menuPanel);
+    } else {
+      closeInlineDropmenu(menu, trigger, menuPanel);
+    }
+  }
+
   function closeIconTypeMenus(exceptMenu) {
     qsa("[data-icon-type-menu]").forEach(function (menu) {
       if (menu === exceptMenu) return;
       var trigger = qs("[data-icon-type-trigger]", menu);
       var menuPanel = qs(".nds-dropmenu-menu", menu);
-      if (trigger) trigger.setAttribute("aria-expanded", "false");
-      if (menuPanel) {
-        menuPanel.hidden = true;
-        menuPanel.setAttribute("aria-hidden", "true");
-        menuPanel.dataset.state = "";
-      }
-      menu.dataset.state = "";
+      closeInlineDropmenu(menu, trigger, menuPanel);
     });
   }
 
@@ -4124,17 +4911,7 @@
   }
 
   function toggleIconTypeMenu(trigger) {
-    var menu = trigger.closest("[data-icon-type-menu]");
-    var menuPanel = menu ? qs(".nds-dropmenu-menu", menu) : null;
-    if (!menuPanel) return;
-    var willOpen = menuPanel.hidden;
-    closeAdminInlineDropmenus(menu);
-    menuPanel.hidden = !willOpen;
-    menuPanel.setAttribute("aria-hidden", String(!willOpen));
-    menuPanel.dataset.state = willOpen ? "open" : "";
-    menu.dataset.state = willOpen ? "open" : "";
-    trigger.setAttribute("aria-expanded", String(willOpen));
-    if (willOpen) scrollAdminInlineMenuIntoView(menuPanel);
+    toggleInlineDropmenu(trigger, "[data-icon-type-menu]");
   }
 
   function selectIconType(optionButton) {
@@ -4163,28 +4940,12 @@
       if (menu === exceptMenu) return;
       var trigger = qs("[data-option-trigger]", menu);
       var menuPanel = qs(".nds-dropmenu-menu", menu);
-      if (trigger) trigger.setAttribute("aria-expanded", "false");
-      if (menuPanel) {
-        menuPanel.hidden = true;
-        menuPanel.setAttribute("aria-hidden", "true");
-        menuPanel.dataset.state = "";
-      }
-      menu.dataset.state = "";
+      closeInlineDropmenu(menu, trigger, menuPanel);
     });
   }
 
   function toggleOptionMenu(trigger) {
-    var menu = trigger.closest("[data-option-menu]");
-    var menuPanel = menu ? qs(".nds-dropmenu-menu", menu) : null;
-    if (!menuPanel) return;
-    var willOpen = menuPanel.hidden;
-    closeAdminInlineDropmenus(menu);
-    menuPanel.hidden = !willOpen;
-    menuPanel.setAttribute("aria-hidden", String(!willOpen));
-    menuPanel.dataset.state = willOpen ? "open" : "";
-    menu.dataset.state = willOpen ? "open" : "";
-    trigger.setAttribute("aria-expanded", String(willOpen));
-    if (willOpen) scrollAdminInlineMenuIntoView(menuPanel);
+    toggleInlineDropmenu(trigger, "[data-option-menu]");
   }
 
   function selectOptionValue(optionButton) {
@@ -4215,13 +4976,7 @@
       if (menu === exceptMenu) return;
       var trigger = qs("[data-select-trigger]", menu);
       var menuPanel = qs(".nds-dropmenu-menu", menu);
-      if (trigger) trigger.setAttribute("aria-expanded", "false");
-      if (menuPanel) {
-        menuPanel.hidden = true;
-        menuPanel.setAttribute("aria-hidden", "true");
-        menuPanel.dataset.state = "";
-      }
-      menu.dataset.state = "";
+      closeInlineDropmenu(menu, trigger, menuPanel);
     });
   }
 
@@ -4232,17 +4987,7 @@
   }
 
   function toggleSelectMenu(trigger) {
-    var menu = trigger.closest("[data-select-menu]");
-    var menuPanel = menu ? qs(".nds-dropmenu-menu", menu) : null;
-    if (!menuPanel) return;
-    var willOpen = menuPanel.hidden;
-    closeAdminInlineDropmenus(menu);
-    menuPanel.hidden = !willOpen;
-    menuPanel.setAttribute("aria-hidden", String(!willOpen));
-    menuPanel.dataset.state = willOpen ? "open" : "";
-    menu.dataset.state = willOpen ? "open" : "";
-    trigger.setAttribute("aria-expanded", String(willOpen));
-    if (willOpen) scrollAdminInlineMenuIntoView(menuPanel);
+    toggleInlineDropmenu(trigger, "[data-select-menu]");
   }
 
   function selectDropmenuValue(optionButton) {
@@ -4260,6 +5005,11 @@
     if (input && /^(footerLink|footerColumnLink|footerIconLink|footerBottomLink|footerLogo)Page$/.test(input.dataset.field || "")) syncFooterLinkFromPage(menu);
     if (trigger) trigger.dispatchEvent(new Event("change", { bubbles: true }));
     closeSelectMenus();
+    if (input && input.dataset.field === "integrationType" && menu.closest("[data-integration-index]")) {
+      captureOpenEditorAccordions(qs("[data-integrations-editor]"));
+      collectIntegrations({ keepDrafts: true });
+      renderIntegrationsEditor();
+    }
   }
 
   function isLoggedIn() {
@@ -4282,12 +5032,12 @@
   function initDashboard() {
     if (dashboardReady) return;
     dashboardReady = true;
-    setupAdminSidemenuToggle();
+    setupAdminSidemenuPeekDelay();
     setupTabs();
     setupEvents();
     setupDragSort();
     applyPermissionVisibility();
-    if (window.NDS && window.NDS.Sidemenu && window.NDS.Sidemenu.init) window.NDS.Sidemenu.init();
+    refreshAdminSidemenuComponents();
     fillForms();
     if (hasPermission("users")) loadAdminUsers();
   }

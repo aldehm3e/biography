@@ -144,7 +144,15 @@
       bottomLinks: [],
       logos: [],
       copyrightText: "",
-      legalText: ""
+      legalText: "",
+      cookies: {
+        enabled: true,
+        title: "ملفات تعريف الارتباط",
+        content: "يستخدم هذا الموقع ملفات تعريف الارتباط لتحسين تجربة التصفح وتسهيل الاستخدام. بالمتابعة في استخدام الموقع، فإنك توافق على استخدام ملفات الارتباط.",
+        acceptLabel: "قبول",
+        declineLabel: "رفض",
+        linkPageSlugs: []
+      }
     },
     projects: [],
     pages: [],
