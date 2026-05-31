@@ -12,8 +12,8 @@ $uploadFolders = [
     $root . '/uploads/icons',
 ];
 
-require_once $root . '/api/content/site-repository.php';
 require_once $root . '/api/db.php';
+require_once $root . '/api/content/site-repository.php';
 
 function h(string $value): string
 {
@@ -62,6 +62,24 @@ function run_schema(PDO $pdo, string $schemaPath): void
     }
 }
 
+function assert_install_targets_writable(string $configPath, string $lockPath): void
+{
+    $targets = [
+        $configPath => 'api/config.php',
+        $lockPath => 'install/install.lock',
+    ];
+
+    foreach ($targets as $path => $label) {
+        $directory = dirname($path);
+        if (!is_dir($directory) || !is_writable($directory)) {
+            throw new RuntimeException('The folder for ' . $label . ' is not writable.');
+        }
+        if (is_file($path) && !is_writable($path)) {
+            throw new RuntimeException($label . ' already exists but is not writable.');
+        }
+    }
+}
+
 function write_config(string $configPath, array $input): void
 {
     $config = [
@@ -89,6 +107,13 @@ function write_config(string $configPath, array $input): void
 
 function install_cms(string $schemaPath, string $configPath, string $lockPath): string
 {
+    if (is_file($lockPath)) {
+        throw new RuntimeException('Installer is locked. Remove install/install.lock manually only if you need to reinstall.');
+    }
+    if (is_file($configPath)) {
+        throw new RuntimeException('api/config.php already exists. Remove both api/config.php and install/install.lock only when intentionally reinstalling.');
+    }
+
     $input = [
         'db_host' => trim((string) ($_POST['db_host'] ?? 'localhost')),
         'db_name' => trim((string) ($_POST['db_name'] ?? '')),
@@ -109,6 +134,7 @@ function install_cms(string $schemaPath, string $configPath, string $lockPath): 
     if (strlen($input['password']) < 8) {
         throw new RuntimeException('Admin password must be at least 8 characters.');
     }
+    assert_install_targets_writable($configPath, $lockPath);
 
     $dsn = sprintf('mysql:host=%s;dbname=%s;charset=utf8mb4', $input['db_host'], $input['db_name']);
     $pdo = new PDO($dsn, $input['db_user'], $input['db_pass'], [
@@ -164,11 +190,17 @@ function install_cms(string $schemaPath, string $configPath, string $lockPath): 
 }
 
 $requirements = requirement_rows($uploadFolders);
+$installerLocked = is_file($lockPath);
+$existingConfig = is_file($configPath);
 $message = '';
 $error = '';
 
-if (is_file($lockPath)) {
-    $error = 'Installer is locked. Remove install/install.lock manually only if you need to reinstall.';
+if ($installerLocked) {
+    $error = $existingConfig
+        ? 'Installer is locked. Remove install/install.lock manually only if you need to reinstall.'
+        : 'Installer is locked, but api/config.php is missing. Restore api/config.php or remove install/install.lock and run a fresh install.';
+} elseif ($existingConfig) {
+    $error = 'api/config.php already exists. For safety, the installer will not overwrite it. Remove both api/config.php and install/install.lock only when intentionally reinstalling.';
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if (!all_requirements_pass($requirements)) {
@@ -217,21 +249,21 @@ if (is_file($lockPath)) {
         </div>
       </section>
 
-      <?php if (!is_file($lockPath)): ?>
+      <?php if (!$installerLocked && !$existingConfig): ?>
         <form class="nds-form nds-card nds-stroke" method="post">
           <div class="nds-card-content">
             <h2 class="nds-card-title">Database</h2>
             <div class="form-grid">
               <div class="nds-form-container"><div class="nds-form-header"><label for="db_host"><span class="nds-label">DB host</span></label></div><div class="nds-form-control"><input class="nds-input" id="db_host" name="db_host" value="<?= h($_POST['db_host'] ?? 'localhost') ?>" required></div></div>
-              <div class="nds-form-container"><div class="nds-form-header"><label for="db_name"><span class="nds-label">DB name</span></label></div><div class="nds-form-control"><input class="nds-input" id="db_name" name="db_name" required></div></div>
-              <div class="nds-form-container"><div class="nds-form-header"><label for="db_user"><span class="nds-label">DB user</span></label></div><div class="nds-form-control"><input class="nds-input" id="db_user" name="db_user" required></div></div>
+              <div class="nds-form-container"><div class="nds-form-header"><label for="db_name"><span class="nds-label">DB name</span></label></div><div class="nds-form-control"><input class="nds-input" id="db_name" name="db_name" value="<?= h($_POST['db_name'] ?? '') ?>" required></div></div>
+              <div class="nds-form-container"><div class="nds-form-header"><label for="db_user"><span class="nds-label">DB user</span></label></div><div class="nds-form-control"><input class="nds-input" id="db_user" name="db_user" value="<?= h($_POST['db_user'] ?? '') ?>" required></div></div>
               <div class="nds-form-container"><div class="nds-form-header"><label for="db_pass"><span class="nds-label">DB password</span></label></div><div class="nds-form-control"><input class="nds-input" id="db_pass" name="db_pass" type="password" autocomplete="off"></div></div>
             </div>
 
             <h2 class="nds-card-title">First Admin</h2>
             <div class="form-grid">
-              <div class="nds-form-container"><div class="nds-form-header"><label for="display_name"><span class="nds-label">Display name</span></label></div><div class="nds-form-control"><input class="nds-input" id="display_name" name="display_name"></div></div>
-              <div class="nds-form-container"><div class="nds-form-header"><label for="email"><span class="nds-label">Email</span></label></div><div class="nds-form-control"><input class="nds-input" id="email" name="email" type="email" required></div></div>
+              <div class="nds-form-container"><div class="nds-form-header"><label for="display_name"><span class="nds-label">Display name</span></label></div><div class="nds-form-control"><input class="nds-input" id="display_name" name="display_name" value="<?= h($_POST['display_name'] ?? '') ?>"></div></div>
+              <div class="nds-form-container"><div class="nds-form-header"><label for="email"><span class="nds-label">Email</span></label></div><div class="nds-form-control"><input class="nds-input" id="email" name="email" type="email" value="<?= h($_POST['email'] ?? '') ?>" required></div></div>
               <div class="nds-form-container"><div class="nds-form-header"><label for="password"><span class="nds-label">Password</span></label></div><div class="nds-form-control"><input class="nds-input" id="password" name="password" type="password" minlength="8" required></div></div>
             </div>
 

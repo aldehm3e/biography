@@ -11,6 +11,12 @@
   var notificationSaveQueue = Promise.resolve();
   var navPageDropdownTimers = new WeakMap();
   var headerMenuExclusivityObserver = null;
+  var siteDropdownBackdrop = null;
+  var siteDropdownBackdropTimer = null;
+  var siteSearchRecognition = null;
+  var siteSearchVoiceButton = null;
+  var textInputClearObserver = null;
+  var textInputClearQueued = false;
 
   var appState = {
     data: null,
@@ -31,6 +37,127 @@
   function wait(ms) {
     return new Promise(function (resolve) {
       window.setTimeout(resolve, Math.max(0, ms || 0));
+    });
+  }
+
+  function isProjectClearableTextInput(input) {
+    if (!input || input.tagName !== "INPUT") return false;
+    if (!input.classList.contains("nds-input")) return false;
+    if (input.closest("code, .code-example")) return false;
+    if (input.closest(".site-search-box")) return false;
+    if (input.classList.contains("file-input") || input.classList.contains("nds-select-input")) return false;
+    if (input.hasAttribute("data-no-clear") || input.readOnly || input.disabled) return false;
+    var type = (input.getAttribute("type") || "text").toLowerCase();
+    return ["text", "search", "email", "url", "tel", "number", "password"].indexOf(type) !== -1;
+  }
+
+  function directChildInputForClear(control) {
+    if (!control) return null;
+    return Array.prototype.slice.call(control.children).find(function (child) {
+      return child.tagName === "INPUT" && isProjectClearableTextInput(child);
+    }) || null;
+  }
+
+  function syncProjectInputClear(control) {
+    var input = directChildInputForClear(control);
+    var clearButton = control ? qs("[data-site-text-clear]", control) : null;
+    if (!input || !clearButton) return;
+    clearButton.hidden = !input.value;
+  }
+
+  function initializeProjectInputClear(control) {
+    if (!control) return;
+    if (control.dataset.siteClearEnhanced === "true") {
+      syncProjectInputClear(control);
+      return;
+    }
+    var input = directChildInputForClear(control);
+    if (!input) return;
+
+    var action = Array.prototype.slice.call(control.children).find(function (child) {
+      return child.classList && child.classList.contains("nds-form-action") && !child.classList.contains("nds-prefix");
+    });
+    if (!action) {
+      action = document.createElement("div");
+      action.className = "nds-form-action site-text-input-clear-action";
+      control.append(action);
+    } else {
+      action.classList.add("site-text-input-clear-action");
+    }
+
+    var clearButton = qs("[data-site-text-clear]", action) || qs(".nds-clear", action);
+    if (!clearButton) {
+      clearButton = document.createElement("button");
+      clearButton.type = "button";
+      clearButton.className = "nds-btn nds-subtle nds-clear site-text-input-clear";
+      clearButton.innerHTML = '<i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i>';
+      action.insertBefore(clearButton, action.firstChild);
+    }
+    clearButton.dataset.siteTextClear = "true";
+    clearButton.classList.add("site-text-input-clear");
+    clearButton.setAttribute("aria-label", "مسح الحقل");
+    clearButton.setAttribute("title", "مسح الحقل");
+    control.dataset.siteClearEnhanced = "true";
+    syncProjectInputClear(control);
+
+    if (window.NDS && window.NDS.Forms && window.NDS.Forms.initializeContainer) {
+      try {
+        window.NDS.Forms.initializeContainer(control);
+      } catch (error) {}
+    }
+  }
+
+  function enhanceProjectTextInputs(root) {
+    qsa(".nds-form-control", root || document).forEach(initializeProjectInputClear);
+  }
+
+  function queueProjectTextInputEnhancement(root) {
+    if (textInputClearQueued) return;
+    textInputClearQueued = true;
+    window.requestAnimationFrame(function () {
+      textInputClearQueued = false;
+      enhanceProjectTextInputs(root || document);
+    });
+  }
+
+  function setupProjectTextInputClearEnhancement() {
+    enhanceProjectTextInputs();
+    if (!textInputClearObserver) {
+      textInputClearObserver = new MutationObserver(function (mutations) {
+        var shouldEnhance = mutations.some(function (mutation) {
+          return Array.prototype.slice.call(mutation.addedNodes || []).some(function (node) {
+            return node.nodeType === 1 && (
+              (node.matches && node.matches(".nds-form-control, .nds-form-container, input.nds-input"))
+              || (node.querySelector && node.querySelector(".nds-form-control, input.nds-input"))
+            );
+          });
+        });
+        if (shouldEnhance) queueProjectTextInputEnhancement();
+      });
+      textInputClearObserver.observe(document.documentElement, { childList: true, subtree: true });
+    }
+    document.addEventListener("input", function (event) {
+      var input = event.target.closest("input.nds-input");
+      if (!isProjectClearableTextInput(input)) return;
+      syncProjectInputClear(input.closest(".nds-form-control"));
+    });
+    document.addEventListener("change", function (event) {
+      var input = event.target.closest("input.nds-input");
+      if (!isProjectClearableTextInput(input)) return;
+      syncProjectInputClear(input.closest(".nds-form-control"));
+    });
+    document.addEventListener("click", function (event) {
+      var clearButton = event.target.closest("[data-site-text-clear]");
+      if (!clearButton) return;
+      var control = clearButton.closest(".nds-form-control");
+      var input = directChildInputForClear(control);
+      if (!input) return;
+      event.preventDefault();
+      input.value = "";
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+      syncProjectInputClear(control);
+      input.focus();
     });
   }
 
@@ -61,6 +188,32 @@
 
   function visibleItems(items) {
     return asArray(items).filter(function (item) { return item && item.visible !== false; });
+  }
+
+  function projectIdentifier(project, index) {
+    return String(project && project.slug || index);
+  }
+
+  function projectHref(project, index) {
+    return "project.html?id=" + encodeURIComponent(projectIdentifier(project, index));
+  }
+
+  function projectEntryByIdentifier(data, identifier) {
+    var projects = asArray(data && data.projects || []);
+    var id = String(identifier || "").trim();
+    var slugIndex;
+    var numericIndex;
+    if (id) {
+      slugIndex = projects.findIndex(function (project) {
+        return String(project && project.slug || "").trim() === id;
+      });
+      if (slugIndex > -1) return { project: projects[slugIndex], index: slugIndex };
+    }
+    numericIndex = Number(id);
+    if (Number.isInteger(numericIndex) && numericIndex >= 0 && numericIndex < projects.length) {
+      return { project: projects[numericIndex], index: numericIndex };
+    }
+    return { project: null, index: -1 };
   }
 
   function visibleHeroSlides(home) {
@@ -260,6 +413,7 @@
       button.setAttribute("aria-label", label);
       button.setAttribute("title", label);
     });
+    enhanceSiteSearchControls(data);
   }
 
   function renderShared(data) {
@@ -418,9 +572,50 @@
     if (section) section.remove();
   }
 
+  function ensureMobileTopbarThemeToggle(data) {
+    var topbarInfo = qs(".site-header .nds-topbar-info");
+    if (!topbarInfo) return;
+
+    var label = uiText(data, "themeToggleLabel", "Toggle theme");
+    var button = qs("[data-topbar-theme-toggle]", topbarInfo);
+    if (!button) {
+      button = document.createElement("button");
+      button.type = "button";
+      button.className = "nds-btn nds-subtle nds-indicator theme-toggle topbar-theme-toggle";
+      button.dataset.themeToggle = "";
+      button.dataset.topbarThemeToggle = "true";
+
+      var icon = document.createElement("i");
+      icon.className = "nds-icon nds-hgi-moon-02";
+      icon.setAttribute("aria-hidden", "true");
+
+      var text = document.createElement("span");
+      text.className = "nds-label";
+
+      button.appendChild(icon);
+      button.appendChild(text);
+
+      var timePart = qs("[data-time-part]", topbarInfo);
+      if (timePart && timePart.nextSibling) {
+        topbarInfo.insertBefore(button, timePart.nextSibling);
+      } else {
+        topbarInfo.appendChild(button);
+      }
+    }
+
+    button.setAttribute("aria-label", label);
+    button.title = label;
+    var labelNode = qs(".nds-label", button);
+    if (labelNode) labelNode.textContent = label;
+  }
+
   function updateHeaderActions(data) {
+    ensureMobileTopbarThemeToggle(data);
     var minimal = qs(".nds-nav-minimal");
-    if (!minimal) return;
+    if (!minimal) {
+      updateThemeIcon(document.documentElement.dataset.theme || localStorage.getItem("websiteDemo:theme") || "light");
+      return;
+    }
     var toggler = qs(".nds-mainNav-toggler", minimal);
     dedupeHeaderActions();
     Array.prototype.slice.call(minimal.children).forEach(function (item) {
@@ -494,6 +689,8 @@
       '<span class="nds-label">' + escapeHtml(uiText(data, "themeToggleLabel", "تبديل الوضع الليلي")) + '</span>',
       '</button>'
     ].join("");
+
+    if (themeItem) themeItem.remove();
 
     var notificationItem = qs("[data-mobile-notifications-root]", minimal);
     if (!notificationItem) {
@@ -2590,8 +2787,67 @@
     return Boolean(
       qs(".nds-modal:not([hidden])[aria-hidden='false']")
       || qs(".nds-dropdown[data-state~='open'], .nds-dropdown[data-state~='opening']")
+      || qs(".nav-pages-item[data-state~='open'], .nav-pages-item[data-state~='opening']")
       || qs("[data-nav-panel][data-state~='open'], [data-nav-panel][data-state~='opening']")
     );
+  }
+
+  function ensureSiteDropdownBackdrop() {
+    if (siteDropdownBackdrop) return siteDropdownBackdrop;
+    siteDropdownBackdrop = document.createElement("button");
+    siteDropdownBackdrop.type = "button";
+    siteDropdownBackdrop.className = "site-dropdown-backdrop";
+    siteDropdownBackdrop.hidden = true;
+    siteDropdownBackdrop.setAttribute("aria-label", "إغلاق القائمة");
+    siteDropdownBackdrop.addEventListener("click", function () {
+      closeNavDropmenus(null, { dismissNative: true });
+      closeHeaderActionDropdowns();
+      closeNotificationDropdown();
+      closeMobileAccountDropdown();
+      setSiteDropdownBackdropActive(false);
+    });
+    document.body.append(siteDropdownBackdrop);
+    return siteDropdownBackdrop;
+  }
+
+  function hasOpenCustomHeaderDropdown() {
+    return Boolean(qs([
+      ".site-header .nav-pages-item[data-state~='open']",
+      ".site-header .nav-pages-item[data-state~='opening']",
+      ".site-header .header-actions .nds-dropdown[data-state~='open']",
+      ".site-header .header-actions .nds-dropdown[data-state~='opening']",
+      ".site-header .nds-nav-minimal .nds-dropdown[data-state~='open']",
+      ".site-header .nds-nav-minimal .nds-dropdown[data-state~='opening']"
+    ].join(", ")));
+  }
+
+  function setSiteDropdownBackdropActive(active) {
+    var backdrop = ensureSiteDropdownBackdrop();
+    if (siteDropdownBackdropTimer) {
+      window.clearTimeout(siteDropdownBackdropTimer);
+      siteDropdownBackdropTimer = null;
+    }
+    if (active) {
+      backdrop.hidden = false;
+      document.body.dataset.siteDropdownBackdrop = "true";
+      window.requestAnimationFrame(function () {
+        if (!siteDropdownBackdrop || siteDropdownBackdrop.hidden) return;
+        siteDropdownBackdrop.dataset.state = "active";
+      });
+      return;
+    }
+    delete document.body.dataset.siteDropdownBackdrop;
+    backdrop.dataset.state = "";
+    backdrop.removeAttribute("data-state");
+    siteDropdownBackdropTimer = window.setTimeout(function () {
+      if (!siteDropdownBackdrop || siteDropdownBackdrop.dataset.state) return;
+      siteDropdownBackdrop.hidden = true;
+      siteDropdownBackdropTimer = null;
+    }, 220);
+  }
+
+  function syncSiteDropdownBackdrop() {
+    setSiteDropdownBackdropActive(hasOpenCustomHeaderDropdown());
   }
 
   function resetBackdropWhenIdle() {
@@ -2900,6 +3156,10 @@
       .trim();
   }
 
+  function cleanSiteSearchTranscript(value) {
+    return String(value || "").replace(/\s+/g, " ").trim();
+  }
+
   function siteSearchCandidates(data) {
     data = data || {};
     data.home = data.home || {};
@@ -2912,8 +3172,8 @@
     });
     visibleItems(data.projects || []).forEach(function (project, index) {
       candidates.push({
-        href: "project.html?id=" + index,
-        text: [project.title, project.description, project.category, project.status, project.date].join(" ")
+        href: projectHref(project, index),
+        text: [project.title, project.slug, project.description, project.category, project.status, project.date].join(" ")
       });
     });
     routablePageItems(data).forEach(function (page) {
@@ -2937,8 +3197,208 @@
     return candidates;
   }
 
+  function siteSearchSpeechRecognitionConstructor() {
+    return window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  }
+
+  function siteSearchSpeechLanguage() {
+    var lang = (document.documentElement.getAttribute("lang") || navigator.language || "ar-SA").trim();
+    return lang.toLowerCase() === "ar" ? "ar-SA" : lang;
+  }
+
+  function updateSiteSearchClearState(form) {
+    if (!form) return;
+    var input = qs(".site-search-input, .nds-search-input", form);
+    var clearButton = qs("[data-site-search-clear]", form);
+    if (clearButton) clearButton.hidden = !(input && input.value);
+  }
+
+  function setSiteSearchVoiceState(button, isListening) {
+    if (!button) return;
+    var startLabel = button.dataset.startLabel || "البحث بالصوت";
+    var stopLabel = button.dataset.stopLabel || "إيقاف الاستماع";
+    if (isListening) {
+      button.dataset.state = "listening";
+      button.setAttribute("aria-pressed", "true");
+      button.setAttribute("aria-label", stopLabel);
+      button.setAttribute("title", stopLabel);
+    } else {
+      button.removeAttribute("data-state");
+      button.setAttribute("aria-pressed", "false");
+      button.setAttribute("aria-label", startLabel);
+      button.setAttribute("title", startLabel);
+    }
+  }
+
+  function stopSiteSearchVoice() {
+    if (!siteSearchRecognition) return;
+    try {
+      siteSearchRecognition.stop();
+    } catch (error) {
+      try {
+        siteSearchRecognition.abort();
+      } catch (abortError) {}
+    }
+  }
+
+  function finishSiteSearchVoice(button) {
+    setSiteSearchVoiceState(button || siteSearchVoiceButton, false);
+    siteSearchRecognition = null;
+    siteSearchVoiceButton = null;
+  }
+
+  function startSiteSearchVoice(button) {
+    var form = button && button.closest("[data-site-search-form]");
+    var input = form ? qs(".site-search-input, .nds-search-input", form) : null;
+    var Recognition = siteSearchSpeechRecognitionConstructor();
+    if (!form || !input) return;
+    if (!Recognition) {
+      button.hidden = true;
+      showToast("البحث الصوتي غير مدعوم في هذا المتصفح", "info");
+      return;
+    }
+    if (siteSearchRecognition && siteSearchVoiceButton === button) {
+      stopSiteSearchVoice();
+      return;
+    }
+    if (siteSearchRecognition) stopSiteSearchVoice();
+
+    var recognition = new Recognition();
+    var finalTranscript = "";
+    var shouldSubmit = false;
+    siteSearchRecognition = recognition;
+    siteSearchVoiceButton = button;
+    recognition.lang = siteSearchSpeechLanguage();
+    recognition.interimResults = true;
+    recognition.continuous = false;
+    recognition.maxAlternatives = 1;
+
+    recognition.onstart = function () {
+      setSiteSearchVoiceState(button, true);
+      input.focus();
+    };
+    recognition.onresult = function (event) {
+      var interimTranscript = "";
+      for (var i = event.resultIndex; i < event.results.length; i += 1) {
+        var result = event.results[i];
+        var transcript = result && result[0] ? result[0].transcript : "";
+        if (result && result.isFinal) finalTranscript += " " + transcript;
+        else interimTranscript += " " + transcript;
+      }
+      var nextValue = cleanSiteSearchTranscript(finalTranscript + " " + interimTranscript);
+      if (!nextValue) return;
+      input.value = nextValue;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      shouldSubmit = Boolean(cleanSiteSearchTranscript(finalTranscript));
+    };
+    recognition.onerror = function (event) {
+      shouldSubmit = false;
+      var message = "تعذر تشغيل البحث الصوتي";
+      if (event && event.error === "not-allowed") message = "اسمح للمتصفح باستخدام الميكروفون لتفعيل البحث الصوتي";
+      if (event && event.error === "no-speech") message = "لم يتم التقاط أي صوت";
+      showToast(message, event && event.error === "no-speech" ? "info" : "error");
+    };
+    recognition.onend = function () {
+      var submitForm = shouldSubmit && normalizeSiteSearchText(input.value);
+      if (siteSearchRecognition !== recognition) {
+        setSiteSearchVoiceState(button, false);
+        return;
+      }
+      finishSiteSearchVoice(button);
+      if (!submitForm) return;
+      window.setTimeout(function () {
+        if (!document.body.contains(form) || !normalizeSiteSearchText(input.value)) return;
+        if (form.requestSubmit) form.requestSubmit();
+        else form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+      }, 120);
+    };
+
+    try {
+      recognition.start();
+    } catch (error) {
+      finishSiteSearchVoice(button);
+      showToast("تعذر تشغيل البحث الصوتي", "error");
+    }
+  }
+
+  function enhanceSiteSearchControls(data) {
+    var supportsVoice = Boolean(siteSearchSpeechRecognitionConstructor());
+    var clearLabel = uiText(data, "searchClearLabel", "مسح البحث");
+    var voiceLabel = uiText(data, "searchVoiceLabel", "البحث بالصوت");
+    var voiceStopLabel = uiText(data, "searchVoiceStopLabel", "إيقاف الاستماع");
+    qsa("[data-site-search-form]").forEach(function (form, index) {
+      var control = qs(".nds-form-control", form);
+      var input = qs(".site-search-input, .nds-search-input", form);
+      if (!control || !input) return;
+      control.classList.add("site-search-control");
+      if (!input.id) input.id = "site-search-input-" + (index + 1);
+
+      var action = qs("[data-site-search-actions]", control) || qs(".nds-form-action", control);
+      if (!action) {
+        action = document.createElement("div");
+        action.className = "nds-form-action site-search-actions";
+        control.append(action);
+      }
+      action.dataset.siteSearchActions = "true";
+      action.classList.add("site-search-actions");
+
+      var clearButton = qs("[data-site-search-clear]", action) || qs(".nds-clear", action);
+      if (!clearButton) {
+        clearButton = document.createElement("button");
+        clearButton.type = "button";
+        clearButton.className = "nds-btn nds-subtle nds-clear site-search-clear";
+        clearButton.innerHTML = '<i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i>';
+        action.append(clearButton);
+      }
+      clearButton.dataset.siteSearchClear = "true";
+      clearButton.setAttribute("aria-label", clearLabel);
+      clearButton.setAttribute("title", clearLabel);
+
+      var voiceButton = qs("[data-site-search-voice]", action) || qs(".nds-voice-input", action);
+      if (!voiceButton) {
+        voiceButton = document.createElement("button");
+        voiceButton.type = "button";
+        voiceButton.className = "nds-btn nds-subtle site-search-voice";
+        voiceButton.innerHTML = '<i class="nds-icon nds-hgi-mic-01" aria-hidden="true"></i>';
+        action.append(voiceButton);
+      }
+      voiceButton.classList.remove("nds-voice-input");
+      voiceButton.classList.add("site-search-voice");
+      voiceButton.dataset.siteSearchVoice = "true";
+      voiceButton.dataset.startLabel = voiceLabel;
+      voiceButton.dataset.stopLabel = voiceStopLabel;
+      voiceButton.hidden = !supportsVoice;
+      if (!voiceButton.hidden && (voiceButton.dataset.state || "").indexOf("listening") === -1) {
+        setSiteSearchVoiceState(voiceButton, false);
+      }
+
+      updateSiteSearchClearState(form);
+    });
+  }
+
   function setupSiteSearch() {
+    enhanceSiteSearchControls(appState.data);
     document.addEventListener("click", function (event) {
+      var clearButton = event.target.closest("[data-site-search-clear]");
+      if (clearButton) {
+        event.preventDefault();
+        var clearForm = clearButton.closest("[data-site-search-form]");
+        var clearInput = clearForm ? qs(".site-search-input, .nds-search-input", clearForm) : null;
+        if (clearInput) {
+          clearInput.value = "";
+          clearInput.dispatchEvent(new Event("input", { bubbles: true }));
+          clearInput.focus();
+        }
+        return;
+      }
+
+      var voiceButton = event.target.closest("[data-site-search-voice]");
+      if (voiceButton) {
+        event.preventDefault();
+        startSiteSearchVoice(voiceButton);
+        return;
+      }
+
       var trigger = event.target.closest(".site-search-dropdown > .nds-nav-link");
       if (!trigger) return;
       var root = trigger.closest(".site-search-dropdown");
@@ -2946,6 +3406,12 @@
         var input = root ? qs(".site-search-input", root) : null;
         if (input && root.dataset.state && root.dataset.state.indexOf("open") !== -1) input.focus();
       }, 180);
+    });
+
+    document.addEventListener("input", function (event) {
+      var input = event.target.closest(".site-search-input, .nds-search-input");
+      if (!input) return;
+      updateSiteSearchClearState(input.closest("[data-site-search-form]"));
     });
 
     document.addEventListener("submit", function (event) {
@@ -3065,12 +3531,14 @@
           && hasOpenStateToken(mutation.target);
       });
       if (shouldCloseNavPages) closeNavPagesForHeaderAction();
+      syncSiteDropdownBackdrop();
     });
     headerMenuExclusivityObserver.observe(header, {
       subtree: true,
       attributes: true,
       attributeFilter: ["data-state"]
     });
+    syncSiteDropdownBackdrop();
   }
 
   function closeNavDropmenus(except, options) {
@@ -3148,6 +3616,7 @@
     });
     if (hasOpen) list.dataset.dropdownState = "open";
     else list.removeAttribute("data-dropdown-state");
+    syncSiteDropdownBackdrop();
   }
 
   function resetNavPageDropdownPosition(menu) {
@@ -3203,6 +3672,7 @@
     qsa("[data-nav-list]").forEach(function (list) {
       updateNavPageListDropdownState(list);
     });
+    syncSiteDropdownBackdrop();
   }
 
   function removeNavPageStateTokens(item, tokens) {
@@ -4173,7 +4643,7 @@
       if (meta.children.length) content.append(meta);
       var actions = el("div", "project-actions");
       var details = el("a", "nds-btn nds-primary nds-md");
-      var projectUrl = "project.html?id=" + encodeURIComponent(String(entry.index));
+      var projectUrl = projectHref(project, entry.index);
       details.href = projectUrl;
       details.append(el("span", "nds-label", uiText(appState.data, "projectDetailsButton", "تفاصيل المشروع")));
       actions.append(details);
@@ -4184,8 +4654,10 @@
   }
 
   function renderProjectDetailPage(data) {
-    var index = Number(new URLSearchParams(location.search).get("id"));
-    var project = Number.isInteger(index) ? data.projects[index] : null;
+    var params = new URLSearchParams(location.search);
+    var entry = projectEntryByIdentifier(data, params.get("id") || params.get("slug") || "");
+    var index = entry.index;
+    var project = entry.project;
     if (project && project.visible === false) project = null;
     var titleNodes = qsa("[data-project-detail-title]");
     var body = qs("[data-project-detail-body]");
@@ -4202,7 +4674,7 @@
 
     titleNodes.forEach(function (node) { node.textContent = project.title || uiText(data, "projectDetailFallbackTitle", "تفاصيل المشروع"); });
     updateDocumentTitle(data, project.title || uiText(data, "projectDetailFallbackTitle", "تفاصيل المشروع"));
-    renderSectionShareAction("body[data-page='project-detail'] .nds-hero-section .nds-section-head", "project.html?id=" + encodeURIComponent(String(index)), project.title || "");
+    renderSectionShareAction("body[data-page='project-detail'] .nds-hero-section .nds-section-head", projectHref(project, index), project.title || "");
     var detail = el("article", "project-detail nds-card nds-stroke");
     var content = el("div", "nds-card-content project-detail-content");
     if (hasText(project.image)) {
@@ -4624,6 +5096,7 @@
     setupNavToggle();
     setupDropmenus();
     setupHeaderMenuExclusivity();
+    setupProjectTextInputClearEnhancement();
     setupSiteSearch();
     setupThemeToggle();
     setupHeaderNavScrollEvents();
