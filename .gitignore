@@ -7,7 +7,9 @@ uploads/images/*
 uploads/video/*
 uploads/logos/*
 uploads/icons/*
+uploads/documents/*
 !uploads/images/.gitkeep
 !uploads/video/.gitkeep
 !uploads/logos/.gitkeep
 !uploads/icons/.gitkeep
+!uploads/documents/.gitkeep

@@ -11,8 +11,6 @@
   var notificationSaveQueue = Promise.resolve();
   var navPageDropdownTimers = new WeakMap();
   var headerMenuExclusivityObserver = null;
-  var siteDropdownBackdrop = null;
-  var siteDropdownBackdropTimer = null;
   var siteSearchRecognition = null;
   var siteSearchVoiceButton = null;
   var textInputClearObserver = null;
@@ -35,6 +33,353 @@
 
   function qsa(selector, root) {
     return Array.prototype.slice.call((root || document).querySelectorAll(selector));
+  }
+
+  function installProjectBackdropAdapter() {
+    if (!window.NDS || !window.NDS.State) return;
+    if (window.NDS.Backdrop && window.NDS.Backdrop._siteBackdropAdapter) return;
+
+    var NDS = window.NDS;
+    var originalStateSet = NDS.State.set;
+    var originalStateClear = NDS.State.clear;
+    var backdropElement = null;
+    var currentConfig = null;
+    var isActive = false;
+    var activeOwners = [];
+    var scrollLocked = false;
+    var mutedElements = [];
+    var DEFAULT_OWNER = "__default__";
+    var FOCUSABLE_SELECTOR = 'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
+    var SURFACE_SELECTOR = [
+      '.nds-modal:not([hidden])[aria-hidden="false"]',
+      '.nds-sidemenu[data-state~="open"], .nds-sidemenu[data-state~="opening"]',
+      '.nds-collapse[data-state~="open"], .nds-collapse[data-state~="opening"]',
+      '.nds-dropdown[data-state~="open"], .nds-dropdown[data-state~="opening"]',
+      '.nav-pages-item[data-state~="open"], .nav-pages-item[data-state~="opening"]',
+      '.nds-ipv-popup-overlay.nds-ipv-active',
+      '[data-nds-backdrop-surface="true"]'
+    ].join(", ");
+
+    function hasOwn(object, key) {
+      return Object.prototype.hasOwnProperty.call(object || {}, key);
+    }
+
+    function addStateToken(element, token) {
+      if (!element) return;
+      if (NDS.State && NDS.State.add) {
+        NDS.State.add(element, token);
+        return;
+      }
+      var tokens = (element.getAttribute("data-state") || "").split(/\s+/).filter(Boolean);
+      if (tokens.indexOf(token) === -1) tokens.push(token);
+      element.setAttribute("data-state", tokens.join(" "));
+    }
+
+    function removeStateToken(element, token) {
+      if (!element) return;
+      if (NDS.State && NDS.State.remove) {
+        NDS.State.remove(element, token);
+        return;
+      }
+      var tokens = (element.getAttribute("data-state") || "").split(/\s+/).filter(function (state) {
+        return state && state !== token;
+      });
+      if (tokens.length) {
+        element.setAttribute("data-state", tokens.join(" "));
+      } else {
+        element.removeAttribute("data-state");
+      }
+    }
+
+    if (!NDS.State._siteBackdropBodySafe) {
+      NDS.State.set = function (element) {
+        var states = Array.prototype.slice.call(arguments, 1);
+        if (element === document.body && states.length === 1 && states[0] === "backdrop") {
+          addStateToken(element, "backdrop");
+          return;
+        }
+        return originalStateSet.apply(NDS.State, arguments);
+      };
+      NDS.State.clear = function (element) {
+        if (element === document.body) {
+          removeStateToken(element, "backdrop");
+          return;
+        }
+        return originalStateClear.apply(NDS.State, arguments);
+      };
+      NDS.State._siteBackdropBodySafe = true;
+    }
+
+    function initBackdrop() {
+      if (backdropElement && backdropElement.isConnected) return;
+      backdropElement = qs("[data-nds-backdrop]") || qs(".nds-backdrop");
+      if (!backdropElement) {
+        backdropElement = document.createElement("div");
+        document.body.append(backdropElement);
+      }
+      backdropElement.classList.add("nds-backdrop");
+      backdropElement.setAttribute("data-nds-backdrop", "true");
+      backdropElement.setAttribute("aria-hidden", "true");
+    }
+
+    function normalizeElements(value) {
+      if (!value) return [];
+      if (typeof value === "string") return qsa(value);
+      if (value.nodeType === 1) return document.contains(value) ? [value] : [];
+      return Array.prototype.slice.call(value).filter(function (element) {
+        return element && element.nodeType === 1 && document.contains(element);
+      });
+    }
+
+    function activeSurfaceElements(config) {
+      var explicit = normalizeElements(config && (config.surface || config.surfaces || config.target || config.targets));
+      var discovered = qsa(SURFACE_SELECTOR);
+      var surfaces = [];
+      explicit.concat(discovered).forEach(function (element) {
+        if (element !== backdropElement && surfaces.indexOf(element) === -1 && document.contains(element)) {
+          surfaces.push(element);
+        }
+      });
+      return surfaces;
+    }
+
+    function isInsideAny(element, surfaces) {
+      return surfaces.some(function (surface) {
+        return surface === element || surface.contains(element);
+      });
+    }
+
+    function restoreMutedElements() {
+      mutedElements.forEach(function (element) {
+        if (!element || !element.dataset) return;
+        if (element.dataset.ndsBackdropPrevInert === "true") {
+          element.inert = true;
+        } else {
+          element.inert = false;
+          element.removeAttribute("inert");
+        }
+        delete element.dataset.ndsBackdropPrevInert;
+        delete element.dataset.ndsBackdropMuted;
+      });
+      mutedElements = [];
+      qsa('[data-nds-backdrop-surface="true"]').forEach(function (element) {
+        delete element.dataset.ndsBackdropSurface;
+      });
+    }
+
+    function setBodyState(active, config) {
+      if (!document.body) return;
+      if (active) {
+        addStateToken(document.body, "backdrop");
+        document.body.dataset.ndsBackdropActive = "true";
+        document.body.dataset.ndsBackdropOwner = activeOwners.map(function (entry) {
+          return entry.owner;
+        }).join(" ");
+        if (config && config.context) {
+          document.body.dataset.ndsBackdropContext = config.context;
+        } else {
+          delete document.body.dataset.ndsBackdropContext;
+        }
+        return;
+      }
+      removeStateToken(document.body, "backdrop");
+      delete document.body.dataset.ndsBackdropActive;
+      delete document.body.dataset.ndsBackdropOwner;
+      delete document.body.dataset.ndsBackdropContext;
+    }
+
+    function syncScrollLock() {
+      var shouldLock = activeOwners.some(function (entry) {
+        return entry.config.preventScroll;
+      });
+      if (shouldLock && !scrollLocked && NDS.scrollLock && NDS.scrollLock.lock) {
+        NDS.scrollLock.lock();
+        scrollLocked = true;
+      } else if (!shouldLock && scrollLocked && NDS.scrollLock && NDS.scrollLock.unlock) {
+        NDS.scrollLock.unlock();
+        scrollLocked = false;
+      }
+    }
+
+    function inferOwner(config) {
+      if (config && config.context) return config.context;
+      if (config && Number(config.zIndex) >= 1800) return "modal";
+      if (config && config.clickToClose === false && config.escapeClose === false) return "ipv";
+      if (hasOwn(config, "preventScroll")) return "sidemenu";
+      if (config && Number(config.zIndex) === 999) return "nav";
+      return DEFAULT_OWNER;
+    }
+
+    function normalizeConfig(config) {
+      config = config || {};
+      var explicitOwner = Boolean(config.owner || config.id);
+      return {
+        owner: explicitOwner ? (config.owner || config.id) : inferOwner(config),
+        explicitOwner: explicitOwner,
+        context: config.context || null,
+        surface: config.surface || config.surfaces || config.target || config.targets || null,
+        zIndex: config.zIndex || 1100,
+        onClick: config.onClick || null,
+        onShow: config.onShow || null,
+        onHide: config.onHide || null,
+        preventScroll: config.preventScroll !== false,
+        escapeClose: config.escapeClose !== false,
+        clickToClose: config.clickToClose !== false
+      };
+    }
+
+    function applyBlockingState(config) {
+      if (!backdropElement) return;
+      restoreMutedElements();
+      activeSurfaceElements(config).forEach(function (surface) {
+        surface.dataset.ndsBackdropSurface = "true";
+      });
+      var surfaces = activeSurfaceElements(config);
+      mutedElements = qsa(NDS.focusableSel || FOCUSABLE_SELECTOR).filter(function (element) {
+        if (element === backdropElement || backdropElement.contains(element)) return false;
+        return !isInsideAny(element, surfaces);
+      });
+      mutedElements.forEach(function (element) {
+        element.dataset.ndsBackdropPrevInert = element.inert ? "true" : "false";
+        element.dataset.ndsBackdropMuted = "true";
+        element.inert = true;
+      });
+      backdropElement.dataset.ndsBackdropBlocking = "true";
+      backdropElement.style.zIndex = config.zIndex;
+      setBodyState(true, config);
+      syncScrollLock();
+    }
+
+    function attachListeners() {
+      if (!backdropElement) return;
+      backdropElement.removeEventListener("click", handleClick);
+      document.removeEventListener("click", handleDocumentClick, true);
+      document.removeEventListener("keydown", handleEscape);
+      if (currentConfig && currentConfig.clickToClose) backdropElement.addEventListener("click", handleClick);
+      if (currentConfig) document.addEventListener("click", handleDocumentClick, true);
+      if (currentConfig && currentConfig.escapeClose) document.addEventListener("keydown", handleEscape);
+    }
+
+    function topEntry() {
+      return activeOwners[activeOwners.length - 1] || null;
+    }
+
+    function activateTopConfig() {
+      var entry = topEntry();
+      currentConfig = entry ? entry.config : null;
+      if (!currentConfig) return;
+      applyBlockingState(currentConfig);
+      attachListeners();
+    }
+
+    function handleClick(event) {
+      if (event.target === backdropElement && currentConfig && currentConfig.onClick) currentConfig.onClick();
+    }
+
+    function handleDocumentClick(event) {
+      if (!currentConfig || !isActive) return;
+      if (isInsideAny(event.target, activeSurfaceElements(currentConfig))) return;
+      event.preventDefault();
+      event.stopPropagation();
+      if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+      if (currentConfig.clickToClose && currentConfig.onClick) currentConfig.onClick();
+    }
+
+    function handleEscape(event) {
+      if ((event.key === "Escape" || event.key === "Esc") && currentConfig && currentConfig.onClick) currentConfig.onClick();
+    }
+
+    function show(config) {
+      initBackdrop();
+      var nextConfig = normalizeConfig(config);
+      if (nextConfig.explicitOwner) {
+        activeOwners = activeOwners.filter(function (entry) {
+          return entry.owner !== nextConfig.owner;
+        });
+      }
+      activeOwners.push({ owner: nextConfig.owner, config: nextConfig });
+      if (isActive) {
+        activateTopConfig();
+        return;
+      }
+      isActive = true;
+      backdropElement.style.display = "block";
+      activateTopConfig();
+      window.requestAnimationFrame(function () {
+        if (isActive) addStateToken(backdropElement, "active");
+      });
+      if (currentConfig && currentConfig.onShow) currentConfig.onShow();
+    }
+
+    function hide(owner) {
+      if (!isActive || !backdropElement) return;
+      if (owner) {
+        activeOwners = activeOwners.filter(function (entry) {
+          return entry.owner !== owner;
+        });
+      } else {
+        activeOwners.pop();
+      }
+      if (activeOwners.length) {
+        activateTopConfig();
+        return;
+      }
+      backdropElement.removeEventListener("click", handleClick);
+      document.removeEventListener("click", handleDocumentClick, true);
+      document.removeEventListener("keydown", handleEscape);
+      isActive = false;
+      var closingConfig = currentConfig;
+      if (NDS.State && NDS.State.clear) NDS.State.clear(backdropElement);
+      else backdropElement.removeAttribute("data-state");
+      backdropElement.removeAttribute("data-nds-backdrop-blocking");
+      restoreMutedElements();
+      setBodyState(false);
+      syncScrollLock();
+      window.setTimeout(function () {
+        if (isActive) return;
+        backdropElement.style.display = "";
+        if (closingConfig && closingConfig.onHide) closingConfig.onHide();
+        currentConfig = null;
+      }, NDS.transitionSpeed ? NDS.transitionSpeed() : 200);
+    }
+
+    function reset() {
+      if (!backdropElement) initBackdrop();
+      backdropElement.removeEventListener("click", handleClick);
+      document.removeEventListener("click", handleDocumentClick, true);
+      document.removeEventListener("keydown", handleEscape);
+      isActive = false;
+      activeOwners = [];
+      currentConfig = null;
+      if (NDS.State && NDS.State.clear) NDS.State.clear(backdropElement);
+      else backdropElement.removeAttribute("data-state");
+      backdropElement.removeAttribute("data-nds-backdrop-blocking");
+      restoreMutedElements();
+      setBodyState(false);
+      if (scrollLocked && NDS.scrollLock && NDS.scrollLock.unlock) NDS.scrollLock.unlock();
+      scrollLocked = false;
+      backdropElement.style.display = "";
+    }
+
+    function toggle(config) {
+      var nextConfig = normalizeConfig(config);
+      if (activeOwners.some(function (entry) { return entry.owner === nextConfig.owner; })) {
+        hide(nextConfig.owner);
+      } else {
+        show(config);
+      }
+    }
+
+    window.NDS.Backdrop = {
+      show: show,
+      hide: hide,
+      reset: reset,
+      toggle: toggle,
+      isActive: function () { return isActive; },
+      getElement: function () { initBackdrop(); return backdropElement; },
+      getOwners: function () { return activeOwners.map(function (entry) { return entry.owner; }); },
+      _siteBackdropAdapter: true
+    };
   }
 
   function wait(ms) {
@@ -174,6 +519,12 @@
     var node = document.createElement(tag);
     if (className) node.className = className;
     if (text !== undefined) node.textContent = text;
+    return node;
+  }
+
+  function ndsTagEl(className, text) {
+    var node = el("span", className);
+    node.append(el("span", "nds-label", text));
     return node;
   }
 
@@ -2236,6 +2587,8 @@
       backdrop.removeAttribute("data-state");
     });
     removeDataStateTokens(document.body, ["backdrop"]);
+    delete document.body.dataset.siteOverlay;
+    clearSiteBackdropSurfaces();
   }
 
   function closeAccountOverlays() {
@@ -2890,6 +3243,28 @@
     refreshNotificationComponents(root);
   }
 
+  function stabilizeNotificationDropdown(root) {
+    if (!root || !window.matchMedia("(min-width: 961px)").matches) return;
+    if (root._notificationStableTimer) window.clearTimeout(root._notificationStableTimer);
+    root.dataset.notificationStable = "true";
+    root.setAttribute("data-notification-stable", "true");
+    root._notificationStableTimer = window.setTimeout(function () {
+      delete root.dataset.notificationStable;
+      root.removeAttribute("data-notification-stable");
+      root._notificationStableTimer = null;
+    }, 360);
+  }
+
+  function prepareNotificationDropdownMutation(root) {
+    if (!root) return;
+    root.dataset.state = "open opened";
+    root.setAttribute("data-state", "open opened");
+    syncNotificationTriggerState(root);
+    stabilizeNotificationDropdown(root);
+    scheduleHeaderActionDropdownFit(root);
+    syncSiteDropdownBackdrop();
+  }
+
   function notificationRootMode(root) {
     return root && root.hasAttribute("data-mobile-notifications-root") ? "mobile" : "desktop";
   }
@@ -2910,14 +3285,18 @@
     }
     refreshNotificationComponents(root);
     scheduleHeaderActionDropdownFit(root);
-    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.show) {
-      window.NDS.Backdrop.show({ zIndex: 999, onClick: closeNotificationDropdown });
-    }
+    syncSiteDropdownBackdrop();
     settleNotificationDropdownOpen(root);
   }
 
-  function keepNotificationDropdownOpen(root) {
+  function keepNotificationDropdownOpen(root, options) {
     var mode = notificationRootMode(root);
+    if (options && options.instant) {
+      root = notificationRootForMode(mode);
+      prepareNotificationDropdownMutation(root);
+      refreshNotificationComponents(root);
+      return;
+    }
     window.requestAnimationFrame(function () {
       setNotificationDropdownOpen(notificationRootForMode(mode));
     });
@@ -2927,6 +3306,32 @@
     window.setTimeout(function () {
       settleNotificationDropdownOpen(notificationRootForMode(mode));
     }, 260);
+  }
+
+  function animateNotificationRemoval(item, onComplete) {
+    var done = false;
+    var finish = function () {
+      if (done) return;
+      done = true;
+      onComplete();
+    };
+    if (!item || !window.matchMedia("(min-width: 961px)").matches || window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      finish();
+      return;
+    }
+    item.dataset.notificationRemoving = "true";
+    item.style.blockSize = item.getBoundingClientRect().height + "px";
+    item.style.overflow = "hidden";
+    item.style.transition = "block-size 180ms ease, opacity 140ms ease, transform 180ms ease, border-color 180ms ease";
+    item.offsetHeight;
+    item.style.opacity = "0";
+    item.style.transform = "translateY(-4px)";
+    item.style.blockSize = "0px";
+    item.style.borderColor = "transparent";
+    item.addEventListener("transitionend", function (event) {
+      if (event.propertyName === "block-size" || event.propertyName === "height") finish();
+    }, { once: true });
+    window.setTimeout(finish, 220);
   }
 
   function rememberNotificationDropdownOpen(root) {
@@ -3007,71 +3412,87 @@
     return false;
   }
 
-  function hasVisibleManagedOverlay() {
-    return Boolean(
-      qs(".nds-modal:not([hidden])[aria-hidden='false']")
-      || qs(".nds-dropdown[data-state~='open'], .nds-dropdown[data-state~='opening']")
-      || qs(".nav-pages-item[data-state~='open'], .nav-pages-item[data-state~='opening']")
-      || qs("[data-nav-panel][data-state~='open'], [data-nav-panel][data-state~='opening']")
-    );
+  function isVisibleBackdropSurface(element) {
+    return Boolean(element && (element.offsetParent !== null || element.getClientRects().length > 0));
   }
 
-  function ensureSiteDropdownBackdrop() {
-    if (siteDropdownBackdrop) return siteDropdownBackdrop;
-    siteDropdownBackdrop = document.createElement("button");
-    siteDropdownBackdrop.type = "button";
-    siteDropdownBackdrop.className = "site-dropdown-backdrop";
-    siteDropdownBackdrop.hidden = true;
-    siteDropdownBackdrop.setAttribute("aria-label", "إغلاق القائمة");
-    siteDropdownBackdrop.addEventListener("click", function () {
-      closeNavDropmenus(null, { dismissNative: true });
-      closeHeaderActionDropdowns();
-      closeNotificationDropdown();
-      closeMobileAccountDropdown();
-      setSiteDropdownBackdropActive(false);
+  function hasVisibleManagedOverlay() {
+    if (isVisibleBackdropSurface(qs(".nds-modal:not([hidden])[aria-hidden='false']"))) return true;
+    return qsa([
+      ".nds-dropdown[data-state~='open'], .nds-dropdown[data-state~='opening']",
+      ".nav-pages-item[data-state~='open'], .nav-pages-item[data-state~='opening']",
+      "[data-nav-panel][data-state~='open'], [data-nav-panel][data-state~='opening']",
+      ".nds-sidemenu[data-state~='open'], .nds-sidemenu[data-state~='opening']",
+      ".nds-ipv-popup-overlay.nds-ipv-active"
+    ].join(", ")).some(isVisibleBackdropSurface);
+  }
+
+  function headerOverlaySelector() {
+    return [
+      ".site-header .nav-pages-item[data-state~='open']",
+      ".site-header .nav-pages-item[data-state~='opening']",
+      ".site-header .nav-pages-item[data-state~='opened']",
+      ".site-header .header-actions .nds-dropdown[data-state~='open']",
+      ".site-header .header-actions .nds-dropdown[data-state~='opening']",
+      ".site-header .header-actions .nds-dropdown[data-state~='opened']",
+      ".site-header .nds-nav-minimal .nds-dropdown[data-state~='open']",
+      ".site-header .nds-nav-minimal .nds-dropdown[data-state~='opening']",
+      ".site-header .nds-nav-minimal .nds-dropdown[data-state~='opened']"
+    ].join(", ");
+  }
+
+  function openHeaderOverlayRoots() {
+    return qsa(headerOverlaySelector()).filter(function (root) {
+      return root.offsetParent !== null || root.getClientRects().length > 0;
     });
-    document.body.append(siteDropdownBackdrop);
-    return siteDropdownBackdrop;
+  }
+
+  function clearSiteBackdropSurfaces() {
+    qsa("[data-site-backdrop-surface]").forEach(function (root) {
+      delete root.dataset.siteBackdropSurface;
+    });
   }
 
   function hasOpenCustomHeaderDropdown() {
-    return Boolean(qs([
-      ".site-header .nav-pages-item[data-state~='open']",
-      ".site-header .nav-pages-item[data-state~='opening']",
-      ".site-header .header-actions .nds-dropdown[data-state~='open']",
-      ".site-header .header-actions .nds-dropdown[data-state~='opening']",
-      ".site-header .nds-nav-minimal .nds-dropdown[data-state~='open']",
-      ".site-header .nds-nav-minimal .nds-dropdown[data-state~='opening']"
-    ].join(", ")));
+    return openHeaderOverlayRoots().length > 0;
+  }
+
+  function dismissSiteBackdropOverlays() {
+    closeNavDropmenus(null, { dismissNative: true });
+    closeHeaderActionDropdowns({ localOnly: true });
+    closeNotificationDropdown({ localOnly: true });
+    closeMobileAccountDropdown({ localOnly: true });
+    setSiteDropdownBackdropActive(false);
   }
 
   function setSiteDropdownBackdropActive(active) {
-    var backdrop = ensureSiteDropdownBackdrop();
-    if (siteDropdownBackdropTimer) {
-      window.clearTimeout(siteDropdownBackdropTimer);
-      siteDropdownBackdropTimer = null;
-    }
-    if (active) {
-      backdrop.hidden = false;
-      document.body.dataset.siteDropdownBackdrop = "true";
-      window.requestAnimationFrame(function () {
-        if (!siteDropdownBackdrop || siteDropdownBackdrop.hidden) return;
-        siteDropdownBackdrop.dataset.state = "active";
+    var roots = active ? openHeaderOverlayRoots() : [];
+    clearSiteBackdropSurfaces();
+    if (active && roots.length && window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.show) {
+      roots.forEach(function (root) {
+        root.dataset.siteBackdropSurface = "true";
+      });
+      document.body.dataset.siteOverlay = "header";
+      window.NDS.Backdrop.show({
+        owner: "site-header",
+        context: "header",
+        surface: roots,
+        zIndex: 1195,
+        onClick: dismissSiteBackdropOverlays
       });
       return;
     }
-    delete document.body.dataset.siteDropdownBackdrop;
-    backdrop.dataset.state = "";
-    backdrop.removeAttribute("data-state");
-    siteDropdownBackdropTimer = window.setTimeout(function () {
-      if (!siteDropdownBackdrop || siteDropdownBackdrop.dataset.state) return;
-      siteDropdownBackdrop.hidden = true;
-      siteDropdownBackdropTimer = null;
-    }, 220);
+    delete document.body.dataset.siteOverlay;
+    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.hide) {
+      window.NDS.Backdrop.hide("site-header");
+    }
+    resetBackdropWhenIdle();
   }
 
   function syncSiteDropdownBackdrop() {
-    setSiteDropdownBackdropActive(hasOpenCustomHeaderDropdown());
+    var hasOpen = hasOpenCustomHeaderDropdown();
+    setSiteDropdownBackdropActive(hasOpen);
+    if (!hasOpen) resetBackdropWhenIdle();
   }
 
   function resetBackdropWhenIdle() {
@@ -3084,6 +3505,8 @@
         } else {
           window.NDS.Backdrop.hide();
         }
+        delete document.body.dataset.siteOverlay;
+        clearSiteBackdropSurfaces();
       }
     }, 140);
   }
@@ -3179,21 +3602,26 @@
         event.preventDefault();
         event.stopPropagation();
         if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        prepareNotificationDropdownMutation(actionRoot);
         saveNotifications(loadNotifications().map(function (notification) {
           if (notification.id === item.dataset.notificationId) markNotificationRead(notification);
           return notification;
         }));
-        keepNotificationDropdownOpen(actionRoot);
+        keepNotificationDropdownOpen(actionRoot, { instant: true });
         return;
       }
       if (event.target.closest("[data-notification-dismiss]") && item && actionRoot) {
+        var notificationId = item.dataset.notificationId;
         event.preventDefault();
         event.stopPropagation();
         if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-        saveNotifications(loadNotifications().filter(function (notification) {
-          return notification.id !== item.dataset.notificationId;
-        }));
-        keepNotificationDropdownOpen(actionRoot);
+        prepareNotificationDropdownMutation(actionRoot);
+        animateNotificationRemoval(item, function () {
+          saveNotifications(loadNotifications().filter(function (notification) {
+            return notification.id !== notificationId;
+          }));
+          keepNotificationDropdownOpen(actionRoot, { instant: true });
+        });
         return;
       }
     });
@@ -3214,6 +3642,7 @@
         trigger.setAttribute("aria-expanded", "false");
       }
     });
+    syncSiteDropdownBackdrop();
     resetBackdropWhenIdle();
   }
 
@@ -3229,6 +3658,7 @@
         trigger.setAttribute("aria-expanded", "false");
       }
     });
+    syncSiteDropdownBackdrop();
     resetBackdropWhenIdle();
   }
 
@@ -3243,6 +3673,7 @@
         if (trigger.hasAttribute("aria-expanded")) trigger.setAttribute("aria-expanded", "false");
       });
     });
+    syncSiteDropdownBackdrop();
     resetBackdropWhenIdle();
   }
 
@@ -3853,29 +4284,37 @@
   function fitNavPageDropdown(item) {
     var menu = qs(".nav-pages-menu", item);
     var trigger = qs(".nav-pages-trigger", item);
+    var applyPosition;
     if (!menu) return;
     resetNavPageDropdownPosition(menu);
     if (window.matchMedia("(max-width: 960px)").matches) return;
-    window.requestAnimationFrame(function () {
+    applyPosition = function () {
       if ((item.dataset.state || "").split(/\s+/).indexOf("open") === -1) return;
       if (!trigger) return;
       var triggerRect = trigger.getBoundingClientRect();
       var menuRect = menu.getBoundingClientRect();
+      var menuContent = qs(":scope > .nds-dropdown-content", menu) || qs(".nds-dropdown-content", menu);
       var fixedRoot = menu.closest(".nds-collapse");
       var rootRect = fixedRoot ? fixedRoot.getBoundingClientRect() : { left: 0, top: 0 };
       var navShell = trigger.closest(".nds-main-nav");
       var navRect = navShell ? navShell.getBoundingClientRect() : triggerRect;
       var pad = 16;
       var viewportWidth = Math.max(pad * 2, document.documentElement.clientWidth || window.innerWidth || 0);
+      var viewportHeight = Math.max(240, document.documentElement.clientHeight || window.innerHeight || 0);
       var menuWidth = Math.min(menuRect.width || menu.offsetWidth || 240, viewportWidth - (pad * 2));
+      var menuHeight = Math.ceil(menuContent && menuContent.scrollHeight || menu.scrollHeight || 240);
+      var availableHeight = Math.max(120, viewportHeight - navRect.bottom - pad);
       var isRtl = (document.documentElement.dir || "").toLowerCase() === "rtl"
         || getComputedStyle(document.documentElement).direction === "rtl";
       var left = isRtl ? triggerRect.right - menuWidth : triggerRect.left;
-      var top = Math.max(triggerRect.bottom + 4, navRect.bottom);
+      var top = Math.max(triggerRect.bottom, navRect.bottom);
       left = Math.max(pad, Math.min(left, viewportWidth - pad - menuWidth));
       menu.style.setProperty("--nav-pages-left", Math.round(left - rootRect.left) + "px");
       menu.style.setProperty("--nav-pages-top", Math.round(top - rootRect.top) + "px");
-    });
+      menu.style.setProperty("--nav-pages-open-size", Math.min(menuHeight, availableHeight) + "px");
+    };
+    applyPosition();
+    window.requestAnimationFrame(applyPosition);
   }
 
   function fitOpenNavPageDropdowns() {
@@ -4742,7 +5181,7 @@
       return;
     }
     items.forEach(function (item) {
-      root.append(el("span", "nds-tag nds-green nds-sm", item));
+      root.append(ndsTagEl("nds-tag nds-green nds-sm", item));
     });
   }
 
@@ -4861,9 +5300,9 @@
       content.append(el("h2", "nds-card-title", project.title || ""));
       if (hasText(project.description)) content.append(el("p", "nds-card-description", project.description));
       var meta = el("div", "nds-card-tags");
-      if (hasText(project.status)) meta.append(el("span", "nds-tag nds-green nds-sm", project.status));
-      if (hasText(project.date)) meta.append(el("span", "nds-tag nds-gray nds-sm", project.date));
-      if (hasText(project.category)) meta.append(el("span", "nds-tag nds-blue nds-sm", project.category));
+      if (hasText(project.status)) meta.append(ndsTagEl("nds-tag nds-green nds-sm", project.status));
+      if (hasText(project.date)) meta.append(ndsTagEl("nds-tag nds-gray nds-sm", project.date));
+      if (hasText(project.category)) meta.append(ndsTagEl("nds-tag nds-blue nds-sm", project.category));
       if (meta.children.length) content.append(meta);
       var actions = el("div", "project-actions");
       var details = el("a", "nds-btn nds-primary nds-md");
@@ -5315,6 +5754,7 @@
   function initApp() {
     if (appInitialized) return;
     appInitialized = true;
+    installProjectBackdropAdapter();
     var cachedData = readCachedSiteData();
     if (cachedData) applyShellText(cachedData);
     setupNavToggle();

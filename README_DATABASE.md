@@ -41,7 +41,7 @@ api/config.php
 - `api/content/get-site.php`: public read endpoint.
 - `api/content/save-site.php`: admin-only save endpoint.
 - `api/auth/`: login, logout, current user, user management, and account updates.
-- `api/upload/upload-media.php`: admin-only uploads.
+- `api/upload/upload-media.php`: admin uploads for media-library users and inline content editors.
 
 ## Main Tables
 
@@ -174,6 +174,7 @@ uploads/images/
 uploads/video/
 uploads/logos/
 uploads/icons/
+uploads/documents/
 ```
 
 ## Backup

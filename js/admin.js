@@ -23,6 +23,8 @@
   var adminUsers = [];
   var adminPermissions = [];
   var adminUsersLoaded = false;
+  var adminMediaUploads = [];
+  var adminMediaLibraryLoaded = false;
   var ADMIN_ACTIVITY_KEY = "websiteDemo:adminActivityLog";
   var MAX_FOOTER_COLUMNS = 3;
   var MAX_FOOTER_ICON_GROUPS = 2;
@@ -192,6 +194,23 @@
     });
     if (current.length) element.setAttribute("data-state", current.join(" "));
   }
+  function removeNdsState(element) {
+    if (!element) return;
+    var states = Array.prototype.slice.call(arguments, 1);
+    if (window.NDS && window.NDS.State && window.NDS.State.remove) {
+      window.NDS.State.remove.apply(window.NDS.State, [element].concat(states));
+      return;
+    }
+    var current = (element.getAttribute("data-state") || "").split(/\s+/).filter(Boolean);
+    var next = current.filter(function (state) {
+      return states.indexOf(state) === -1;
+    });
+    if (next.length) {
+      element.setAttribute("data-state", next.join(" "));
+    } else {
+      element.removeAttribute("data-state");
+    }
+  }
   function closeAdminSidemenuOverlay() {
     var menu = qs(".admin-sidemenu");
     if (!menu) return;
@@ -205,10 +224,12 @@
     menu.style.removeProperty("z-index");
     menu.style.removeProperty("padding-top");
     if (drawer) drawer.style.removeProperty("--drawer-max-height");
-    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.reset) {
+    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.hide) {
+      window.NDS.Backdrop.hide("sidemenu");
+    } else if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.reset) {
       window.NDS.Backdrop.reset();
     } else {
-      clearNdsState(document.body);
+      removeNdsState(document.body, "backdrop");
       document.body.style.removeProperty("overflow");
       document.body.style.removeProperty("position");
       document.body.style.removeProperty("top");
@@ -227,6 +248,15 @@
         toggle.dataset.state = "open";
         toggle.setAttribute("aria-expanded", "true");
       }
+      if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.show) {
+        window.NDS.Backdrop.show({
+          owner: "sidemenu",
+          context: "sidemenu",
+          surface: menu,
+          zIndex: 998,
+          onClick: function () { setAdminSidemenuOpen(false); }
+        });
+      }
       return;
     }
     clearNdsState(menu);
@@ -235,10 +265,14 @@
     if (!menu.classList.contains("nds-top")) menu.classList.add("nds-peek");
     if (toggle && !menu.classList.contains("nds-top")) toggle.classList.add("nds-peek");
     if (toggle) toggle.setAttribute("aria-expanded", "false");
-    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.reset) {
+    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.hide) {
+      window.NDS.Backdrop.hide("sidemenu");
+    } else if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.reset) {
       window.NDS.Backdrop.reset();
     }
-    clearNdsState(document.body);
+    if (!(window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.isActive && window.NDS.Backdrop.isActive())) {
+      removeNdsState(document.body, "backdrop");
+    }
     document.body.style.removeProperty("overflow");
     document.body.style.removeProperty("position");
     document.body.style.removeProperty("top");
@@ -348,6 +382,7 @@
     var sidemenuLabel = qs(".admin-sidemenu .nds-sidemenu-toggle .nds-label");
     if (sidemenuLabel) sidemenuLabel.textContent = (button.textContent || "").trim();
     if (target === "users" && hasPermission("users")) loadAdminUsers();
+    if (target === "uploads" && hasPermission("uploads")) loadMediaLibrary();
     refreshAdminSidemenuComponents();
     setAdminSidemenuOpen(false);
     if (scrollToPanel && adminSection) {
@@ -894,7 +929,7 @@
 
   function systemStatusTagHtml(status, label) {
     if (!label) return "";
-    return '<span class="system-status-tag" data-status="' + safeText(status || "info") + '">' + safeText(label) + '</span>';
+    return '<span class="nds-tag nds-xs system-status-tag" data-status="' + safeText(status || "info") + '"><span class="nds-label">' + safeText(label) + '</span></span>';
   }
 
   function systemStatusItemHtml(title, value, meta, status, label) {
@@ -1463,6 +1498,9 @@
   function uploadAcceptAttribute(type) {
     var value = String(type || "").toLowerCase();
     if (value.indexOf("video") !== -1) return ' accept=".mp4,.webm"';
+    if (value.indexOf("document") !== -1 || value.indexOf("file") !== -1 || value.indexOf("library") !== -1) {
+      return ' accept=".jpg,.jpeg,.png,.webp,.svg,.ico,.mp4,.webm,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.rtf"';
+    }
     if (value.indexOf("image") !== -1 || value.indexOf("icon") !== -1 || value.indexOf("logo") !== -1) {
       return ' accept=".jpg,.jpeg,.png,.webp,.svg"';
     }
@@ -1486,7 +1524,7 @@
       '<div class="nds-upload-zone" aria-hidden="true">',
       '<i class="hgi hgi-stroke hgi-file-upload nds-upload-icon" aria-hidden="true"></i>',
       '<div class="nds-upload-text"><span class="nds-drop-hint">Drag and drop files here to upload</span></div>',
-      '<div class="nds-upload-hint">Maximum file size allowed is 2MB, supported file formats include .jpg, .png, and .pdf.</div>',
+      '<div class="nds-upload-hint">Maximum file size follows server settings. Supported files include images, videos, PDFs, and documents.</div>',
       '</div>'
     ].join("");
   }
@@ -1566,6 +1604,171 @@
       uploadProgressHtml(),
       '</div>'
     ].join("");
+  }
+
+  function mediaTypeLabel(item) {
+    var type = String(item && item.mediaType || "").toLowerCase();
+    var mime = String(item && item.mimeType || "").toLowerCase();
+    var path = String(item && item.path || "").toLowerCase();
+    if (type === "image" || mime.indexOf("image/") === 0) return "صورة";
+    if (type === "video" || mime.indexOf("video/") === 0) return "فيديو";
+    if (path.indexOf(".pdf") !== -1 || mime === "application/pdf") return "PDF";
+    return "مستند";
+  }
+
+  function mediaIconClass(item) {
+    var label = mediaTypeLabel(item);
+    if (label === "صورة") return "hgi-stroke hgi-image-01";
+    if (label === "فيديو") return "hgi-stroke hgi-video-01";
+    if (label === "PDF") return "hgi-stroke hgi-file-01";
+    return "hgi-stroke hgi-file-02";
+  }
+
+  function renderMediaLibrarySummary(items) {
+    var root = qs("[data-media-library-summary]");
+    if (!root) return;
+    var counts = { image: 0, video: 0, document: 0 };
+    (items || []).forEach(function (item) {
+      var label = mediaTypeLabel(item);
+      if (label === "صورة") counts.image += 1;
+      else if (label === "فيديو") counts.video += 1;
+      else counts.document += 1;
+    });
+    root.innerHTML = [
+      '<span class="nds-tag nds-gray nds-sm"><span class="nds-label">الكل ' + (items || []).length + '</span></span>',
+      '<span class="nds-tag nds-green nds-sm"><span class="nds-label">الصور ' + counts.image + '</span></span>',
+      '<span class="nds-tag nds-blue nds-sm"><span class="nds-label">الفيديو ' + counts.video + '</span></span>',
+      '<span class="nds-tag nds-gray nds-sm"><span class="nds-label">المستندات ' + counts.document + '</span></span>'
+    ].join("");
+  }
+
+  function mediaLibraryItemHtml(item) {
+    var path = item && item.path || "";
+    var label = item && (item.originalName || item.storedName || item.path) || "ملف";
+    var typeLabel = mediaTypeLabel(item);
+    return [
+      '<article class="media-library-item">',
+      '<span class="media-library-icon"><i class="' + safeText(mediaIconClass(item)) + '" aria-hidden="true"></i></span>',
+      '<div class="media-library-info">',
+      '<div class="media-library-title">' + safeText(label) + '</div>',
+      '<div class="media-library-meta">',
+      '<span>' + safeText(typeLabel) + '</span>',
+      '<span>' + safeText(formatBytes(item && item.fileSize)) + '</span>',
+      '<span>' + safeText(formatAdminDateTime(item && item.createdAt)) + '</span>',
+      '</div>',
+      '<div class="media-library-src-row">',
+      '<input class="nds-input media-library-src" type="text" readonly dir="ltr" value="' + safeText(path) + '">',
+      '<button class="nds-btn nds-secondary-outline nds-sm" type="button" data-copy-media-src="' + safeText(path) + '">',
+      '<i class="hgi-stroke hgi-copy-01" aria-hidden="true"></i>',
+      '<span class="nds-label">نسخ الرابط</span>',
+      '</button>',
+      '<button class="nds-btn nds-subtle nds-destructive nds-sm" type="button" data-delete-media-id="' + safeText(item && item.id) + '">',
+      '<i class="hgi-stroke hgi-delete-02" aria-hidden="true"></i>',
+      '<span class="nds-label">حذف</span>',
+      '</button>',
+      '<a class="nds-btn nds-subtle nds-sm" href="' + safeText(path) + '" target="_blank" rel="noopener">',
+      '<i class="hgi-stroke hgi-link-04" aria-hidden="true"></i>',
+      '<span class="nds-label">فتح</span>',
+      '</a>',
+      '</div>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderMediaLibrary(items) {
+    var root = qs("[data-media-library-list]");
+    if (!root) return;
+    var uploads = Array.isArray(items) ? items : adminMediaUploads;
+    renderMediaLibrarySummary(uploads);
+    if (!adminMediaLibraryLoaded) {
+      root.innerHTML = '<div class="empty-state compact-empty-state">سيتم عرض روابط الملفات بعد فتح المكتبة أو رفع ملف جديد.</div>';
+      return;
+    }
+    if (!uploads.length) {
+      root.innerHTML = '<div class="empty-state compact-empty-state">لم يتم رفع ملفات بعد.</div>';
+      return;
+    }
+    root.innerHTML = uploads.map(mediaLibraryItemHtml).join("");
+  }
+
+  function loadMediaLibrary(force) {
+    var root = qs("[data-media-library-list]");
+    if (!root || !window.SiteStore || !window.SiteStore.listMedia) return Promise.resolve([]);
+    if (adminMediaLibraryLoaded && !force) {
+      renderMediaLibrary();
+      return Promise.resolve(adminMediaUploads);
+    }
+    root.dataset.state = "loading";
+    root.innerHTML = '<div class="empty-state compact-empty-state">جاري تحميل مكتبة الملفات...</div>';
+    return window.SiteStore.listMedia(500).then(function (items) {
+      adminMediaUploads = Array.isArray(items) ? items : [];
+      adminMediaLibraryLoaded = true;
+      root.removeAttribute("data-state");
+      renderMediaLibrary();
+      return adminMediaUploads;
+    }).catch(function (error) {
+      root.removeAttribute("data-state");
+      root.innerHTML = '<div class="empty-state compact-empty-state">تعذر تحميل مكتبة الملفات.</div>';
+      toast(error.message || "تعذر تحميل مكتبة الملفات", "error");
+      return [];
+    });
+  }
+
+  function copyAdminText(text, message) {
+    var value = String(text || "");
+    if (!value) return Promise.resolve(false);
+    function fallbackCopy() {
+      return new Promise(function (resolve) {
+        var textarea = document.createElement("textarea");
+        textarea.value = value;
+        textarea.setAttribute("readonly", "");
+        textarea.style.position = "fixed";
+        textarea.style.opacity = "0";
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+          document.execCommand("copy");
+          toast(message || "تم نسخ الرابط");
+          resolve(true);
+        } catch (error) {
+          toast("تعذر نسخ الرابط", "error");
+          resolve(false);
+        } finally {
+          textarea.remove();
+        }
+      });
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      return navigator.clipboard.writeText(value).then(function () {
+        toast(message || "تم نسخ الرابط");
+        return true;
+      }).catch(fallbackCopy);
+    }
+    return fallbackCopy();
+  }
+
+  function deleteMediaLibraryItem(button) {
+    var id = Number(button && button.dataset.deleteMediaId || 0);
+    if (!id || !window.SiteStore || !window.SiteStore.deleteMedia) return;
+    confirmAdminDeleteThen("هل تريد حذف هذا الملف؟ سيتم حذف رابط المكتبة والملف من مجلد uploads إذا لم يكن مستخدما في المحتوى.", function () {
+      button.disabled = true;
+      window.SiteStore.deleteMedia(id).then(function () {
+        adminMediaUploads = adminMediaUploads.filter(function (item) {
+          return Number(item.id) !== id;
+        });
+        adminMediaLibraryLoaded = true;
+        renderMediaLibrary();
+        toast("تم حذف الملف");
+        addAdminActivity("حذف ملف", "تم حذف ملف من مكتبة الملفات.", "success");
+      }).catch(function (error) {
+        var refs = error && error.payload && Array.isArray(error.payload.references) ? error.payload.references : [];
+        var message = error.message || "تعذر حذف الملف";
+        if (refs.length) message += " مستخدم في: " + refs.slice(0, 3).join(", ");
+        toast(message, "error");
+        button.disabled = false;
+      });
+    });
   }
 
   function textareaHtml(key, label, value, rows, info, options) {
@@ -4212,6 +4415,39 @@
     }, delay || 0);
   }
 
+  function handleMediaLibraryUpload(input, file) {
+    var progress = ensureUploadProgress(input);
+    var uploadLabel = "جاري رفع " + file.name;
+    var uploadSucceeded = false;
+    input.disabled = true;
+    setUploadControlState(input, "uploading", file.name);
+    setUploadProgress(progress, 0, "info", uploadLabel, "جاري تجهيز الملف...");
+    window.SiteStore.uploadMedia(file, input.dataset.mediaUpload || "library-file", function (percent) {
+      setUploadProgress(progress, percent, "info", uploadLabel, percent >= 100 ? "جاري معالجة الملف..." : "جاري رفع الملف...");
+    }).then(function (result) {
+      uploadSucceeded = true;
+      setUploadControlState(input, "success", "تم رفع " + file.name);
+      setUploadProgress(progress, 100, "success", "تم رفع " + file.name, "تم إضافة رابط الملف إلى المكتبة.");
+      if (result && result.file) {
+        adminMediaUploads.unshift(result.file);
+        adminMediaLibraryLoaded = true;
+        renderMediaLibrary();
+      }
+      hideUploadProgress(progress);
+      toast("تم رفع الملف وإضافة الرابط");
+      loadMediaLibrary(true);
+    }).catch(function (error) {
+      setUploadControlState(input, "error", "تعذر رفع " + file.name);
+      setUploadProgress(progress, 100, "error", "تعذر رفع " + file.name, error.message || "تعذر رفع الملف");
+      toast(error.message || "تعذر رفع الملف", "error");
+    }).finally(function () {
+      input.disabled = false;
+      input.value = "";
+      setUploadControlState(input, uploadSucceeded ? "success" : "error", uploadControl(input) && uploadControl(input).dataset.uploadLabel);
+      resetUploadControlState(input, uploadSucceeded ? 1600 : 2600);
+    });
+  }
+
   function prepareUploadControls(root) {
     qsa(".nds-form-control > .file-input", root || document).forEach(function (input) {
       ensureUploadContainer(input);
@@ -4243,6 +4479,10 @@
       if (!input) return;
       var file = input.files && input.files[0];
       if (!file) return;
+      if (input.hasAttribute("data-media-library-upload")) {
+        handleMediaLibraryUpload(input, file);
+        return;
+      }
       var target = resolveUploadTarget(input);
       if (!target) {
         toast("تعذر تحديد حقل مسار الملف", "error");
@@ -4303,6 +4543,23 @@
       });
     });
     setupUploadEvents();
+    if (qs("[data-refresh-media-library]")) {
+      qs("[data-refresh-media-library]").addEventListener("click", function () {
+        loadMediaLibrary(true);
+      });
+    }
+    document.addEventListener("click", function (event) {
+      var copyButton = event.target.closest("[data-copy-media-src]");
+      if (!copyButton) return;
+      event.preventDefault();
+      copyAdminText(copyButton.dataset.copyMediaSrc || "", "تم نسخ رابط الملف");
+    });
+    document.addEventListener("click", function (event) {
+      var deleteButton = event.target.closest("[data-delete-media-id]");
+      if (!deleteButton) return;
+      event.preventDefault();
+      deleteMediaLibraryItem(deleteButton);
+    });
 
     document.addEventListener("input", function (event) {
       if (event.target.matches('[data-field="projectTitle"]')) {

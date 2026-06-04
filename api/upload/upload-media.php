@@ -25,6 +25,9 @@ function cms_upload_folder(string $type, string $extension): string
     if (in_array($extension, ['mp4', 'webm'], true) || str_contains($type, 'video')) {
         return 'uploads/video';
     }
+    if (str_contains($type, 'document') || str_contains($type, 'file') || in_array($extension, ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf'], true)) {
+        return 'uploads/documents';
+    }
     return 'uploads/images';
 }
 
@@ -73,6 +76,7 @@ try {
     }
     $config = cms_config();
     $maxBytes = (int) ($config['app']['max_upload_bytes'] ?? 52428800);
+    cms_ensure_media_uploads_table($pdo);
 
     if (empty($_FILES['file']) || !is_array($_FILES['file'])) {
         cms_json_response(['success' => false, 'message' => 'No upload file was sent.'], 400);
@@ -93,7 +97,8 @@ try {
     $extension = strtolower(pathinfo($original, PATHINFO_EXTENSION));
     $imageExtensions = ['jpg', 'jpeg', 'png', 'webp', 'svg', 'ico'];
     $videoExtensions = ['mp4', 'webm'];
-    if (!in_array($extension, array_merge($imageExtensions, $videoExtensions), true)) {
+    $documentExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf'];
+    if (!in_array($extension, array_merge($imageExtensions, $videoExtensions, $documentExtensions), true)) {
         cms_json_response(['success' => false, 'message' => 'File extension is not allowed.'], 422);
     }
 
@@ -105,9 +110,25 @@ try {
     $mime = cms_detect_mime($tmpName);
     $imageMimes = ['image/jpeg', 'image/png', 'image/webp', 'image/svg+xml', 'image/x-icon', 'image/vnd.microsoft.icon'];
     $videoMimes = ['video/mp4', 'video/webm'];
+    $documentMimes = [
+        'application/pdf',
+        'application/msword',
+        'application/vnd.ms-office',
+        'application/vnd.ms-excel',
+        'application/vnd.ms-powerpoint',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/rtf',
+        'text/rtf',
+        'text/plain',
+    ];
     $isImage = in_array($extension, $imageExtensions, true);
     $isVideo = in_array($extension, $videoExtensions, true);
-    $validMime = $isImage ? in_array($mime, $imageMimes, true) : in_array($mime, $videoMimes, true);
+    $isDocument = in_array($extension, $documentExtensions, true);
+    $validMime = $isImage
+        ? in_array($mime, $imageMimes, true)
+        : ($isVideo ? in_array($mime, $videoMimes, true) : in_array($mime, $documentMimes, true));
     if ($extension === 'svg' && !$validMime) {
         $svgHead = strtolower(file_get_contents($tmpName, false, null, 0, 512) ?: '');
         $validMime = str_contains($svgHead, '<svg');
@@ -122,7 +143,10 @@ try {
         $validMime = true;
         $mime = 'image/x-icon';
     }
-    if (!$validMime || (!$isImage && !$isVideo)) {
+    if ($isDocument && !$validMime && $mime === 'application/zip' && in_array($extension, ['docx', 'xlsx', 'pptx'], true)) {
+        $validMime = true;
+    }
+    if (!$validMime || (!$isImage && !$isVideo && !$isDocument)) {
         cms_json_response(['success' => false, 'message' => 'File MIME type is not allowed.'], 422);
     }
 
@@ -149,18 +173,30 @@ try {
         'INSERT INTO media_uploads (original_name, stored_name, path, mime_type, file_size, media_type)
          VALUES (:original_name, :stored_name, :path, :mime_type, :file_size, :media_type)'
     );
+    $mediaType = $isVideo ? 'video' : ($isDocument ? 'document' : 'image');
     $stmt->execute([
         'original_name' => $original,
         'stored_name' => $storedName,
         'path' => $storedPath,
         'mime_type' => $mime,
         'file_size' => $size,
-        'media_type' => $isVideo ? 'video' : 'image',
+        'media_type' => $mediaType,
     ]);
+    $id = (int) $pdo->lastInsertId();
 
     cms_json_response([
         'success' => true,
         'path' => $storedPath,
+        'file' => [
+            'id' => $id,
+            'originalName' => $original,
+            'storedName' => $storedName,
+            'path' => $storedPath,
+            'mimeType' => $mime,
+            'fileSize' => $size,
+            'mediaType' => $mediaType,
+            'createdAt' => gmdate('Y-m-d H:i:s'),
+        ],
     ]);
 } catch (Throwable $error) {
     cms_json_response(['success' => false, 'message' => 'Unable to upload media.'], 500);

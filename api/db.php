@@ -260,6 +260,22 @@ function cms_require_permission(PDO $pdo, string $permission): array
     return $user;
 }
 
+function cms_ensure_media_uploads_table(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS media_uploads (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            original_name VARCHAR(255),
+            stored_name VARCHAR(255),
+            path VARCHAR(500),
+            mime_type VARCHAR(100),
+            file_size INT,
+            media_type VARCHAR(50),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
 function cms_fetch_admin_users(PDO $pdo): array
 {
     cms_ensure_admin_user_columns($pdo);

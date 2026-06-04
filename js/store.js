@@ -14,6 +14,8 @@
     changeEmail: "api/auth/change-email.php",
     changePhone: "api/auth/change-phone.php",
     uploadMedia: "api/upload/upload-media.php",
+    listMedia: "api/upload/list-media.php",
+    deleteMedia: "api/upload/delete-media.php",
     listUsers: "api/auth/list-users.php",
     saveUser: "api/auth/save-user.php",
     deleteUser: "api/auth/delete-user.php"
@@ -337,6 +339,20 @@
       formData.append("file", file);
       formData.append("type", type || "image");
       return uploadJson(API.uploadMedia, formData, onProgress);
+    },
+
+    listMedia: function (limit) {
+      var suffix = limit ? ("?limit=" + encodeURIComponent(limit)) : "";
+      return requestJson(API.listMedia + suffix).then(function (payload) {
+        return payload.items || [];
+      });
+    },
+
+    deleteMedia: function (id) {
+      return requestJson(API.deleteMedia, {
+        method: "POST",
+        body: JSON.stringify({ id: id })
+      });
     },
 
     listUsers: function () {

@@ -10,6 +10,7 @@ $uploadFolders = [
     $root . '/uploads/video',
     $root . '/uploads/logos',
     $root . '/uploads/icons',
+    $root . '/uploads/documents',
 ];
 
 require_once $root . '/api/db.php';

@@ -68,7 +68,9 @@ The database is the source of truth after install. Browser `localStorage` is onl
 | `api/auth/list-users.php` | GET | `users` permission | Lists admin users and available permission keys. |
 | `api/auth/save-user.php` | POST JSON | `users` permission | Creates or updates admin users, roles, permissions, active state, and password. |
 | `api/auth/delete-user.php` | POST JSON | `users` permission | Deletes non-owner admin users, never the current user. |
-| `api/upload/upload-media.php` | POST multipart | Admin with upload/content permission | Uploads images, icons, logos, and videos to `uploads/`. |
+| `api/upload/upload-media.php` | POST multipart | Admin with upload/content permission | Uploads images, icons, logos, videos, PDFs, and documents to `uploads/`. |
+| `api/upload/list-media.php` | GET | `uploads` permission | Lists uploaded file metadata and source paths for the admin media library. |
+| `api/upload/delete-media.php` | POST JSON | `uploads` permission | Deletes an unused uploaded file and its `media_uploads` row after checking saved content references. |
 | `api/install/seed.php` | POST/GET depending caller | `utilities` permission | Re-seeds default site data. |
 
 ## Important PHP Methods
@@ -229,7 +231,7 @@ Admin file input
   -> js/admin.js calls SiteStore.uploadMedia(file, type)
   -> api/upload/upload-media.php validates session/permission
   -> extension + MIME + SVG safety checks
-  -> file stored in uploads/{images|video|logos|icons}
+  -> file stored in uploads/{images|video|logos|icons|documents}
   -> media_uploads row inserted
   -> relative path returned to editor
 ```
@@ -239,6 +241,7 @@ Allowed extensions:
 ```text
 Images/icons: jpg, jpeg, png, webp, svg, ico
 Video: mp4, webm
+Documents: pdf, doc, docx, xls, xlsx, ppt, pptx, txt, rtf
 ```
 
 SVG upload blocks scripts, event handlers, foreignObject, iframe/object/embed, and unsafe URL patterns.

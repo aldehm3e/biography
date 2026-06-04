@@ -163,7 +163,7 @@ install/install.lock
 uploads/
 ```
 
-The `uploads/` folder contains uploaded images, videos, logos, and icons.
+The `uploads/` folder contains uploaded images, videos, logos, icons, and documents.
 
 ## First Test After Installation
 
@@ -277,4 +277,5 @@ uploads/images/
 uploads/video/
 uploads/logos/
 uploads/icons/
+uploads/documents/
 ```
