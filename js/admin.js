@@ -2853,8 +2853,19 @@
     var option = getOption(slug, footerPageOptions());
     var urlInput = qs('[data-field="' + fieldPrefix + 'Url"]', item);
     var labelInput = qs('[data-field="' + fieldPrefix + 'Label"]', item);
-    if (urlInput) urlInput.value = pageFooterUrl(slug);
-    if (labelInput && !labelInput.value.trim()) labelInput.value = option && option.label || "";
+    if (urlInput) {
+      urlInput.value = pageFooterUrl(slug);
+      urlInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    if (labelInput && !labelInput.value.trim()) {
+      labelInput.value = option && option.label || "";
+      labelInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    if (fieldPrefix === "footerLogo") {
+      ensureFooterData();
+      data.footer.logos = collectFooterLogos({ keepDrafts: true });
+      refreshPublicShell();
+    }
   }
 
   function adminOptionIcon(value) {
@@ -3296,6 +3307,13 @@
       '</div>',
       '</article>'
     ].join("");
+  }
+
+  function refreshFooterLogosDraftFromField(fieldInput) {
+    if (!fieldInput || fieldInput.dataset.field !== "footerLogoSrc") return;
+    ensureFooterData();
+    data.footer.logos = collectFooterLogos({ keepDrafts: true });
+    refreshPublicShell();
   }
 
   function renderFooterLogosEditor() {
@@ -4157,10 +4175,14 @@
     if (name) return field(name) || qs("#" + name);
     var fieldName = input.dataset.uploadTargetField;
     if (fieldName) {
-      var scope = input.closest(".editor-item, .nds-card-content, form") || document;
+      var scope = input.closest(".uploadable-field") || input.closest(".editor-item, .nds-card-content, form") || document;
       return qs('[data-field="' + fieldName + '"]', scope);
     }
     return null;
+  }
+
+  function uploadResultPath(result) {
+    return String(result && (result.path || (result.file && result.file.path) || "") || "");
   }
 
   function createUploadProgress() {
@@ -4416,9 +4438,11 @@
   }
 
   function handleMediaLibraryUpload(input, file) {
+    if (input.dataset.adminUploadActive === "true") return;
     var progress = ensureUploadProgress(input);
     var uploadLabel = "جاري رفع " + file.name;
     var uploadSucceeded = false;
+    input.dataset.adminUploadActive = "true";
     input.disabled = true;
     setUploadControlState(input, "uploading", file.name);
     setUploadProgress(progress, 0, "info", uploadLabel, "جاري تجهيز الملف...");
@@ -4441,6 +4465,46 @@
       setUploadProgress(progress, 100, "error", "تعذر رفع " + file.name, error.message || "تعذر رفع الملف");
       toast(error.message || "تعذر رفع الملف", "error");
     }).finally(function () {
+      delete input.dataset.adminUploadActive;
+      input.disabled = false;
+      input.value = "";
+      setUploadControlState(input, uploadSucceeded ? "success" : "error", uploadControl(input) && uploadControl(input).dataset.uploadLabel);
+      resetUploadControlState(input, uploadSucceeded ? 1600 : 2600);
+    });
+  }
+
+  function handleTargetedMediaUpload(input, file) {
+    if (!input || !file || input.dataset.adminUploadActive === "true") return;
+    var target = resolveUploadTarget(input);
+    if (!target) {
+      toast("تعذر تحديد حقل مسار الملف", "error");
+      return;
+    }
+    var progress = ensureUploadProgress(input);
+    var uploadLabel = "جاري رفع " + file.name;
+    var uploadSucceeded = false;
+    input.dataset.adminUploadActive = "true";
+    input.disabled = true;
+    setUploadControlState(input, "uploading", file.name);
+    setUploadProgress(progress, 0, "info", uploadLabel, "جاري تجهيز الملف...");
+    window.SiteStore.uploadMedia(file, input.dataset.mediaUpload, function (percent) {
+      setUploadProgress(progress, percent, "info", uploadLabel, percent >= 100 ? "جاري معالجة الملف..." : "جاري رفع الملف...");
+    }).then(function (result) {
+      var uploadedPath = uploadResultPath(result);
+      uploadSucceeded = true;
+      setUploadControlState(input, "success", "تم رفع " + file.name);
+      setUploadProgress(progress, 100, "success", "تم رفع " + file.name, "تم تحديث مسار الملف.");
+      target.value = uploadedPath;
+      target.dispatchEvent(new Event("input", { bubbles: true }));
+      refreshFooterLogosDraftFromField(target);
+      hideUploadProgress(progress);
+      toast("تم رفع الملف");
+    }).catch(function (error) {
+      setUploadControlState(input, "error", "تعذر رفع " + file.name);
+      setUploadProgress(progress, 100, "error", "تعذر رفع " + file.name, error.message || "تعذر رفع الملف");
+      toast(error.message || "تعذر رفع الملف", "error");
+    }).finally(function () {
+      delete input.dataset.adminUploadActive;
       input.disabled = false;
       input.value = "";
       setUploadControlState(input, uploadSucceeded ? "success" : "error", uploadControl(input) && uploadControl(input).dataset.uploadLabel);
@@ -4483,37 +4547,20 @@
         handleMediaLibraryUpload(input, file);
         return;
       }
-      var target = resolveUploadTarget(input);
-      if (!target) {
-        toast("تعذر تحديد حقل مسار الملف", "error");
+      handleTargetedMediaUpload(input, file);
+    }, true);
+
+    document.addEventListener("nds:upload:selected", function (event) {
+      var container = event.target.closest(".nds-file-upload");
+      var input = container ? qs("[data-media-upload]", container) : null;
+      var files = event.detail && event.detail.files || [];
+      var file = files[0];
+      if (!input || !file) return;
+      if (input.hasAttribute("data-media-library-upload")) {
+        handleMediaLibraryUpload(input, file);
         return;
       }
-      var progress = ensureUploadProgress(input);
-      var uploadLabel = "جاري رفع " + file.name;
-      var uploadSucceeded = false;
-      input.disabled = true;
-      setUploadControlState(input, "uploading", file.name);
-      setUploadProgress(progress, 0, "info", uploadLabel, "جاري تجهيز الملف...");
-      window.SiteStore.uploadMedia(file, input.dataset.mediaUpload, function (percent) {
-        setUploadProgress(progress, percent, "info", uploadLabel, percent >= 100 ? "جاري معالجة الملف..." : "جاري رفع الملف...");
-      }).then(function (result) {
-        uploadSucceeded = true;
-        setUploadControlState(input, "success", "تم رفع " + file.name);
-        setUploadProgress(progress, 100, "success", "تم رفع " + file.name, "تم تحديث مسار الملف.");
-        target.value = result.path || "";
-        target.dispatchEvent(new Event("input", { bubbles: true }));
-        hideUploadProgress(progress);
-        toast("تم رفع الملف");
-      }).catch(function (error) {
-        setUploadControlState(input, "error", "تعذر رفع " + file.name);
-        setUploadProgress(progress, 100, "error", "تعذر رفع " + file.name, error.message || "تعذر رفع الملف");
-        toast(error.message || "تعذر رفع الملف", "error");
-      }).finally(function () {
-        input.disabled = false;
-        input.value = "";
-        setUploadControlState(input, uploadSucceeded ? "success" : "error", uploadControl(input) && uploadControl(input).dataset.uploadLabel);
-        resetUploadControlState(input, uploadSucceeded ? 1600 : 2600);
-      });
+      handleTargetedMediaUpload(input, file);
     });
   }
 
@@ -4940,6 +4987,11 @@
         });
         return;
       }
+    });
+
+    document.addEventListener("input", function (event) {
+      var footerLogoSrc = event.target.closest('[data-field="footerLogoSrc"]');
+      if (footerLogoSrc) refreshFooterLogosDraftFromField(footerLogoSrc);
     });
 
     document.addEventListener("change", function (event) {

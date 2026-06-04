@@ -3123,6 +3123,10 @@ html[data-theme="dark"] [data-state~="loading"],
   display: flex;
 }
 
+.nds-file-upload .nds-file-item:not([data-status]) .nds-feedback {
+  display: none;
+}
+
 .nds-file-upload .nds-file-item .nds-progress-circle,
 .nds-file-upload .nds-file-item .nds-file-error {
   display: none;
