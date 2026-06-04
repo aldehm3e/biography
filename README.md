@@ -42,6 +42,7 @@ http://localhost/Biography/install/
 - Pages can use plain text or trusted admin HTML.
 - Pages and projects can have image/video media.
 - Hero slides support desktop and mobile media.
+- Home number/statistic cards support editable titles, values, icons, visibility, and slider display.
 - NDS-inspired header, menus, modals, buttons, cards, breadcrumbs, and share controls.
 - Uploads for images, video, logos, and icons.
 
@@ -132,7 +133,7 @@ Browser QA:
 Use the admin panel for normal content:
 
 - `الإعدادات`: brand, logo, language, labels, verification text, interface text.
-- `الرئيسية`: owner content, biography, hero slides, skills, experience, achievements.
+- `الرئيسية`: owner content, biography, hero slides, `في أرقام`, skills, experience, achievements.
 - `المشاريع`: project cards and project media.
 - `الصفحات`: pages, subpages, text/HTML content, page media, header/footer visibility.
 - `التذييل`: footer columns, icons, bottom links, logos, legal text.

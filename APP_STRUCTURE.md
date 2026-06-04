@@ -123,6 +123,7 @@ Fresh install creates these tables in both `install/schema.sql` and `api/install
 | `navigation_items` | Core navigation labels. |
 | `hero_slides` | Home hero carousel media/content. |
 | `main_page` | Main profile fields, intro, biography, avatar. |
+| `home_numbers` | Home "في أرقام" statistic cards. |
 | `experiences` | Home experience rows. |
 | `achievements` | Home achievement rows. |
 | `skills` | Home skills. |
@@ -145,6 +146,8 @@ navigation
 texts
 home
   heroSlides
+  numbers
+    cards
   experience
   achievements
   skills
@@ -169,7 +172,7 @@ Keep new features inside one of these roots unless a schema/data-model change is
 | Permission | Admin Area |
 | --- | --- |
 | `settings` | Brand, shell/topbar, interface text. |
-| `home` | Profile, hero media, biography, skills, experience, achievements. |
+| `home` | Profile, hero media, biography, numbers, skills, experience, achievements. |
 | `footer` | Footer labels, links, social/app icon groups, cookie popup. |
 | `projects` | Projects editor. |
 | `pages` | Pages and subpages editor. |

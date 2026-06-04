@@ -351,6 +351,15 @@ html[data-site-loading="true"] .site-header::after {
   animation: site-loading-bar 1.2s ease-in-out infinite;
 }
 
+html[data-site-loading="true"]:not([data-site-rendered="true"]) :is(
+  [data-home-empty],
+  [data-projects-empty],
+  [data-pages-empty],
+  [data-notifications-empty]
+) {
+  visibility: hidden;
+}
+
 @keyframes site-loading-bar {
   0% { transform: translateX(-100%); }
   100% { transform: translateX(100%); }
@@ -874,6 +883,27 @@ i.nds-icon.nav-admin-icon::before {
   background: transparent;
 }
 
+.home-number-icon-preview {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  color: currentColor;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.editor-item-head > .home-number-icon-preview {
+  color: var(--colors-primary-sa-flag-700);
+}
+
+.home-number-icon-option .home-number-icon-preview,
+.home-number-icon-trigger .home-number-icon-preview {
+  color: var(--colors-primary-sa-flag-700);
+}
+
 .nds-section-wrapper {
   display: flex;
   flex-wrap: wrap;
@@ -1203,6 +1233,164 @@ html[dir="ltr"] .nds-breadcrumb > li:not(:last-child)::after {
 
 .professional-section .compact-card .nds-card-description {
   line-height: 1.8;
+}
+
+.home-numbers-section {
+  background: rgb(249, 250, 251);
+}
+
+.home-numbers-section .nds-section-body {
+  min-width: 0;
+}
+
+.home-numbers-swiper {
+  --gap: 6px;
+}
+
+.home-numbers-swiper .nds-swiper-wrapper {
+  padding-block: 4px 8px;
+}
+
+.home-numbers-swiper .nds-swiper-slide {
+  padding: 4px 4px 8px;
+}
+
+.home-numbers-swiper :is(.nds-prev, .nds-next)::before,
+.home-numbers-swiper :is(.nds-prev, .nds-next)::after {
+  display: none;
+}
+
+.home-numbers-swiper .home-numbers-control-icon,
+.home-numbers-swiper .home-numbers-control-icon.hgi.hgi-stroke {
+  width: 20px;
+  height: 20px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 20px;
+  color: currentColor;
+  font-size: 20px;
+  line-height: 1;
+}
+
+.home-number-card {
+  box-sizing: border-box;
+  height: 190px;
+  min-height: 190px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 16px;
+  border: 1px solid var(--colors-neutral-100);
+  border-radius: var(--radius-lg, 16px);
+  background: var(--background-card);
+  box-shadow:
+    0 2px 4px -2px rgba(16, 24, 40, 0.06),
+    0 4px 8px -2px rgba(16, 24, 40, 0.1);
+  transition:
+    transform var(--nds-transition),
+    box-shadow var(--nds-transition),
+    border-color var(--nds-transition);
+}
+
+.home-number-card:is(:hover, :focus-within) {
+  border-color: var(--colors-neutral-100);
+  box-shadow:
+    0 2px 4px -2px rgba(16, 24, 40, 0.06),
+    0 4px 8px -2px rgba(16, 24, 40, 0.1);
+  transform: none;
+}
+
+.home-number-card .nds-card-header,
+.home-number-card .nds-card-content,
+.home-number-card .nds-card-text {
+  align-items: center;
+  text-align: center;
+}
+
+.home-number-card .nds-card-header {
+  justify-content: center;
+  width: 100%;
+  height: 56px;
+  margin: 0;
+  padding: 0;
+}
+
+.home-number-card .nds-card-featured-icon {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+.home-number-card .nds-card-content {
+  width: 100%;
+  padding: 0;
+  gap: 24px;
+}
+
+.home-number-card .nds-featured-icon {
+  width: 56px;
+  height: 56px;
+  min-width: 56px;
+  min-height: 56px;
+  flex: 0 0 56px;
+  border: 0;
+  padding: 14px;
+  color: rgb(27, 131, 84);
+  background: rgb(243, 252, 246);
+  box-shadow: none;
+}
+
+.home-number-card .nds-featured-icon :is(.hgi, .hgi-stroke, .icon) {
+  width: 28px;
+  height: 28px;
+  font-size: 28px;
+  line-height: 28px;
+}
+
+.home-number-card .nds-card-text {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.home-number-title {
+  margin: 0;
+  color: var(--colors-neutral-800, #1f2a37);
+  font-size: var(--typo-text-md-FS);
+  line-height: 24px;
+  font-weight: 400;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.home-number-value {
+  max-width: 100%;
+  margin: 0;
+  color: rgb(20, 87, 58);
+  font-size: 36px;
+  line-height: 44px;
+  font-weight: 500;
+  letter-spacing: 0 !important;
+  white-space: nowrap;
+  overflow-wrap: normal;
+  word-break: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .home-number-card {
+    transition: none;
+  }
+
+  .home-number-card:is(:hover, :focus-within) {
+    transform: none;
+  }
 }
 
 .section-minor-title {
@@ -8900,6 +9088,104 @@ body[data-page="admin"] .page-children-collapse-content {
 body[data-page="admin"] .editor-accordion-collapse[data-state~="open"] .editor-accordion-content,
 body[data-page="admin"] .page-children-collapse[data-state~="open"] .page-children-collapse-content {
   overflow: visible;
+}
+
+body[data-page="admin"] [data-home-numbers-editor] {
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+}
+
+body[data-page="admin"] [data-home-section-panel="numbers"] .hero-editor-block {
+  display: grid;
+  gap: var(--spacing-lg);
+}
+
+body[data-page="admin"] [data-home-section-panel="numbers"] > .hero-editor-block > .form-grid {
+  margin-block-end: var(--spacing-sm);
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .compact-card-content {
+  padding: 0;
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .admin-template-item .editor-item-head.sortable-editor-header {
+  min-height: 44px;
+  grid-template-columns: 40px 36px minmax(0, 1fr) 44px;
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .editor-drag-handle,
+body[data-page="admin"] [data-home-numbers-editor] .admin-template-delete {
+  width: 40px;
+  min-width: 40px;
+  min-height: 44px;
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .editor-item-head > .home-number-icon-preview {
+  align-self: center;
+  justify-self: center;
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .editor-accordion-btn {
+  min-height: 44px;
+  padding-inline: var(--spacing-sm);
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .editor-accordion-btn .nds-card-title {
+  font-size: var(--typo-text-sm-FS);
+  line-height: var(--typo-text-sm-LH);
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .editor-accordion-body {
+  gap: var(--spacing-md);
+  padding: var(--spacing-lg);
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .form-grid {
+  gap: var(--spacing-md);
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .home-number-icon-options {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  width: min(520px, calc(100vw - 48px));
+  min-width: min(100%, 520px);
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .home-number-icon-options .nds-dropmenu-scroll {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: var(--spacing-xs);
+  max-height: min(320px, 52dvh);
+  padding: var(--spacing-sm);
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .home-number-icon-option {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  justify-self: center;
+  justify-content: center;
+  padding: 0;
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .home-number-icon-trigger {
+  min-height: 40px;
+  justify-content: center;
+  padding-inline: var(--spacing-md);
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .home-number-icon-trigger .icon-type-arrow {
+  margin-inline-start: auto;
+}
+
+body[data-page="admin"] [data-home-numbers-editor] .home-number-icon-option .home-number-icon-preview,
+body[data-page="admin"] [data-home-numbers-editor] .home-number-icon-trigger .home-number-icon-preview {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+  font-size: 28px;
+  line-height: 28px;
 }
 
 body[data-page="admin"] .contact-editor-block:last-of-type {

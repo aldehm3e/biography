@@ -52,6 +52,7 @@ The schema creates tables for:
 - navigation items
 - main page content
 - hero slides
+- home number/statistic cards
 - experiences
 - achievements
 - skills

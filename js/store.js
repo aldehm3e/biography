@@ -77,6 +77,10 @@
     cleanData.navigation = cleanData.navigation || {};
     cleanData.home = cleanData.home || {};
     cleanData.home.heroSlides = normalizeArray(cleanData.home.heroSlides);
+    cleanData.home.numbers = cleanData.home.numbers && typeof cleanData.home.numbers === "object" ? cleanData.home.numbers : {};
+    cleanData.home.numbers.title = cleanData.home.numbers.title || "في أرقام";
+    cleanData.home.numbers.subtitle = cleanData.home.numbers.subtitle || "";
+    cleanData.home.numbers.cards = normalizeArray(cleanData.home.numbers.cards);
     cleanData.home.experience = normalizeArray(cleanData.home.experience);
     cleanData.home.achievements = normalizeArray(cleanData.home.achievements);
     cleanData.home.skills = normalizeArray(cleanData.home.skills);

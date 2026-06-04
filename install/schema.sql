@@ -73,7 +73,18 @@ CREATE TABLE IF NOT EXISTS main_page (
   hero_intro TEXT,
   hero_image VARCHAR(500),
   hero_video VARCHAR(500),
+  numbers_title VARCHAR(255),
+  numbers_subtitle VARCHAR(255),
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS home_numbers (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  title VARCHAR(255),
+  number_value VARCHAR(100),
+  icon_class VARCHAR(120),
+  sort_order INT DEFAULT 0,
+  visible TINYINT(1) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS experiences (

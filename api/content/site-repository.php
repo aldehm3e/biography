@@ -121,6 +121,11 @@ function cms_default_site_data(): array
             'heroImage' => '',
             'heroVideo' => '',
             'heroSlides' => [],
+            'numbers' => [
+                'title' => 'في أرقام',
+                'subtitle' => '',
+                'cards' => [],
+            ],
             'experience' => [],
             'achievements' => [],
             'skills' => [],
@@ -242,6 +247,8 @@ function cms_fetch_site_data(PDO $pdo): array
             'heroImage' => (string) ($main['hero_image'] ?? ''),
             'heroVideo' => (string) ($main['hero_video'] ?? ''),
         ]);
+        $data['home']['numbers']['title'] = (string) ($main['numbers_title'] ?? $data['home']['numbers']['title']);
+        $data['home']['numbers']['subtitle'] = (string) ($main['numbers_subtitle'] ?? $data['home']['numbers']['subtitle']);
     }
 
     $slides = $pdo->query('SELECT * FROM hero_slides ORDER BY sort_order, id')->fetchAll();
@@ -267,6 +274,16 @@ function cms_fetch_site_data(PDO $pdo): array
         $data['home']['skills'][] = [
             'name' => (string) ($skill['name'] ?? ''),
             'visible' => (bool) ($skill['visible'] ?? 1),
+        ];
+    }
+
+    $numbers = $pdo->query('SELECT * FROM home_numbers ORDER BY sort_order, id')->fetchAll();
+    foreach ($numbers as $number) {
+        $data['home']['numbers']['cards'][] = [
+            'title' => (string) ($number['title'] ?? ''),
+            'number' => (string) ($number['number_value'] ?? ''),
+            'icon' => (string) ($number['icon_class'] ?? 'hgi-chart-up'),
+            'visible' => (bool) ($number['visible'] ?? 1),
         ];
     }
 
@@ -424,6 +441,20 @@ function cms_ensure_integrations_table(PDO $pdo): void
     );
 }
 
+function cms_ensure_home_numbers_table(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS home_numbers (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            title VARCHAR(255),
+            number_value VARCHAR(100),
+            icon_class VARCHAR(120),
+            sort_order INT DEFAULT 0,
+            visible TINYINT(1) DEFAULT 1
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
 function cms_column_exists(PDO $pdo, string $table, string $column): bool
 {
     $stmt = $pdo->prepare(
@@ -456,6 +487,20 @@ function cms_ensure_site_settings_columns(PDO $pdo): void
     foreach ($columns as $column => $definition) {
         if (!cms_column_exists($pdo, 'site_settings', $column)) {
             $pdo->exec('ALTER TABLE site_settings ADD COLUMN ' . $column . ' ' . $definition);
+        }
+    }
+}
+
+function cms_ensure_main_page_columns(PDO $pdo): void
+{
+    $columns = [
+        'numbers_title' => 'VARCHAR(255)',
+        'numbers_subtitle' => 'VARCHAR(255)',
+    ];
+
+    foreach ($columns as $column => $definition) {
+        if (!cms_column_exists($pdo, 'main_page', $column)) {
+            $pdo->exec('ALTER TABLE main_page ADD COLUMN ' . $column . ' ' . $definition);
         }
     }
 }
@@ -494,7 +539,9 @@ function cms_ensure_content_schema(PDO $pdo): void
     cms_ensure_notifications_table($pdo);
     cms_ensure_footer_links_table($pdo);
     cms_ensure_integrations_table($pdo);
+    cms_ensure_home_numbers_table($pdo);
     cms_ensure_site_settings_columns($pdo);
+    cms_ensure_main_page_columns($pdo);
     cms_ensure_pages_columns($pdo);
     $checked[$key] = true;
 }
@@ -513,6 +560,7 @@ function cms_save_site_data(PDO $pdo, array $input): array
         cms_save_navigation($pdo, $data);
         cms_save_main_page($pdo, $data);
         cms_replace_hero_slides($pdo, $data['home']['heroSlides']);
+        cms_replace_home_numbers($pdo, $data['home']['numbers']['cards']);
         cms_replace_content_rows($pdo, 'experiences', $data['home']['experience']);
         cms_replace_content_rows($pdo, 'achievements', $data['home']['achievements']);
         cms_replace_skills($pdo, $data['home']['skills']);
@@ -647,6 +695,7 @@ function cms_normalize_site_data(array $input): array
         'heroImage' => cms_safe_path($home['heroImage'] ?? ''),
         'heroVideo' => cms_safe_path($home['heroVideo'] ?? ''),
         'heroSlides' => cms_normalize_hero_slides($home['heroSlides'] ?? []),
+        'numbers' => cms_normalize_home_numbers($home['numbers'] ?? []),
         'experience' => cms_normalize_content_rows($home['experience'] ?? []),
         'achievements' => cms_normalize_content_rows($home['achievements'] ?? []),
         'skills' => cms_normalize_skills($home['skills'] ?? []),
@@ -754,6 +803,46 @@ function cms_normalize_content_rows(mixed $items): array
         }
     }
     return $output;
+}
+
+function cms_normalize_hgi_icon(mixed $value): string
+{
+    $text = cms_string($value, 120);
+    if (preg_match('/\bhgi-[a-z0-9-]+\b/i', $text, $matches)) {
+        return strtolower($matches[0]);
+    }
+    return 'hgi-chart-up';
+}
+
+function cms_normalize_home_numbers(mixed $input): array
+{
+    if (!is_array($input)) {
+        $input = [];
+    }
+    $cards = [];
+    $items = $input['cards'] ?? $input['items'] ?? [];
+    if (is_array($items)) {
+        foreach (array_values($items) as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $card = [
+                'title' => cms_string($item['title'] ?? $item['label'] ?? '', 255),
+                'number' => cms_string($item['number'] ?? $item['value'] ?? $item['numberValue'] ?? '', 100),
+                'icon' => cms_normalize_hgi_icon($item['icon'] ?? $item['iconClass'] ?? ''),
+                'visible' => cms_bool($item['visible'] ?? true),
+            ];
+            if ($card['title'] !== '' || $card['number'] !== '') {
+                $cards[] = $card;
+            }
+        }
+    }
+
+    return [
+        'title' => cms_string($input['title'] ?? 'في أرقام', 255) ?: 'في أرقام',
+        'subtitle' => cms_string($input['subtitle'] ?? $input['description'] ?? '', 255),
+        'cards' => $cards,
+    ];
 }
 
 function cms_normalize_skills(mixed $items): array
@@ -1219,11 +1308,12 @@ function cms_save_navigation(PDO $pdo, array $data): void
 function cms_save_main_page(PDO $pdo, array $data): void
 {
     $stmt = $pdo->prepare(
-        'INSERT INTO main_page (id, owner_name, professional_title, intro, avatar_path, biography, hero_title, hero_subtitle, hero_intro, hero_image, hero_video)
-         VALUES (1, :owner_name, :professional_title, :intro, :avatar_path, :biography, :hero_title, :hero_subtitle, :hero_intro, :hero_image, :hero_video)
+        'INSERT INTO main_page (id, owner_name, professional_title, intro, avatar_path, biography, hero_title, hero_subtitle, hero_intro, hero_image, hero_video, numbers_title, numbers_subtitle)
+         VALUES (1, :owner_name, :professional_title, :intro, :avatar_path, :biography, :hero_title, :hero_subtitle, :hero_intro, :hero_image, :hero_video, :numbers_title, :numbers_subtitle)
          ON DUPLICATE KEY UPDATE owner_name = VALUES(owner_name), professional_title = VALUES(professional_title), intro = VALUES(intro),
          avatar_path = VALUES(avatar_path), biography = VALUES(biography), hero_title = VALUES(hero_title), hero_subtitle = VALUES(hero_subtitle),
-         hero_intro = VALUES(hero_intro), hero_image = VALUES(hero_image), hero_video = VALUES(hero_video)'
+         hero_intro = VALUES(hero_intro), hero_image = VALUES(hero_image), hero_video = VALUES(hero_video),
+         numbers_title = VALUES(numbers_title), numbers_subtitle = VALUES(numbers_subtitle)'
     );
     $stmt->execute([
         'owner_name' => $data['home']['ownerName'],
@@ -1236,6 +1326,8 @@ function cms_save_main_page(PDO $pdo, array $data): void
         'hero_intro' => $data['home']['heroIntro'],
         'hero_image' => $data['home']['heroImage'],
         'hero_video' => $data['home']['heroVideo'],
+        'numbers_title' => $data['home']['numbers']['title'],
+        'numbers_subtitle' => $data['home']['numbers']['subtitle'],
     ]);
 }
 
@@ -1273,6 +1365,21 @@ function cms_replace_content_rows(PDO $pdo, string $table, array $rows): void
             'description' => $row['description'],
             'sort_order' => $index,
             'visible' => cms_bool_int($row['visible']),
+        ]);
+    }
+}
+
+function cms_replace_home_numbers(PDO $pdo, array $cards): void
+{
+    $pdo->exec('DELETE FROM home_numbers');
+    $stmt = $pdo->prepare('INSERT INTO home_numbers (title, number_value, icon_class, sort_order, visible) VALUES (:title, :number_value, :icon_class, :sort_order, :visible)');
+    foreach ($cards as $index => $card) {
+        $stmt->execute([
+            'title' => $card['title'],
+            'number_value' => $card['number'],
+            'icon_class' => $card['icon'],
+            'sort_order' => $index,
+            'visible' => cms_bool_int($card['visible']),
         ]);
     }
 }

@@ -15,6 +15,7 @@
   var adminSidemenuPeekDelayReady = false;
   var adminSidemenuDelayedOpen = false;
   var adminInlineDropmenuTimers = new WeakMap();
+  var cachedHomeNumberIconOptions = null;
   var activeAdminSections = {
     settings: "identity",
     home: "profile",
@@ -526,7 +527,7 @@
   function itemStableValues(item) {
     var values = [];
     if (!item) return values;
-    [item.slug, item.title, item.name, item.meta].forEach(function (value) {
+    [item.slug, item.title, item.name, item.meta, item.number].forEach(function (value) {
       var text = stableText(value);
       if (text && values.indexOf(text) === -1) values.push(text);
     });
@@ -545,11 +546,12 @@
     return findItemById(items, currentItem && currentItem.id) || findItemByStableValue(items, currentItem);
   }
   function notificationEntityKey(type, item, fallback) {
-    var key = stableText((item && (item.slug || item.title || item.name || item.meta)) || fallback || type);
+    var key = stableText((item && (item.slug || item.title || item.name || item.meta || item.number)) || fallback || type);
     return ("admin:" + type + ":" + (key || "item")).slice(0, 255);
   }
   function homeItemSignature(item, type) {
     if (type === "skills") return [item.name || "", item.visible !== false ? "1" : "0"].join("\u001f");
+    if (type === "numbers") return [item.title || "", item.number || "", item.icon || "", item.visible !== false ? "1" : "0"].join("\u001f");
     return [item.title || "", item.meta || "", item.description || "", item.visible !== false ? "1" : "0"].join("\u001f");
   }
   function addedPublicHomeItems(previousItems, currentItems, type) {
@@ -622,6 +624,7 @@
   function isPublicHomeItem(item, type) {
     if (!item || item.visible === false) return false;
     if (type === "skills") return Boolean(item.name);
+    if (type === "numbers") return Boolean(item.title || item.number);
     return Boolean(item.title || item.meta || item.description);
   }
 
@@ -732,7 +735,8 @@
     var labels = {
       experience: { title: "تمت إضافة خبرة جديدة", fallback: "خبرة جديدة", status: "success" },
       achievements: { title: "تمت إضافة إنجاز جديد", fallback: "إنجاز جديد", status: "success" },
-      skills: { title: "تمت إضافة مهارة جديدة", fallback: "مهارة جديدة", status: "info" }
+      skills: { title: "تمت إضافة مهارة جديدة", fallback: "مهارة جديدة", status: "info" },
+      numbers: { title: "تمت إضافة بطاقة أرقام جديدة", fallback: "رقم جديد", status: "info" }
     };
     var config = labels[type] || labels.experience;
     return addAdminNotification({
@@ -761,10 +765,14 @@
     var addedExperience = addedPublicHomeItems(previousHome.experience, data.home.experience, "experience");
     var addedAchievements = addedPublicHomeItems(previousHome.achievements, data.home.achievements, "achievements");
     var addedSkills = addedPublicHomeItems(previousHome.skills, data.home.skills, "skills");
+    var previousNumbers = previousHome.numbers && previousHome.numbers.cards || [];
+    var currentNumbers = data.home.numbers && data.home.numbers.cards || [];
+    var addedNumbers = addedPublicHomeItems(previousNumbers, currentNumbers, "numbers");
     addedExperience.forEach(function (item) { notifyHomeItemAdded("experience", item); });
     addedAchievements.forEach(function (item) { notifyHomeItemAdded("achievements", item); });
     addedSkills.forEach(function (item) { notifyHomeItemAdded("skills", item); });
-    return addedExperience.length + addedAchievements.length + addedSkills.length;
+    addedNumbers.forEach(function (item) { notifyHomeItemAdded("numbers", item); });
+    return addedExperience.length + addedAchievements.length + addedSkills.length + addedNumbers.length;
   }
 
   function saveData() {
@@ -1238,6 +1246,7 @@
 
   function fillLoadedForms() {
     data.home = data.home || {};
+    ensureHomeNumbersData();
     migrateLegacyHeroMediaToSlides();
     setValue("siteName", data.settings.siteName);
     setValue("siteNameNav", data.settings.siteName);
@@ -1271,6 +1280,8 @@
     setValue("biography", data.home.biography);
     setValue("heroImage", data.home.heroImage);
     setValue("heroVideo", data.home.heroVideo);
+    setValue("homeNumbersTitle", data.home.numbers.title);
+    setValue("homeNumbersSubtitle", data.home.numbers.subtitle);
     setValue("skills", (data.home.skills || []).map(function (item) { return typeof item === "string" ? item : item.name; }).join("\n"));
     setValue("experience", formatItems(data.home.experience || []));
     setValue("achievements", formatItems(data.home.achievements || []));
@@ -1283,6 +1294,7 @@
     fillFooterCookieFields();
 
     renderHeroSlidesEditor();
+    renderHomeNumbersEditor();
     renderContentRowsEditor("experience");
     renderContentRowsEditor("achievements");
     renderSkillsEditor();
@@ -1332,6 +1344,15 @@
     data.home.heroTitle = "";
     data.home.heroSubtitle = "";
     data.home.heroIntro = "";
+  }
+
+  function ensureHomeNumbersData() {
+    data.home = data.home || {};
+    data.home.numbers = data.home.numbers && typeof data.home.numbers === "object" ? data.home.numbers : {};
+    data.home.numbers.title = data.home.numbers.title || "في أرقام";
+    data.home.numbers.subtitle = data.home.numbers.subtitle || "";
+    data.home.numbers.cards = Array.isArray(data.home.numbers.cards) ? data.home.numbers.cards : [];
+    return data.home.numbers;
   }
 
   function saveSettings(event) {
@@ -1389,6 +1410,7 @@
     data.home.heroImage = "";
     data.home.heroVideo = "";
     data.home.heroSlides = collectHeroSlides();
+    data.home.numbers = collectHomeNumbers();
     data.home.experience = collectContentRows("experience");
     data.home.achievements = collectContentRows("achievements");
     data.home.skills = collectSkills();
@@ -1917,7 +1939,7 @@
       var footerIconGroup = item.closest("[data-footer-icon-group-index]");
       return (prefix || "footer-icon-link") + ":" + (footerIconGroup ? footerIconGroup.dataset.footerIconGroupIndex : "") + ":" + item.dataset.footerIconLinkIndex;
     }
-    var itemId = item.dataset.contentRowId || item.dataset.skillId || item.dataset.footerColumnId || item.dataset.footerIconGroupId || item.dataset.footerLogoId || item.dataset.projectId || item.dataset.pageId || item.dataset.integrationId || item.dataset.adminUserId || item.dataset.heroSlideIndex || item.dataset.footerLinkIndex || item.dataset.footerColumnLinkIndex || item.dataset.footerIconLinkIndex || item.dataset.footerBottomLinkIndex || item.dataset.contentRowIndex || item.dataset.skillIndex || panelId || "";
+    var itemId = item.dataset.contentRowId || item.dataset.skillId || item.dataset.homeNumberId || item.dataset.footerColumnId || item.dataset.footerIconGroupId || item.dataset.footerLogoId || item.dataset.projectId || item.dataset.pageId || item.dataset.integrationId || item.dataset.adminUserId || item.dataset.heroSlideIndex || item.dataset.footerLinkIndex || item.dataset.footerColumnLinkIndex || item.dataset.footerIconLinkIndex || item.dataset.footerBottomLinkIndex || item.dataset.contentRowIndex || item.dataset.skillIndex || item.dataset.homeNumberIndex || panelId || "";
     var keyPrefix = prefix || item.dataset.sortableItem || "editor";
     return keyPrefix + ":" + itemId;
   }
@@ -2162,6 +2184,143 @@
     });
   }
 
+  function homeNumberIconOptions() {
+    var icons;
+    var fallback = normalizeHomeNumberIconOptionList(window.HOME_NUMBER_ICON_OPTIONS || [
+      { value: "hgi-chart-up", label: "hgi-chart-up" },
+      { value: "hgi-star", label: "hgi-star" }
+    ]);
+    if (cachedHomeNumberIconOptions) return cachedHomeNumberIconOptions;
+    icons = new Set();
+    Array.prototype.slice.call(document.styleSheets || []).forEach(function (sheet) {
+      var rules;
+      try {
+        rules = sheet.cssRules;
+      } catch (error) {
+        rules = null;
+      }
+      if (!rules) return;
+      Array.prototype.slice.call(rules).forEach(function (rule) {
+        var selector = rule.selectorText || "";
+        var matches = selector.matchAll(/\.hgi-stroke\.((?:hgi-)[a-z0-9-]+):{1,2}before/gi);
+        Array.prototype.slice.call(matches).forEach(function (match) {
+          if (match && match[1]) icons.add(match[1]);
+        });
+      });
+    });
+    var cssOptions = icons.size ? Array.from(icons).sort().map(function (icon) {
+      return { value: icon, label: icon };
+    }) : [];
+    cachedHomeNumberIconOptions = cssOptions.length > fallback.length ? cssOptions : fallback;
+    return cachedHomeNumberIconOptions;
+  }
+
+  function normalizeHomeNumberIconOptionList(options) {
+    var seen = new Set();
+    return (options || []).map(function (option) {
+      var value = typeof option === "string" ? option : (option && option.value);
+      var icon = normalizeHomeNumberIcon(value);
+      return { value: icon, label: icon };
+    }).filter(function (option) {
+      if (!option.value || seen.has(option.value)) return false;
+      seen.add(option.value);
+      return true;
+    }).sort(function (first, second) {
+      return first.value.localeCompare(second.value);
+    });
+  }
+
+  function normalizeHomeNumberIcon(value) {
+    var text = String(value || "").trim();
+    var match = text.match(/\bhgi-[a-z0-9-]+\b/i);
+    return match ? match[0] : "hgi-chart-up";
+  }
+
+  function getHomeNumberIconOption(value) {
+    var icon = normalizeHomeNumberIcon(value);
+    var options = homeNumberIconOptions();
+    return options.find(function (option) { return option.value === icon; }) || { value: icon, label: icon.replace(/^hgi-/, "") };
+  }
+
+  function adminHomeNumberIcon(icon) {
+    return '<i class="home-number-icon-preview hgi hgi-stroke ' + safeText(normalizeHomeNumberIcon(icon)) + '" aria-hidden="true"></i>';
+  }
+
+  function homeNumberIconDropmenuHtml(key, label, value) {
+    var selected = getHomeNumberIconOption(value);
+    return [
+      '<div class="nds-form-container">',
+      '<div class="nds-form-header"><label><span class="nds-label">' + safeText(label) + '</span></label></div>',
+      '<div class="nds-dropmenu icon-type-menu home-number-icon-menu" data-home-number-icon-menu data-dropmenu-no-click>',
+      '<button class="nds-btn nds-secondary-outline nds-dropmenu-trigger icon-type-trigger home-number-icon-trigger" type="button" data-home-number-icon-trigger aria-expanded="false">',
+      adminHomeNumberIcon(selected.value),
+      '<span class="nds-label sr-only" data-home-number-icon-label>' + safeText(selected.label) + '</span>',
+      '<i class="nds-icon nds-hgi-arrow-down-01 icon-type-arrow" aria-hidden="true"></i>',
+      '</button>',
+      '<input type="hidden" data-field="' + safeText(key) + '" value="' + safeText(selected.value) + '">',
+      '<div class="nds-dropmenu-menu icon-type-options home-number-icon-options" hidden aria-hidden="true">',
+      '<div class="nds-dropmenu-scroll" data-home-number-icon-list></div>',
+      '</div>',
+      '</div>',
+      '</div>'
+    ].join("");
+  }
+
+  function homeNumberCardTemplate(card, index) {
+    var cardId = ensureEntityId(card, "home-number");
+    var title = card.title || "بطاقة رقم";
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-sortable-item="homeNumbers" data-home-number-index="' + index + '" data-home-number-id="' + safeText(cardId) + '">',
+      '<div class="nds-card-content compact-card-content">',
+      '<div class="editor-item-head sortable-editor-header">',
+      dragHandleHtml("تغيير ترتيب بطاقة الأرقام"),
+      adminHomeNumberIcon(card.icon || "hgi-chart-up"),
+      '<span class="nds-card-title">' + safeText(title) + '</span>',
+      adminDeleteButton("data-delete-home-number", index, "حذف بطاقة الأرقام"),
+      '</div>',
+      '<div class="form-grid">',
+      inputHtml("homeNumberTitle", "عنوان البطاقة", card.title, "مثال: الطلاب"),
+      inputHtml("homeNumberValue", "الرقم", card.number, "مثال: 17,873"),
+      '</div>',
+      homeNumberIconDropmenuHtml("homeNumberIcon", "الأيقونة", card.icon || "hgi-chart-up"),
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-home-number-visible ' + (card.visible === false ? "" : "checked") + '> <span>إظهار البطاقة</span></label>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderHomeNumbersEditor() {
+    var root = qs("[data-home-numbers-editor]");
+    if (!root) return;
+    ensureHomeNumbersData();
+    root.dataset.sortableList = "homeNumbers";
+    root.innerHTML = data.home.numbers.cards.map(homeNumberCardTemplate).join("");
+    applySimpleEditorAccordions(root, "homeNumbers");
+    if (!data.home.numbers.cards.length) {
+      root.append(window.SiteApp.emptyState("لا توجد بطاقات أرقام", "استخدم زر إضافة بطاقة لإنشاء القسم."));
+    }
+  }
+
+  function collectHomeNumbers(options) {
+    var keepDrafts = options && options.keepDrafts;
+    var current = ensureHomeNumbersData();
+    return {
+      title: value("homeNumbersTitle") || current.title || "في أرقام",
+      subtitle: value("homeNumbersSubtitle"),
+      cards: qsa("[data-home-number-index]").map(function (item) {
+        return {
+          id: item.dataset.homeNumberId || newEntityId("home-number"),
+          title: qs('[data-field="homeNumberTitle"]', item).value.trim(),
+          number: qs('[data-field="homeNumberValue"]', item).value.trim(),
+          icon: normalizeHomeNumberIcon(qs('[data-field="homeNumberIcon"]', item).value),
+          visible: qs("[data-home-number-visible]", item).checked
+        };
+      }).filter(function (card) {
+        return keepDrafts || card.title || card.number;
+      })
+    };
+  }
+
   function contentRowsKey(type) {
     return type === "achievements" ? "achievements" : "experience";
   }
@@ -2261,7 +2420,7 @@
       button.setAttribute("aria-expanded", String(isOpen));
       button.setAttribute("aria-controls", panelId);
       button.appendChild(title);
-      var deleteButton = qs("[data-delete-content-row], [data-delete-skill], [data-delete-footer-link], [data-delete-footer-column], [data-delete-footer-column-link], [data-delete-footer-icon-group], [data-delete-footer-icon-link], [data-delete-footer-bottom-link], [data-delete-footer-logo], [data-delete-integration], [data-delete-admin-user]", head);
+      var deleteButton = qs("[data-delete-content-row], [data-delete-skill], [data-delete-home-number], [data-delete-footer-link], [data-delete-footer-column], [data-delete-footer-column-link], [data-delete-footer-icon-group], [data-delete-footer-icon-link], [data-delete-footer-bottom-link], [data-delete-footer-logo], [data-delete-integration], [data-delete-admin-user]", head);
       if (deleteButton) {
         head.insertBefore(button, deleteButton);
       } else {
@@ -4101,6 +4260,13 @@
       refreshPublicShell();
       toast("تم تحديث ترتيب المهارات");
     }
+    if (root.dataset.sortableList === "homeNumbers") {
+      data.home.numbers = collectHomeNumbers();
+      saveData();
+      renderHomeNumbersEditor();
+      refreshPublicShell();
+      toast("تم تحديث ترتيب بطاقات الأرقام");
+    }
     if (root.dataset.sortableList === "integrations") {
       collectIntegrations();
       saveData();
@@ -4704,6 +4870,15 @@
       renderSkillsEditor();
     });
 
+    if (qs("[data-add-home-number]")) qs("[data-add-home-number]").addEventListener("click", function () {
+      var cardId;
+      data.home.numbers = collectHomeNumbers({ keepDrafts: true });
+      cardId = newEntityId("home-number");
+      data.home.numbers.cards.push({ id: cardId, title: "", number: "", icon: "hgi-chart-up", visible: true });
+      openEditorAccordions.add("homeNumbers:" + cardId);
+      renderHomeNumbersEditor();
+    });
+
     qs("[data-add-page]").addEventListener("click", function () {
       var page;
       var now;
@@ -4786,6 +4961,7 @@
       var deleteAdminUserButton = event.target.closest("[data-delete-admin-user]");
       var deleteContentRow = event.target.closest("[data-delete-content-row]");
       var deleteSkill = event.target.closest("[data-delete-skill]");
+      var deleteHomeNumber = event.target.closest("[data-delete-home-number]");
       var addSubpage = event.target.closest("[data-add-subpage]");
       var pageChildrenToggle = event.target.closest("[data-page-children-toggle]");
       var pageFormatButton = event.target.closest("[data-page-format]");
@@ -4793,6 +4969,8 @@
       var editorToggle = event.target.closest("[data-editor-toggle]");
       var iconTypeTrigger = event.target.closest("[data-icon-type-trigger]");
       var iconTypeOption = event.target.closest("[data-icon-type-option]");
+      var homeNumberIconTrigger = event.target.closest("[data-home-number-icon-trigger]");
+      var homeNumberIconOption = event.target.closest("[data-home-number-icon-option]");
       var optionTrigger = event.target.closest("[data-option-trigger]");
       var optionValue = event.target.closest("[data-option-value]");
       var selectTrigger = event.target.closest("[data-select-trigger]");
@@ -4800,6 +4978,8 @@
 
       if (iconTypeTrigger) { toggleIconTypeMenu(iconTypeTrigger); return; }
       if (iconTypeOption) { selectIconType(iconTypeOption); return; }
+      if (homeNumberIconTrigger) { toggleHomeNumberIconMenu(homeNumberIconTrigger); return; }
+      if (homeNumberIconOption) { selectHomeNumberIcon(homeNumberIconOption); return; }
       if (optionTrigger) { toggleOptionMenu(optionTrigger); return; }
       if (optionValue) { selectOptionValue(optionValue); return; }
       if (selectTrigger) { toggleSelectMenu(selectTrigger); return; }
@@ -4809,7 +4989,7 @@
       if (addSubpage) { addSubpageForParent(addSubpage.dataset.addSubpage || ""); return; }
       if (pageChildrenToggle) { togglePageChildrenSection(pageChildrenToggle); return; }
       if (pageFormatButton) { applyPageTextFormat(pageFormatButton); return; }
-      if (!event.target.closest("[data-icon-type-menu], [data-option-menu], [data-select-menu]")) closeAdminInlineDropmenus();
+      if (!event.target.closest("[data-icon-type-menu], [data-home-number-icon-menu], [data-option-menu], [data-select-menu]")) closeAdminInlineDropmenus();
       if (contactToggle) { toggleContactPanel(contactToggle); return; }
       if (editorToggle) { toggleEditorPanel(editorToggle); return; }
 
@@ -4984,6 +5164,16 @@
           saveData();
           renderSkillsEditor();
           toast("تم حذف المهارة");
+        });
+        return;
+      }
+      if (deleteHomeNumber) {
+        confirmAdminDeleteThen("هل تريد حذف بطاقة الأرقام؟", function () {
+          data.home.numbers = collectHomeNumbers({ keepDrafts: true });
+          data.home.numbers.cards.splice(getSortableItemIndex(deleteHomeNumber.closest("[data-home-number-index]")), 1);
+          saveData();
+          renderHomeNumbersEditor();
+          toast("تم حذف بطاقة الأرقام");
         });
         return;
       }
@@ -5204,6 +5394,15 @@
     });
   }
 
+  function closeHomeNumberIconMenus(exceptMenu) {
+    qsa("[data-home-number-icon-menu]").forEach(function (menu) {
+      if (menu === exceptMenu) return;
+      var trigger = qs("[data-home-number-icon-trigger]", menu);
+      var menuPanel = qs(".nds-dropmenu-menu", menu);
+      closeInlineDropmenu(menu, trigger, menuPanel);
+    });
+  }
+
   function scrollAdminInlineMenuIntoView(menuPanel) {
     var scrollParent = menuPanel ? menuPanel.closest("[data-pages-editor], [data-projects-editor]") : null;
     if (!scrollParent) return;
@@ -5221,6 +5420,12 @@
 
   function toggleIconTypeMenu(trigger) {
     toggleInlineDropmenu(trigger, "[data-icon-type-menu]");
+  }
+
+  function toggleHomeNumberIconMenu(trigger) {
+    var menu = trigger ? trigger.closest("[data-home-number-icon-menu]") : null;
+    ensureHomeNumberIconOptions(menu);
+    toggleInlineDropmenu(trigger, "[data-home-number-icon-menu]");
   }
 
   function selectIconType(optionButton) {
@@ -5242,6 +5447,47 @@
       input.dispatchEvent(new Event("change", { bubbles: true }));
     }
     closeIconTypeMenus();
+  }
+
+  function selectHomeNumberIcon(optionButton) {
+    var menu = optionButton.closest("[data-home-number-icon-menu]");
+    if (!menu) return;
+    var selected = getHomeNumberIconOption(optionButton.dataset.homeNumberIconOption);
+    var input = qs('[data-field="homeNumberIcon"]', menu);
+    var label = qs("[data-home-number-icon-label]", menu);
+    var trigger = qs("[data-home-number-icon-trigger]", menu);
+    var existingIcon = trigger ? qs(".home-number-icon-preview", trigger) : null;
+    if (input) input.value = selected.value;
+    if (label) label.textContent = selected.label;
+    if (existingIcon) existingIcon.outerHTML = adminHomeNumberIcon(selected.value);
+    qsa("[data-home-number-icon-option]", menu).forEach(function (item) {
+      item.dataset.state = item === optionButton ? "selected" : "";
+    });
+    if (input) {
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      input.dispatchEvent(new Event("change", { bubbles: true }));
+    }
+    closeHomeNumberIconMenus();
+  }
+
+  function homeNumberIconOptionHtml(option, selectedValue) {
+    return [
+      '<button class="nds-btn nds-subtle nds-dropmenu-item icon-type-option home-number-icon-option" type="button" aria-label="' + safeText(option.label) + '" data-home-number-icon-option="' + safeText(option.value) + '" data-state="' + (option.value === selectedValue ? "selected" : "") + '">',
+      adminHomeNumberIcon(option.value),
+      '<span class="nds-label sr-only">' + safeText(option.label) + '</span>',
+      '</button>'
+    ].join("");
+  }
+
+  function ensureHomeNumberIconOptions(menu) {
+    var list = menu ? qs("[data-home-number-icon-list]", menu) : null;
+    var input = menu ? qs('[data-field="homeNumberIcon"]', menu) : null;
+    var selectedValue = input ? normalizeHomeNumberIcon(input.value) : "hgi-chart-up";
+    if (!list || list.dataset.iconsReady === "true") return;
+    list.innerHTML = homeNumberIconOptions().map(function (option) {
+      return homeNumberIconOptionHtml(option, selectedValue);
+    }).join("");
+    list.dataset.iconsReady = "true";
   }
 
   function closeOptionMenus(exceptMenu) {
@@ -5291,6 +5537,7 @@
 
   function closeAdminInlineDropmenus(exceptMenu) {
     closeIconTypeMenus(exceptMenu);
+    closeHomeNumberIconMenus(exceptMenu);
     closeOptionMenus(exceptMenu);
     closeSelectMenus(exceptMenu);
   }

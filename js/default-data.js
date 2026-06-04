@@ -112,6 +112,11 @@
       heroImage: "",
       heroVideo: "",
       heroSlides: [],
+      numbers: {
+        title: "في أرقام",
+        subtitle: "",
+        cards: []
+      },
       experience: [],
       achievements: [],
       skills: [],
@@ -174,6 +179,29 @@
     { value: "appstore", label: "Apple App Store" },
     { value: "googleplay", label: "Android / Google Play" },
     { value: "huawei", label: "Huawei AppGallery" }
+  ];
+
+  window.HOME_NUMBER_ICON_OPTIONS = [
+    { value: "hgi-mentoring", label: "hgi-mentoring" },
+    { value: "hgi-user-multiple-02", label: "hgi-user-multiple-02" },
+    { value: "hgi-teaching", label: "hgi-teaching" },
+    { value: "hgi-university", label: "hgi-university" },
+    { value: "hgi-globe", label: "hgi-globe" },
+    { value: "hgi-translation", label: "hgi-translation" },
+    { value: "hgi-award-05", label: "hgi-award-05" },
+    { value: "hgi-briefcase-01", label: "hgi-briefcase-01" },
+    { value: "hgi-certificate-01", label: "hgi-certificate-01" },
+    { value: "hgi-chart-up", label: "hgi-chart-up" },
+    { value: "hgi-customer-service-01", label: "hgi-customer-service-01" },
+    { value: "hgi-file-verified", label: "hgi-file-verified" },
+    { value: "hgi-location-01", label: "hgi-location-01" },
+    { value: "hgi-medal-01", label: "hgi-medal-01" },
+    { value: "hgi-star", label: "hgi-star" },
+    { value: "hgi-target-01", label: "hgi-target-01" },
+    { value: "hgi-time-04", label: "hgi-time-04" },
+    { value: "hgi-user-group", label: "hgi-user-group" },
+    { value: "hgi-work-history", label: "hgi-work-history" },
+    { value: "hgi-zap", label: "hgi-zap" }
   ];
 
   window.PAGE_CONTENT_MODES = [

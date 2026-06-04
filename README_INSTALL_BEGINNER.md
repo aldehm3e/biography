@@ -23,6 +23,7 @@ After installation, open `admin.html` and manage content from the admin panel:
 - logo
 - home page content
 - hero slides
+- home numbers/statistics
 - biography
 - projects
 - pages and subpages

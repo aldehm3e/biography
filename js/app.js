@@ -2,6 +2,8 @@
   "use strict";
 
   var HERO_SLIDE_DURATION = 8500;
+  var HOME_NUMBERS_SLIDE_DURATION = 6500;
+  var HOME_NUMBERS_AUTOPLAY_RESUME_MS = 9000;
   var SITE_DATA_KEY = "websiteDemo:siteData";
   var LEGACY_NOTIFICATIONS_KEY = "websiteDemo:notifications";
   var NOTIFICATION_STATE_KEY = "websiteDemo:notificationState";
@@ -24,6 +26,9 @@
     projectFilter: "all",
     heroIndex: 0,
     heroTimer: null,
+    homeNumbersTimer: null,
+    homeNumbersResumeTimer: null,
+    homeNumbersSettleTimer: null,
     clockTimer: null
   };
 
@@ -591,8 +596,16 @@
     return visibleHeroSlides(home).length > 0;
   }
 
+  function visibleHomeNumberCards(home) {
+    var numbers = home && home.numbers && typeof home.numbers === "object" ? home.numbers : {};
+    return visibleItems(numbers.cards || []).filter(function (item) {
+      return hasText(item && (item.title || item.number));
+    });
+  }
+
   function hasHomeBodyContent(home) {
     return [home.ownerName, home.title, home.intro, home.avatar, home.biography].some(hasText)
+      || visibleHomeNumberCards(home).length
       || visibleItems(home.experience || []).length
       || visibleItems(home.achievements || []).length
       || visibleItems(home.skills || []).length;
@@ -675,6 +688,13 @@
     document.title = title;
   }
 
+  function setImageSource(image, src) {
+    if (!image || !src) return;
+    var current = image.getAttribute("src") || "";
+    if (current === src) return;
+    image.src = src;
+  }
+
   function applyShellText(data) {
     data = data || {};
     data.settings = data.settings || {};
@@ -699,12 +719,13 @@
     var brandLogo = data.settings.brandLogo || "assets/vendor/nds/images/palm_swords.svg";
     var siteIcon = data.settings.siteIcon || data.settings.brandLogo || "assets/images/site-mark.svg";
     qsa(".brand-logo").forEach(function (image) {
-      image.src = brandLogo;
+      setImageSource(image, brandLogo);
     });
     qsa("[data-site-mark]").forEach(function (image) {
-      image.src = siteIcon;
+      setImageSource(image, siteIcon);
     });
     qsa("link[rel~='icon'], [data-site-favicon]").forEach(function (link) {
+      if (link.getAttribute("href") === siteIcon && link.type === imageMimeForPath(siteIcon)) return;
       link.href = siteIcon;
       link.type = imageMimeForPath(siteIcon);
     });
@@ -3308,6 +3329,32 @@
     }, 260);
   }
 
+  function setMobileNotificationDropdownState(root, open) {
+    if (!root) return;
+    closeMobileAccountDropdown({ localOnly: true });
+    closeNavDropmenus(null, { dismissNative: false, instant: true });
+    if (isMobileNavPanelOpen()) closeNavPanel({ instant: true });
+    closeNotificationDropdown({ localOnly: true });
+    if (open) {
+      setNotificationDropdownOpen(root);
+    } else {
+      syncNotificationTriggerState(root);
+      syncSiteDropdownBackdrop();
+    }
+    queueNotificationTriggerStateSync(root);
+  }
+
+  function handleMobileNotificationTrigger(event) {
+    var trigger = event.target.closest("[data-mobile-notifications-root] [data-notifications-trigger]");
+    if (!trigger) return;
+    var root = trigger.closest("[data-mobile-notifications-root]");
+    if (!root) return;
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+    setMobileNotificationDropdownState(root, !hasOpenStateToken(root));
+  }
+
   function animateNotificationRemoval(item, onComplete) {
     var done = false;
     var finish = function () {
@@ -3541,6 +3588,8 @@
   }
 
   function setupNotifications() {
+    document.addEventListener("click", handleMobileNotificationTrigger, true);
+
     document.addEventListener("click", function (event) {
       queueNotificationTriggerStateSync();
 
@@ -3554,21 +3603,9 @@
       }
 
       if (event.target.closest("[data-mobile-notifications-root] [data-notifications-trigger]")) {
-        closeMobileAccountDropdown({ localOnly: true });
         event.preventDefault();
         event.stopPropagation();
         if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-        var mobileRoot = event.target.closest("[data-mobile-notifications-root]");
-        var mobileTrigger = qs("[data-notifications-trigger]", mobileRoot);
-        var willOpen = mobileRoot && (mobileRoot.dataset.state || "").indexOf("open") === -1;
-        if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.toggleDropdown) {
-          window.NDS.Mainnav.toggleDropdown(event);
-        } else {
-          if (mobileRoot) mobileRoot.dataset.state = willOpen ? "open opened" : "";
-          if (mobileTrigger) mobileTrigger.setAttribute("aria-expanded", String(willOpen));
-        }
-        syncNotificationTriggerState(mobileRoot);
-        queueNotificationTriggerStateSync(mobileRoot);
         return;
       }
 
@@ -4702,6 +4739,7 @@
     var slug = getPageSlug();
 
     if (slug) {
+      clearHomeNumbersAutoplay();
       if (homeView) homeView.hidden = true;
       if (pageView) pageView.hidden = false;
       if (pageContentView) pageContentView.hidden = false;
@@ -4721,8 +4759,10 @@
     var content = qs("[data-home-content]");
     var hero = qs("[data-home-hero]");
     var bioSection = qs(".biography-section");
+    var numbersSection = qs("[data-home-numbers-section]");
     var professionalSection = qs(".professional-section");
     var skillsSection = qs("[data-skills-section]");
+    var visibleNumbers = visibleHomeNumberCards(home);
     var visibleExperience = visibleItems(home.experience || []);
     var visibleAchievements = visibleItems(home.achievements || []);
     var visibleSkills = visibleItems(home.skills || []).filter(function (item) {
@@ -4734,6 +4774,7 @@
     if (content) content.hidden = !hasBody;
     var avatarSrc = ownerAvatarSrc(data);
     if (bioSection) bioSection.hidden = ![home.ownerName, home.title, home.intro, home.biography, avatarSrc].some(hasText);
+    if (numbersSection) numbersSection.hidden = !visibleNumbers.length;
     if (professionalSection) professionalSection.hidden = !(visibleExperience.length || visibleAchievements.length);
     if (skillsSection) skillsSection.hidden = !visibleSkills.length;
 
@@ -4753,6 +4794,7 @@
     }
 
     renderHeroSlides(home);
+    renderHomeNumbers(home, visibleNumbers);
     renderListCards("[data-experience-list]", visibleExperience, "الخبرات");
     renderListCards("[data-achievements-list]", visibleAchievements, "الإنجازات");
     renderChips("[data-skills-list]", visibleSkills);
@@ -4781,6 +4823,250 @@
     if (controls) controls.hidden = slides.length <= 1;
     updateHeroState(root, dots, slides.length);
     setupHeroTimer(slides.length);
+  }
+
+  function normalizeHomeNumberIcon(value) {
+    var text = String(value || "").trim();
+    var match = text.match(/\bhgi-[a-z0-9-]+\b/i);
+    return match ? match[0] : "hgi-chart-up";
+  }
+
+  function hasNumericValue(value) {
+    return /[-+]?\d/.test(String(value || ""));
+  }
+
+  function createHomeNumberCard(item) {
+    var card = el("article", "nds-card nds-shadow nds-statistic home-number-card");
+    var header = el("div", "nds-card-header");
+    var featured = el("div", "nds-card-featured-icon");
+    var iconShell = el("span", "nds-featured-icon nds-circle nds-xl");
+    var icon = document.createElement("i");
+    var content = el("div", "nds-card-content");
+    var text = el("div", "nds-card-text");
+    var title = el("h3", "nds-card-description home-number-title", item.title || "");
+    var number = el("span", "nds-card-number nds-md home-number-value", item.number || "");
+
+    icon.className = "hgi hgi-stroke " + normalizeHomeNumberIcon(item.icon) + " icon";
+    icon.setAttribute("aria-hidden", "true");
+    iconShell.append(icon);
+    featured.append(iconShell);
+    header.append(featured);
+
+    title.dir = "rtl";
+    number.dir = "ltr";
+    if (hasNumericValue(item.number)) {
+      number.className += " nds-counter-value nds-number-format";
+      number.dataset.target = item.number;
+      number.textContent = "0";
+    }
+
+    if (hasText(item.number)) text.append(number);
+    text.append(title);
+    content.append(text);
+    card.append(header, content);
+    return card;
+  }
+
+  function refreshHomeNumbersComponents(swiper) {
+    if (swiper && window.NDS && window.NDS.Swiper && window.NDS.Swiper.create) {
+      window.NDS.Swiper.create(swiper);
+    }
+    if (window.NDS && window.NDS.Numbers && window.NDS.Numbers.reinit) {
+      window.NDS.Numbers.reinit();
+    }
+  }
+
+  function clearHomeNumbersAutoplay() {
+    clearInterval(appState.homeNumbersTimer);
+    clearTimeout(appState.homeNumbersResumeTimer);
+    clearTimeout(appState.homeNumbersSettleTimer);
+    appState.homeNumbersTimer = null;
+    appState.homeNumbersResumeTimer = null;
+    appState.homeNumbersSettleTimer = null;
+  }
+
+  function getHomeNumbersSlides(swiper) {
+    return qsa(".nds-swiper-slide", swiper);
+  }
+
+  function getHomeNumbersSlidesPerView(swiper) {
+    var cssValue = parseInt(getComputedStyle(swiper).getPropertyValue("--slides"), 10) ||
+      parseInt(getComputedStyle(swiper).getPropertyValue("--swiper-slides"), 10);
+    var min;
+    var mid;
+    var max;
+    if (cssValue > 0) return cssValue;
+    min = parseInt(swiper.getAttribute("slides-min") || "1", 10);
+    mid = parseInt(swiper.getAttribute("slides-mid") || String(min), 10);
+    max = parseInt(swiper.getAttribute("slides-max") || String(mid), 10);
+    if (window.matchMedia("(min-width: 1024px)").matches) return Math.max(1, max);
+    if (window.matchMedia("(min-width: 768px)").matches) return Math.max(1, mid);
+    return Math.max(1, min);
+  }
+
+  function homeNumbersMaxIndex(slides, slidesPerView) {
+    return Math.max(0, slides.length - slidesPerView);
+  }
+
+  function homeNumbersIsRtl(swiper) {
+    var wrapper = qs(".nds-swiper-wrapper", swiper);
+    return getComputedStyle(wrapper || swiper).direction === "rtl";
+  }
+
+  function getHomeNumbersCurrentIndex(swiper, slides, slidesPerView) {
+    var wrapper = qs(".nds-swiper-wrapper", swiper);
+    var step;
+    var scrollPosition;
+    if (!wrapper || !slides.length) return 0;
+    step = slides.length > 1 ? Math.abs(slides[1].offsetLeft - slides[0].offsetLeft) : 0;
+    step = step || slides[0].offsetWidth || 1;
+    scrollPosition = homeNumbersIsRtl(swiper) ? -wrapper.scrollLeft : wrapper.scrollLeft;
+    return Math.min(Math.max(0, Math.round(scrollPosition / step)), homeNumbersMaxIndex(slides, slidesPerView));
+  }
+
+  function scrollHomeNumbersToIndex(swiper, slides, index) {
+    var wrapper = qs(".nds-swiper-wrapper", swiper);
+    var target = slides[index];
+    var offset;
+    var left;
+    if (!wrapper || !target || !slides[0]) return;
+    offset = Math.abs(target.offsetLeft - slides[0].offsetLeft);
+    left = homeNumbersIsRtl(swiper) ? -offset : offset;
+    clearTimeout(appState.homeNumbersSettleTimer);
+    wrapper.scrollTo({
+      left: left,
+      behavior: "smooth"
+    });
+    appState.homeNumbersSettleTimer = setTimeout(function () {
+      if (!wrapper.isConnected || !swiper.isConnected) return;
+      if (swiper.dataset.homeNumbersAutoplayIndex !== String(index)) return;
+      wrapper.scrollTo({ left: left, behavior: "auto" });
+    }, 650);
+  }
+
+  function canAutoSlideHomeNumbers(swiper) {
+    var slides;
+    if (!swiper) return false;
+    slides = getHomeNumbersSlides(swiper);
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return false;
+    return slides.length > getHomeNumbersSlidesPerView(swiper);
+  }
+
+  function setupHomeNumbersAutoplay(swiper) {
+    var paused = false;
+
+    clearHomeNumbersAutoplay();
+    if (!canAutoSlideHomeNumbers(swiper)) return;
+
+    function pauseAutoplay() {
+      paused = true;
+    }
+
+    function resumeAutoplay() {
+      paused = false;
+      clearTimeout(appState.homeNumbersResumeTimer);
+      appState.homeNumbersResumeTimer = null;
+    }
+
+    function pauseTemporarily() {
+      pauseAutoplay();
+      clearTimeout(appState.homeNumbersResumeTimer);
+      appState.homeNumbersResumeTimer = setTimeout(resumeAutoplay, HOME_NUMBERS_AUTOPLAY_RESUME_MS);
+    }
+
+    function advance() {
+      var slides;
+      var slidesPerView;
+      var limit;
+      var currentIndex;
+      var nextIndex;
+      if (!swiper || !swiper.isConnected) {
+        clearHomeNumbersAutoplay();
+        return;
+      }
+      if (document.hidden || paused || swiper.closest("[hidden]") || swiper.contains(document.activeElement)) return;
+      slides = getHomeNumbersSlides(swiper);
+      slidesPerView = getHomeNumbersSlidesPerView(swiper);
+      limit = homeNumbersMaxIndex(slides, slidesPerView);
+      if (limit <= 0) return;
+      currentIndex = getHomeNumbersCurrentIndex(swiper, slides, slidesPerView);
+      nextIndex = currentIndex >= limit ? 0 : Math.min(currentIndex + slidesPerView, limit);
+      swiper.dataset.homeNumbersAutoplayIndex = String(nextIndex);
+      scrollHomeNumbersToIndex(swiper, slides, nextIndex);
+    }
+
+    swiper.dataset.homeNumbersAutoplay = "ready";
+    swiper.addEventListener("mouseenter", pauseAutoplay);
+    swiper.addEventListener("mouseleave", resumeAutoplay);
+    swiper.addEventListener("focusin", pauseAutoplay);
+    swiper.addEventListener("focusout", function () {
+      setTimeout(function () {
+        if (!swiper.contains(document.activeElement)) resumeAutoplay();
+      }, 0);
+    });
+    swiper.addEventListener("pointerdown", pauseTemporarily, { passive: true });
+    swiper.addEventListener("touchstart", pauseTemporarily, { passive: true });
+    swiper.addEventListener("wheel", pauseTemporarily, { passive: true });
+    appState.homeNumbersTimer = setInterval(advance, HOME_NUMBERS_SLIDE_DURATION);
+  }
+
+  function renderHomeNumbers(home, items) {
+    var section = qs("[data-home-numbers-section]");
+    var title = qs("[data-home-numbers-title]");
+    var subtitle = qs("[data-home-numbers-subtitle]");
+    var body = qs("[data-home-numbers-body]");
+    var numbers = home && home.numbers && typeof home.numbers === "object" ? home.numbers : {};
+    var oldSwiper = body ? qs(".home-numbers-swiper", body) : null;
+    if (!section || !body) return;
+    items = items || visibleHomeNumberCards(home);
+    clearHomeNumbersAutoplay();
+    if (oldSwiper && oldSwiper._ndsSwiper && oldSwiper._ndsSwiper.destroy) oldSwiper._ndsSwiper.destroy();
+    body.innerHTML = "";
+    section.hidden = !items.length;
+    if (!items.length) return;
+
+    if (title) title.textContent = numbers.title || "في أرقام";
+    if (subtitle) {
+      subtitle.textContent = numbers.subtitle || "";
+      subtitle.hidden = !hasText(numbers.subtitle);
+    }
+
+    var swiper = el("div", "nds-swiper home-numbers-swiper");
+    var wrapper = el("div", "nds-swiper-wrapper");
+    var navigation = el("div", "nds-swiper-navigation");
+    var buttons = el("div", "nds-swiper-buttons");
+    var previous = el("button", "nds-btn nds-primary nds-icon-only nds-circle nds-md nds-prev");
+    var next = el("button", "nds-btn nds-primary nds-icon-only nds-circle nds-md nds-next");
+    var pagination = el("div", "nds-swiper-pagination");
+
+    swiper.dir = document.documentElement.dir || "rtl";
+    swiper.setAttribute("slides-max", "5");
+    swiper.setAttribute("slides-mid", "3");
+    swiper.setAttribute("slides-min", "1");
+    swiper.setAttribute("peek", "0");
+    swiper.tabIndex = 0;
+
+    items.forEach(function (item) {
+      var slide = el("div", "nds-swiper-slide");
+      slide.append(createHomeNumberCard(item));
+      wrapper.append(slide);
+    });
+
+    previous.type = "button";
+    previous.setAttribute("aria-label", "السابق");
+    previous.innerHTML = '<i class="hgi hgi-stroke hgi-arrow-right-01 home-numbers-control-icon" aria-hidden="true"></i>';
+    previous.hidden = true;
+    next.type = "button";
+    next.setAttribute("aria-label", "التالي");
+    next.innerHTML = '<i class="hgi hgi-stroke hgi-arrow-left-01 home-numbers-control-icon" aria-hidden="true"></i>';
+    next.hidden = true;
+    pagination.hidden = true;
+    buttons.append(previous, next);
+    navigation.append(buttons, pagination);
+    swiper.append(wrapper, navigation);
+    body.append(swiper);
+    refreshHomeNumbersComponents(swiper);
+    setupHomeNumbersAutoplay(swiper);
   }
 
   function heroSlidesSignature(slides) {
@@ -5725,25 +6011,30 @@
     });
   }
 
+  function paintSite(data) {
+    appState.data = data;
+    renderShared(appState.data);
+    if (document.body.dataset.page === "home") renderHome(appState.data);
+    if (document.body.dataset.page === "projects") renderProjectsPage(appState.data);
+    if (document.body.dataset.page === "project-detail") renderProjectDetailPage(appState.data);
+    if (document.body.dataset.page === "pages") renderPagesPage(appState.data);
+    if (document.body.dataset.page === "notifications") renderNotificationsPage();
+    if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.init) window.NDS.Mainnav.init();
+    if (window.NDS && window.NDS.Sidemenu && window.NDS.Sidemenu.init) window.NDS.Sidemenu.init();
+    initializeShareComponents();
+    updateHeaderActions(appState.data);
+    revealHeaderShell();
+    document.documentElement.dataset.siteRendered = "true";
+  }
+
   function render() {
-    document.documentElement.dataset.siteLoading = "true";
+    document.documentElement.dataset.siteLoading = appState.data ? "refreshing" : "true";
     return window.SiteStore.load().then(function (loadedData) {
-      appState.data = loadedData;
-      renderShared(appState.data);
-      if (document.body.dataset.page === "home") renderHome(appState.data);
-      if (document.body.dataset.page === "projects") renderProjectsPage(appState.data);
-      if (document.body.dataset.page === "project-detail") renderProjectDetailPage(appState.data);
-      if (document.body.dataset.page === "pages") renderPagesPage(appState.data);
-      if (document.body.dataset.page === "notifications") renderNotificationsPage();
-      if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.init) window.NDS.Mainnav.init();
-      if (window.NDS && window.NDS.Sidemenu && window.NDS.Sidemenu.init) window.NDS.Sidemenu.init();
-      initializeShareComponents();
-      updateHeaderActions(appState.data);
-      revealHeaderShell();
+      paintSite(loadedData);
       document.documentElement.dataset.siteLoading = "false";
     }).catch(function (error) {
       appState.data = window.SiteStore.current();
-      renderShared(appState.data);
+      paintSite(appState.data);
       showToast(error.message || "تعذر تحميل بيانات الموقع", "error");
       document.documentElement.dataset.siteLoading = "false";
     });
@@ -5756,7 +6047,11 @@
     appInitialized = true;
     installProjectBackdropAdapter();
     var cachedData = readCachedSiteData();
-    if (cachedData) applyShellText(cachedData);
+    document.documentElement.dataset.siteLoading = "true";
+    if (cachedData) {
+      paintSite(cachedData);
+      document.documentElement.dataset.siteLoading = "refreshing";
+    }
     setupNavToggle();
     setupDropmenus();
     setupHeaderMenuExclusivity();
