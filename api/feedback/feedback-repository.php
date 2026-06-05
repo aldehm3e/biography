@@ -108,26 +108,10 @@ function cms_decode_feedback_reasons(mixed $value): array
     return is_array($decoded) ? array_values(array_filter($decoded, static fn($item): bool => trim((string) $item) !== '')) : [];
 }
 
-function cms_feedback_record_from_row(array $row): array
-{
-    return [
-        'id' => (int) ($row['id'] ?? 0),
-        'pageKey' => (string) ($row['page_key'] ?? ''),
-        'pageTitle' => (string) ($row['page_title'] ?? ''),
-        'pageType' => (string) ($row['page_type'] ?? ''),
-        'answer' => (string) ($row['answer'] ?? ''),
-        'reasons' => cms_decode_feedback_reasons($row['reasons_json'] ?? ''),
-        'comment' => (string) ($row['comment'] ?? ''),
-        'path' => (string) ($row['path'] ?? ''),
-        'createdAt' => (string) ($row['created_at'] ?? ''),
-    ];
-}
-
-function cms_fetch_page_feedback_stats(PDO $pdo, int $limit = 40, int $recordsPerPage = 4): array
+function cms_fetch_page_feedback_stats(PDO $pdo, int $limit = 40): array
 {
     cms_ensure_page_feedback_table($pdo);
     $limit = max(1, min(100, $limit));
-    $recordsPerPage = max(1, min(10, $recordsPerPage));
     $summary = $pdo->query(
         "SELECT COUNT(*) AS total,
                 COALESCE(SUM(answer = 'yes'), 0) AS yes_count,
@@ -153,34 +137,6 @@ function cms_fetch_page_feedback_stats(PDO $pdo, int $limit = 40, int $recordsPe
     $pageStmt->execute();
     $pages = $pageStmt->fetchAll() ?: [];
 
-    $recentStmt = $pdo->prepare(
-        "SELECT id, page_key, page_title, page_type, answer, reasons_json, comment, path, created_at
-         FROM page_feedback
-         WHERE page_key = :page_key
-         ORDER BY created_at DESC, id DESC
-         LIMIT :limit_value"
-    );
-    $groupedPages = [];
-    $recent = [];
-    foreach ($pages as $row) {
-        $recentStmt->bindValue(':page_key', (string) ($row['page_key'] ?? ''), PDO::PARAM_STR);
-        $recentStmt->bindValue(':limit_value', $recordsPerPage, PDO::PARAM_INT);
-        $recentStmt->execute();
-        $records = array_map('cms_feedback_record_from_row', $recentStmt->fetchAll() ?: []);
-        $recent = array_merge($recent, $records);
-        $groupedPages[] = [
-            'pageKey' => (string) ($row['page_key'] ?? ''),
-            'pageTitle' => (string) ($row['page_title'] ?? ''),
-            'pageType' => (string) ($row['page_type'] ?? ''),
-            'path' => (string) ($records[0]['path'] ?? ''),
-            'total' => (int) ($row['total'] ?? 0),
-            'yes' => (int) ($row['yes_count'] ?? 0),
-            'no' => (int) ($row['no_count'] ?? 0),
-            'lastFeedbackAt' => (string) ($row['last_feedback_at'] ?? ''),
-            'recent' => $records,
-        ];
-    }
-
     return [
         'summary' => [
             'total' => (int) ($summary['total'] ?? 0),
@@ -188,8 +144,18 @@ function cms_fetch_page_feedback_stats(PDO $pdo, int $limit = 40, int $recordsPe
             'no' => (int) ($summary['no_count'] ?? 0),
             'pages' => (int) ($summary['page_count'] ?? 0),
         ],
-        'pages' => $groupedPages,
-        'recent' => $recent,
+        'pages' => array_map(static function (array $row): array {
+            return [
+                'pageKey' => (string) ($row['page_key'] ?? ''),
+                'pageTitle' => (string) ($row['page_title'] ?? ''),
+                'pageType' => (string) ($row['page_type'] ?? ''),
+                'total' => (int) ($row['total'] ?? 0),
+                'yes' => (int) ($row['yes_count'] ?? 0),
+                'no' => (int) ($row['no_count'] ?? 0),
+                'lastFeedbackAt' => (string) ($row['last_feedback_at'] ?? ''),
+            ];
+        }, $pages),
+        'recent' => [],
     ];
 }
 

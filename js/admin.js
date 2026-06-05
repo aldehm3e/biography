@@ -973,76 +973,156 @@
     ].join("");
   }
 
-  function feedbackRecordHtml(item) {
-    var reasons = Array.isArray(item.reasons) && item.reasons.length ? item.reasons.join("، ") : "";
-    return [
-      '<article class="page-feedback-record-item">',
-      '<div class="page-feedback-record-head">',
-      '<span class="nds-tag nds-xs" data-status="' + (item.answer === "yes" ? "success" : "warning") + '"><span class="nds-label">' + safeText(feedbackAnswerLabel(item.answer)) + '</span></span>',
-      '<time class="page-feedback-record-time" datetime="' + safeText(item.createdAt || "") + '">' + safeText(formatAdminDateTime(item.createdAt)) + '</time>',
-      '</div>',
-      '<div class="page-feedback-record-body">',
-      reasons ? '<p class="page-feedback-record-text">' + safeText(reasons) + '</p>' : '',
-      item.comment ? '<p class="page-feedback-record-text">' + safeText(item.comment) + '</p>' : '',
-      item.path ? '<p class="page-feedback-record-path">' + safeText(item.path) + '</p>' : '',
-      '</div>',
-      '</article>'
-    ].join("");
+  function feedbackPercent(value, total) {
+    total = Number(total || 0);
+    if (!total) return "0%";
+    return String(Math.round((Number(value || 0) / total) * 100)) + "%";
   }
 
-  function feedbackGroupHtml(group, index) {
-    var records = Array.isArray(group.recent) ? group.recent : [];
-    var title = group.pageTitle || group.pageKey || "صفحة";
-    var panelId = "page-feedback-group-" + index;
-    var total = Number(group.total || 0);
-    var yes = Number(group.yes || 0);
-    var no = Number(group.no || 0);
-    var latestAt = group.lastFeedbackAt || (records[0] && records[0].createdAt) || "";
-    var path = group.path || (records[0] && records[0].path) || "";
-    return [
-      '<article class="page-feedback-group nds-accordion nds-md nds-card nds-stroke" data-nds-local-accordion="ready" data-state="closed">',
-      '<div class="nds-card-content compact-card-content nds-accordion-item">',
-      '<div class="page-feedback-group-head nds-accordion-header">',
-      '<button class="page-feedback-group-btn nds-accordion-btn nds-btn nds-subtle nds-menu-btn" type="button" data-page-feedback-group-toggle aria-expanded="false" aria-controls="' + safeText(panelId) + '">',
-      '<span class="page-feedback-group-title nds-accordion-title">',
-      '<span class="page-feedback-group-name">' + safeText(title) + '</span>',
-      path ? '<span class="page-feedback-group-path">' + safeText(path) + '</span>' : '',
-      '</span>',
-      '<span class="page-feedback-group-meta">',
-      '<span class="nds-tag nds-xs"><span class="nds-label">' + safeText(total + " تقييم") + '</span></span>',
-      '<span class="nds-tag nds-xs" data-status="success"><span class="nds-label">' + safeText(yes + " نعم") + '</span></span>',
-      '<span class="nds-tag nds-xs" data-status="warning"><span class="nds-label">' + safeText(no + " لا") + '</span></span>',
-      '<time class="page-feedback-group-time" datetime="' + safeText(latestAt) + '">' + safeText(formatAdminDateTime(latestAt)) + '</time>',
-      '</span>',
-      '</button>',
-      '</div>',
-      '<div class="page-feedback-group-collapse nds-accordion-collapse" id="' + safeText(panelId) + '" aria-hidden="true">',
-      '<div class="page-feedback-group-content nds-accordion-content">',
-      '<div class="page-feedback-group-body nds-accordion-body">',
-      records.length ? '<div class="page-feedback-record-list">' + records.map(feedbackRecordHtml).join("") + '</div>' : '<p class="page-feedback-group-empty">لا توجد عينات حديثة لهذه الصفحة.</p>',
-      total > records.length ? '<p class="page-feedback-group-note">تظهر هنا عينة حديثة محدودة فقط. التصدير يحتوي على السجل الكامل.</p>' : '',
-      '</div>',
-      '</div>',
-      '</div>',
-      '</div>',
-      '</article>'
-    ].join("");
+  function feedbackRankPages(pages, key) {
+    return (Array.isArray(pages) ? pages : []).filter(function (page) {
+      return Number(page && page[key] || 0) > 0;
+    }).sort(function (a, b) {
+      var delta = Number(b[key] || 0) - Number(a[key] || 0);
+      if (delta) return delta;
+      delta = Number(b.total || 0) - Number(a.total || 0);
+      if (delta) return delta;
+      return String(a.pageTitle || a.pageKey || "").localeCompare(String(b.pageTitle || b.pageKey || ""), "ar");
+    }).slice(0, 5);
   }
 
-  function setPageFeedbackGroupState(button, isOpen) {
-    var panel = qs("#" + button.getAttribute("aria-controls"));
-    var item = button.closest(".page-feedback-group");
-    button.setAttribute("aria-expanded", String(isOpen));
-    button.dataset.state = isOpen ? "open" : "";
-    if (panel) {
-      panel.dataset.state = isOpen ? "open" : "";
-      panel.setAttribute("aria-hidden", String(!isOpen));
+  function feedbackRankListHtml(items, key, emptyText) {
+    if (!items.length) {
+      return '<p class="page-feedback-dashboard-empty">' + safeText(emptyText) + '</p>';
     }
-    if (item) item.dataset.state = isOpen ? "open" : "closed";
+    return [
+      '<ol class="page-feedback-rank-list">',
+      items.map(function (item, index) {
+        return [
+          '<li class="page-feedback-rank-item">',
+          '<span class="page-feedback-rank-index">' + safeText(String(index + 1)) + '</span>',
+          '<span class="page-feedback-rank-title">' + safeText(item.pageTitle || item.pageKey || "صفحة") + '</span>',
+          '<strong class="page-feedback-rank-value">' + safeText(String(Number(item[key] || 0))) + '</strong>',
+          '</li>'
+        ].join("");
+      }).join(""),
+      '</ol>'
+    ].join("");
   }
 
-  function togglePageFeedbackGroup(button) {
-    setPageFeedbackGroupState(button, button.getAttribute("aria-expanded") !== "true");
+  function feedbackOverviewDashboardHtml(summary) {
+    var total = Number(summary.total || 0);
+    var yes = Number(summary.yes || 0);
+    var no = Number(summary.no || 0);
+    return [
+      '<article class="page-feedback-dashboard-card nds-card nds-stroke" data-page-feedback-dashboard="overview">',
+      '<div class="nds-card-content">',
+      '<div class="page-feedback-dashboard-head">',
+      '<div>',
+      '<h3 class="page-feedback-dashboard-title">نظرة عامة</h3>',
+      '<p class="page-feedback-dashboard-description">توزيع تقييمات نعم ولا على الصفحات العامة.</p>',
+      '</div>',
+      '<strong class="page-feedback-dashboard-value">' + safeText(String(total)) + '</strong>',
+      '</div>',
+      '<div class="page-feedback-dashboard-metrics">',
+      '<span class="nds-tag nds-sm" data-status="success"><span class="nds-label">' + safeText(yes + " نعم") + '</span></span>',
+      '<span class="nds-tag nds-sm" data-status="warning"><span class="nds-label">' + safeText(no + " لا") + '</span></span>',
+      '<span class="page-feedback-dashboard-percent">' + safeText(feedbackPercent(yes, total)) + ' نعم</span>',
+      '</div>',
+      '<div class="page-feedback-chart nds-chart" data-page-feedback-chart="overview" aria-label="مخطط توزيع تقييمات الصفحات"></div>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function feedbackRankDashboardHtml(kind, title, description, valueLabel, items, key, emptyText) {
+    var topValue = items.length ? Number(items[0][key] || 0) : 0;
+    return [
+      '<article class="page-feedback-dashboard-card nds-card nds-stroke" data-page-feedback-dashboard="' + safeText(kind) + '">',
+      '<div class="nds-card-content">',
+      '<div class="page-feedback-dashboard-head">',
+      '<div>',
+      '<h3 class="page-feedback-dashboard-title">' + safeText(title) + '</h3>',
+      '<p class="page-feedback-dashboard-description">' + safeText(description) + '</p>',
+      '</div>',
+      '<strong class="page-feedback-dashboard-value">' + safeText(String(topValue)) + '</strong>',
+      '</div>',
+      '<div class="page-feedback-chart nds-chart" data-page-feedback-chart="' + safeText(kind) + '" aria-label="' + safeText(title) + '"></div>',
+      feedbackRankListHtml(items, key, emptyText),
+      '<p class="page-feedback-dashboard-note">' + safeText(valueLabel) + '</p>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function ensurePageFeedbackChartComponent() {
+    if (window.NDS && window.NDS.Chart && window.NDS.Chart.create) return Promise.resolve(true);
+    if (ensurePageFeedbackChartComponent.promise) return ensurePageFeedbackChartComponent.promise;
+    window.NDS = window.NDS || {};
+    window.NDS.breakpoints = window.NDS.breakpoints || { "tablet-max": "(max-width: 960px)" };
+    window.NDS.escapeHtml = window.NDS.escapeHtml || safeText;
+    window.NDS.onAttrChange = window.NDS.onAttrChange || function () { return function () {}; };
+    ensurePageFeedbackChartComponent.promise = new Promise(function (resolve) {
+      var script = document.createElement("script");
+      script.src = "assets/vendor/nds/components/js/nds-chart.js?v=feedback-dashboard-20260605";
+      script.onload = function () { resolve(Boolean(window.NDS && window.NDS.Chart && window.NDS.Chart.create)); };
+      script.onerror = function () { resolve(false); };
+      document.head.appendChild(script);
+    });
+    return ensurePageFeedbackChartComponent.promise;
+  }
+
+  function renderPageFeedbackDashboardCharts(summary, pages) {
+    ensurePageFeedbackChartComponent().then(function (isReady) {
+      if (!isReady) return;
+      var yes = Number(summary.yes || 0);
+      var no = Number(summary.no || 0);
+      var total = Number(summary.total || 0);
+      var yesRank = feedbackRankPages(pages, "yes");
+      var noRank = feedbackRankPages(pages, "no");
+      var overviewChart = qs('[data-page-feedback-chart="overview"]');
+      var yesChart = qs('[data-page-feedback-chart="mostYes"]');
+      var noChart = qs('[data-page-feedback-chart="mostNo"]');
+      if (overviewChart) {
+        window.NDS.Chart.create(overviewChart, {
+          type: "donut",
+          labels: total ? ["نعم", "لا"] : ["لا توجد تقييمات"],
+          series: total ? [yes, no] : [1],
+          height: 220,
+          colors: total ? ["var(--colors-green-600)", "var(--colors-yellow-600)"] : ["var(--colors-neutral-300)"],
+          legend: { show: true, position: "bottom" },
+          dataLabels: { show: true },
+          tooltip: { show: true },
+          donut: { size: 0.58 }
+        });
+      }
+      if (yesChart && yesRank.length) {
+        window.NDS.Chart.create(yesChart, {
+          type: "bar",
+          labels: yesRank.map(function (item) { return item.pageTitle || item.pageKey || "صفحة"; }),
+          series: [{ name: "نعم", data: yesRank.map(function (item) { return Number(item.yes || 0); }) }],
+          height: 240,
+          colors: ["var(--colors-green-600)"],
+          legend: { show: false },
+          dataLabels: { show: true },
+          xaxis: { show: true, labelRotate: 45, labelDecimate: false },
+          yaxis: { show: true }
+        });
+      }
+      if (noChart && noRank.length) {
+        window.NDS.Chart.create(noChart, {
+          type: "bar",
+          labels: noRank.map(function (item) { return item.pageTitle || item.pageKey || "صفحة"; }),
+          series: [{ name: "لا", data: noRank.map(function (item) { return Number(item.no || 0); }) }],
+          height: 240,
+          colors: ["var(--colors-yellow-600)"],
+          legend: { show: false },
+          dataLabels: { show: true },
+          xaxis: { show: true, labelRotate: 45, labelDecimate: false },
+          yaxis: { show: true }
+        });
+      }
+    });
   }
 
   function renderPageFeedbackStats(stats) {
@@ -1068,7 +1148,16 @@
       ].join("");
       return;
     }
-    listRoot.innerHTML = pages.map(feedbackGroupHtml).join("");
+    var yesRank = feedbackRankPages(pages, "yes");
+    var noRank = feedbackRankPages(pages, "no");
+    listRoot.innerHTML = [
+      '<div class="page-feedback-dashboard-grid">',
+      feedbackOverviewDashboardHtml(summary),
+      feedbackRankDashboardHtml("mostYes", "أكثر الصفحات تقييما بنعم", "الصفحات التي حصلت على أعلى عدد من تقييمات نعم.", "ترتيب حسب تقييمات نعم", yesRank, "yes", "لا توجد تقييمات نعم حتى الآن."),
+      feedbackRankDashboardHtml("mostNo", "أكثر الصفحات تقييما بلا", "الصفحات التي تحتاج متابعة حسب عدد تقييمات لا.", "ترتيب حسب تقييمات لا", noRank, "no", "لا توجد تقييمات لا حتى الآن."),
+      '</div>'
+    ].join("");
+    renderPageFeedbackDashboardCharts(summary, pages);
   }
 
   function loadPageFeedbackStats() {
@@ -5734,7 +5823,6 @@
       var addSubpage = event.target.closest("[data-add-subpage]");
       var addCollectionCard = event.target.closest("[data-add-collection-card]");
       var pageChildrenToggle = event.target.closest("[data-page-children-toggle]");
-      var pageFeedbackGroupToggle = event.target.closest("[data-page-feedback-group-toggle]");
       var pageFormatButton = event.target.closest("[data-page-format]");
       var contactToggle = event.target.closest("[data-contact-toggle]");
       var editorToggle = event.target.closest("[data-editor-toggle]");
@@ -5760,7 +5848,6 @@
       if (addSubpage) { addSubpageForParent(addSubpage.dataset.addSubpage || ""); return; }
       if (addCollectionCard) { addCardToCollection(addCollectionCard.dataset.addCollectionCard || ""); return; }
       if (pageChildrenToggle) { togglePageChildrenSection(pageChildrenToggle); return; }
-      if (pageFeedbackGroupToggle) { togglePageFeedbackGroup(pageFeedbackGroupToggle); return; }
       if (pageFormatButton) { applyPageTextFormat(pageFormatButton); return; }
       if (!event.target.closest("[data-icon-type-menu], [data-home-number-icon-menu], [data-option-menu], [data-select-menu]")) closeAdminInlineDropmenus();
       if (contactToggle) { toggleContactPanel(contactToggle); return; }
