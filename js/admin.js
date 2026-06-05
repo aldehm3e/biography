@@ -26,9 +26,16 @@
   var adminUsersLoaded = false;
   var adminMediaUploads = [];
   var adminMediaLibraryLoaded = false;
+  var pageFeedbackStats = null;
+  var activeSystemView = "overview";
   var ADMIN_ACTIVITY_KEY = "websiteDemo:adminActivityLog";
   var MAX_FOOTER_COLUMNS = 3;
   var MAX_FOOTER_ICON_GROUPS = 2;
+  var CARD_LINK_TYPES = [
+    { value: "none", label: "بدون رابط" },
+    { value: "page", label: "صفحة داخلية" },
+    { value: "external", label: "رابط خارجي" }
+  ];
   var PAGE_EDITOR_FONTS = [
     { value: "", label: "الخط", family: "" },
     { value: "ibm-plex-arabic", label: "IBM Plex Sans Arabic", family: "'IBM Plex Sans Arabic', sans-serif" },
@@ -53,10 +60,13 @@
     home: "الرئيسية",
     footer: "التذييل",
     projects: "المشاريع",
+    cards: "البطاقات",
     pages: "الصفحات",
     navigation: "التنقل",
     integrations: "التكاملات",
-    utilities: "النسخ الاحتياطي",
+    page_feedback: "إدارة تقييم الصفحات",
+    backup: "النسخ الاحتياطي والاستعادة",
+    utilities: "أدوات النظام",
     uploads: "رفع الملفات",
     users: "إدارة الموظفين"
   };
@@ -155,11 +165,14 @@
     toast("ليس لديك صلاحية لهذا القسم.", "error");
     return false;
   }
-  function firstAllowedTab() {
-    var first = qsa("[data-admin-tab]").find(function (button) {
+  function firstAllowedTabButton() {
+    return qsa("[data-admin-tab]").find(function (button) {
       var permissionNode = button.closest("[data-permission]");
       return (!permissionNode || !permissionNode.hidden) && !button.closest("[hidden]");
-    });
+    }) || null;
+  }
+  function firstAllowedTab() {
+    var first = firstAllowedTabButton();
     return first ? first.dataset.adminTab : "account";
   }
   function applyAdminPanelSection(target, section) {
@@ -384,6 +397,7 @@
     if (sidemenuLabel) sidemenuLabel.textContent = (button.textContent || "").trim();
     if (target === "users" && hasPermission("users")) loadAdminUsers();
     if (target === "uploads" && hasPermission("uploads")) loadMediaLibrary();
+    if (target === "utilities") setSystemView(sourceButton && sourceButton.dataset && sourceButton.dataset.systemViewTarget || "overview");
     refreshAdminSidemenuComponents();
     setAdminSidemenuOpen(false);
     if (scrollToPanel && adminSection) {
@@ -406,8 +420,9 @@
     });
     var selected = qs("[data-admin-tab][data-state~='selected']");
     var selectedWrap = selected ? selected.closest("[data-permission]") : null;
-    var target = selected && (!selectedWrap || !selectedWrap.hidden) ? selected.dataset.adminTab : firstAllowedTab();
-    activateAdminTab(target || "account", false);
+    var fallbackButton = firstAllowedTabButton();
+    var targetButton = selected && (!selectedWrap || !selectedWrap.hidden) ? selected : fallbackButton;
+    activateAdminTab(targetButton ? targetButton.dataset.adminTab : "account", false, targetButton || null);
   }
   function interfaceTextId(key) {
     return "interfaceText" + key.charAt(0).toUpperCase() + key.slice(1);
@@ -872,6 +887,147 @@
     renderSystemStatus();
   }
 
+  function defaultPageFeedbackSettings() {
+    return Object.assign({
+      enabled: true,
+      question: "هل كانت هذه الصفحة مفيدة؟",
+      yesLabel: "نعم",
+      noLabel: "لا",
+      yesReasonsLabel: "ما الذي أعجبك في الصفحة؟",
+      noReasonsLabel: "ما الذي يمكن تحسينه؟",
+      yesOptions: "المحتوى واضح\nالمعلومات مفيدة\nسهولة الوصول للمعلومة",
+      noOptions: "المحتوى غير واضح\nالمعلومات غير مكتملة\nواجهت صعوبة في الاستخدام",
+      commentLabel: "ملاحظات إضافية",
+      commentPlaceholder: "اكتب ملاحظتك هنا",
+      agreementText: "تساعدنا ملاحظتك في تحسين محتوى هذه الصفحة.",
+      submitLabel: "إرسال التقييم",
+      closeLabel: "إغلاق",
+      successMessage: "تم استلام ملاحظتك، شكرا لك.",
+      errorMessage: "تعذر إرسال الملاحظة، حاول مرة أخرى.",
+      statisticsText: ""
+    }, window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.settings && window.DEFAULT_SITE_DATA.settings.pageFeedback || {});
+  }
+
+  function pageFeedbackSettings() {
+    data.settings = data.settings || {};
+    data.settings.pageFeedback = Object.assign(defaultPageFeedbackSettings(), data.settings.pageFeedback || {});
+    data.settings.pageFeedback.enabled = data.settings.pageFeedback.enabled !== false;
+    return data.settings.pageFeedback;
+  }
+
+  function fillPageFeedbackForm() {
+    var settings = pageFeedbackSettings();
+    setChecked("feedbackEnabled", settings.enabled !== false);
+    setValue("feedbackQuestion", settings.question);
+    setValue("feedbackYesLabel", settings.yesLabel);
+    setValue("feedbackNoLabel", settings.noLabel);
+    setValue("feedbackYesReasonsLabel", settings.yesReasonsLabel);
+    setValue("feedbackNoReasonsLabel", settings.noReasonsLabel);
+    setValue("feedbackYesOptions", settings.yesOptions);
+    setValue("feedbackNoOptions", settings.noOptions);
+    setValue("feedbackCommentLabel", settings.commentLabel);
+    setValue("feedbackCommentPlaceholder", settings.commentPlaceholder);
+    setValue("feedbackAgreementText", settings.agreementText);
+    setValue("feedbackSubmitLabel", settings.submitLabel);
+    setValue("feedbackCloseLabel", settings.closeLabel);
+    setValue("feedbackSuccessMessage", settings.successMessage);
+    setValue("feedbackErrorMessage", settings.errorMessage);
+    setValue("feedbackStatisticsText", settings.statisticsText);
+  }
+
+  function collectPageFeedbackSettings() {
+    var defaults = defaultPageFeedbackSettings();
+    data.settings = data.settings || {};
+    data.settings.pageFeedback = {
+      enabled: field("feedbackEnabled") ? field("feedbackEnabled").checked : defaults.enabled,
+      question: value("feedbackQuestion") || defaults.question,
+      yesLabel: value("feedbackYesLabel") || defaults.yesLabel,
+      noLabel: value("feedbackNoLabel") || defaults.noLabel,
+      yesReasonsLabel: value("feedbackYesReasonsLabel") || defaults.yesReasonsLabel,
+      noReasonsLabel: value("feedbackNoReasonsLabel") || defaults.noReasonsLabel,
+      yesOptions: value("feedbackYesOptions") || defaults.yesOptions,
+      noOptions: value("feedbackNoOptions") || defaults.noOptions,
+      commentLabel: value("feedbackCommentLabel") || defaults.commentLabel,
+      commentPlaceholder: value("feedbackCommentPlaceholder") || defaults.commentPlaceholder,
+      agreementText: value("feedbackAgreementText") || defaults.agreementText,
+      submitLabel: value("feedbackSubmitLabel") || defaults.submitLabel,
+      closeLabel: value("feedbackCloseLabel") || defaults.closeLabel,
+      successMessage: value("feedbackSuccessMessage") || defaults.successMessage,
+      errorMessage: value("feedbackErrorMessage") || defaults.errorMessage,
+      statisticsText: value("feedbackStatisticsText")
+    };
+    return data.settings.pageFeedback;
+  }
+
+  function feedbackAnswerLabel(answer) {
+    return answer === "yes" ? "نعم" : "لا";
+  }
+
+  function feedbackSummaryItemHtml(title, value, meta) {
+    return [
+      '<article class="system-status-item page-feedback-summary-item">',
+      '<span class="system-status-title">' + safeText(title) + '</span>',
+      '<strong class="system-status-value">' + safeText(value) + '</strong>',
+      '<span class="system-status-meta">' + safeText(meta || "") + '</span>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderPageFeedbackStats(stats) {
+    var summaryRoot = qs("[data-page-feedback-summary]");
+    var listRoot = qs("[data-page-feedback-list]");
+    var summary = stats && stats.summary || {};
+    var recent = stats && stats.recent || [];
+    if (summaryRoot) {
+      summaryRoot.innerHTML = [
+        feedbackSummaryItemHtml("إجمالي التقييمات", String(summary.total || 0), "كل الصفحات العامة"),
+        feedbackSummaryItemHtml("تقييمات نعم", String(summary.yes || 0), "زوار وجدوا الصفحة مفيدة"),
+        feedbackSummaryItemHtml("تقييمات لا", String(summary.no || 0), "زوار اقترحوا تحسينات"),
+        feedbackSummaryItemHtml("صفحات مقيّمة", String(summary.pages || 0), "عدد الصفحات التي استقبلت تقييمات")
+      ].join("");
+    }
+    if (!listRoot) return;
+    if (!recent.length) {
+      listRoot.innerHTML = [
+        '<div class="integration-status-card">',
+        '<span class="integration-status-dot" aria-hidden="true"></span>',
+        '<span class="nds-label">لا توجد تقييمات عامة مسجلة بعد.</span>',
+        '</div>'
+      ].join("");
+      return;
+    }
+    listRoot.innerHTML = recent.slice(0, 8).map(function (item) {
+      var reasons = Array.isArray(item.reasons) && item.reasons.length ? item.reasons.join("، ") : "";
+      return [
+        '<article class="page-feedback-recent-item" data-answer="' + safeText(item.answer || "") + '">',
+        '<div class="page-feedback-recent-head">',
+        '<span class="nds-tag nds-xs" data-status="' + (item.answer === "yes" ? "success" : "warning") + '"><span class="nds-label">' + safeText(feedbackAnswerLabel(item.answer)) + '</span></span>',
+        '<strong class="page-feedback-recent-title">' + safeText(item.pageTitle || item.pageKey || "صفحة") + '</strong>',
+        '<time class="page-feedback-recent-time" datetime="' + safeText(item.createdAt) + '">' + safeText(formatAdminDateTime(item.createdAt)) + '</time>',
+        '</div>',
+        reasons ? '<p class="page-feedback-recent-reasons">' + safeText(reasons) + '</p>' : '',
+        item.comment ? '<p class="page-feedback-recent-comment">' + safeText(item.comment) + '</p>' : '',
+        '</article>'
+      ].join("");
+    }).join("");
+  }
+
+  function loadPageFeedbackStats() {
+    if (!window.SiteStore || !window.SiteStore.listPageFeedback || !hasPermission("page_feedback")) {
+      renderPageFeedbackStats(pageFeedbackStats || { summary: {}, recent: [] });
+      return Promise.resolve(null);
+    }
+    return window.SiteStore.listPageFeedback().then(function (stats) {
+      pageFeedbackStats = stats || {};
+      renderPageFeedbackStats(pageFeedbackStats);
+      renderSystemStatus();
+      return pageFeedbackStats;
+    }).catch(function () {
+      renderPageFeedbackStats(pageFeedbackStats || { summary: {}, recent: [] });
+      return null;
+    });
+  }
+
   function collectCurrentAdminDrafts() {
     if (!data) return;
     data.settings = data.settings || {};
@@ -881,7 +1037,9 @@
     try { collectInterfaceTextFields(); } catch (error) { /* Form not mounted yet. */ }
     try { collectHomeDraft(); } catch (error) { /* Form not mounted yet. */ }
     try { collectFooterDraft(); } catch (error) { /* Form not mounted yet. */ }
+    try { collectPageFeedbackSettings(); } catch (error) { /* Form not mounted yet. */ }
     try { collectProjects({ keepDrafts: true }); } catch (error) { /* Form not mounted yet. */ }
+    try { collectCardCollections({ keepDrafts: true }); } catch (error) { /* Form not mounted yet. */ }
     try { collectPages(); } catch (error) { /* Form not mounted yet. */ }
     try { collectIntegrations({ keepDrafts: true }); } catch (error) { /* Form not mounted yet. */ }
   }
@@ -889,6 +1047,79 @@
   function dataJsonSnapshot() {
     collectCurrentAdminDrafts();
     return JSON.stringify(data || {}, null, 2);
+  }
+
+  function systemBackupPayload(feedbackExport) {
+    return {
+      schema: "biography.site-backup",
+      version: 2,
+      exportedAt: new Date().toISOString(),
+      data: cloneData(data || {}),
+      pageFeedback: feedbackExport || { records: [] },
+      permissions: Object.keys(ADMIN_PERMISSION_LABELS)
+    };
+  }
+
+  function systemBackupJson(feedbackExport) {
+    collectCurrentAdminDrafts();
+    return JSON.stringify(systemBackupPayload(feedbackExport), null, 2);
+  }
+
+  function setSystemBackupJsonBox(json) {
+    var box = field("jsonBox");
+    var meta = qs("[data-system-backup-meta]");
+    if (!box) return "";
+    box.value = json;
+    if (meta) {
+      meta.textContent = "آخر تحديث لمحتوى JSON: " + formatAdminDateTime(new Date().toISOString()) + " - " + formatBytes(jsonByteSize(json));
+    }
+    return json;
+  }
+
+  function refreshSystemBackupJsonBox() {
+    if (!field("jsonBox") || !data) return Promise.resolve("");
+    if (window.SiteStore && window.SiteStore.exportPageFeedback && hasPermission("backup")) {
+      return window.SiteStore.exportPageFeedback().then(function (feedbackExport) {
+        return setSystemBackupJsonBox(systemBackupJson(feedbackExport));
+      }).catch(function () {
+        return setSystemBackupJsonBox(systemBackupJson({ records: [] }));
+      });
+    }
+    return Promise.resolve(setSystemBackupJsonBox(systemBackupJson({ records: [] })));
+  }
+
+  function setSystemView(view) {
+    var panel = qs('[data-admin-panel="utilities"]');
+    var labels = {
+      overview: {
+        title: "أدوات النظام",
+        description: "متابعة صحة النظام وتشغيل أدوات الصيانة من مكان واحد."
+      },
+      pageFeedback: {
+        title: "إدارة تقييم الصفحات",
+        description: "إعداد نموذج تقييم الصفحة ومتابعة ملاحظات الزوار."
+      },
+      backup: {
+        title: "النسخ الاحتياطي والاستعادة",
+        description: "تصدير واستيراد نسخة JSON كاملة من محتوى الموقع وتقييمات الصفحات."
+      }
+    };
+    var label;
+    activeSystemView = labels[view] ? view : "overview";
+    label = labels[activeSystemView];
+    if (panel) panel.dataset.systemView = activeSystemView;
+    if (qs("[data-system-panel-title]")) qs("[data-system-panel-title]").textContent = label.title;
+    if (qs("[data-system-panel-description]")) qs("[data-system-panel-description]").textContent = label.description;
+    qsa("[data-system-view-block]").forEach(function (block) {
+      var permission = block.dataset.permission || "";
+      block.hidden = (permission && !hasPermission(permission)) || block.dataset.systemViewBlock !== activeSystemView;
+    });
+    if (activeSystemView === "backup") {
+      refreshSystemBackupJsonBox();
+    } else if (activeSystemView === "pageFeedback") {
+      renderPageFeedbackStats(pageFeedbackStats || { summary: {}, recent: [] });
+      loadPageFeedbackStats();
+    }
   }
 
   function visibleCount(items) {
@@ -956,6 +1187,7 @@
   function renderSystemStatus() {
     var root = qs("[data-system-status-grid]");
     var projects;
+    var cardCollections;
     var pages;
     var footerLinks;
     var integrations;
@@ -963,10 +1195,12 @@
     var previewKey;
     var previewRaw;
     var cookies;
+    var feedbackSettings;
     var user;
     var activityCount;
     if (!root || !data) return;
     projects = data.projects || [];
+    cardCollections = data.cardCollections || [];
     pages = data.pages || [];
     footerLinks = countFooterLinks();
     integrations = data.integrations || [];
@@ -974,15 +1208,18 @@
     previewKey = (window.SiteStore && window.SiteStore.previewKey) || "websiteDemo:previewData";
     previewRaw = localStorage.getItem(previewKey);
     cookies = data.footer && data.footer.cookies || {};
+    feedbackSettings = pageFeedbackSettings();
     user = currentAdminUser() || {};
     activityCount = readAdminActivityLog().length;
     root.innerHTML = [
       systemStatusItemHtml("حجم المحتوى", formatBytes(jsonByteSize(json)), "حجم JSON الحالي في لوحة الإدارة", "success", "جاهز"),
       systemStatusItemHtml("المشاريع", visibleCount(projects) + " / " + projects.length, "منشورة من إجمالي المشاريع", projects.length ? "success" : "info", projects.length ? "نشط" : "فارغ"),
+      systemStatusItemHtml("البطاقات", visibleCount(cardCollections) + " / " + cardCollections.length, "صفحات بطاقات ظاهرة من إجمالي صفحات البطاقات", cardCollections.length ? "success" : "info", cardCollections.length ? "نشط" : "فارغ"),
       systemStatusItemHtml("الصفحات", visibleCount(pages) + " / " + pages.length, "صفحات ظاهرة من إجمالي الصفحات", pages.length ? "success" : "info", pages.length ? "نشط" : "فارغ"),
       systemStatusItemHtml("روابط التذييل", footerLinks.visible + " / " + footerLinks.total, "روابط مفعلة داخل التذييل", footerLinks.total ? "success" : "info", footerLinks.total ? "منظم" : "فارغ"),
       systemStatusItemHtml("التكاملات", enabledIntegrationCount() + " / " + integrations.length, "تكاملات مفعلة من إجمالي التكاملات", enabledIntegrationCount() ? "success" : "info", enabledIntegrationCount() ? "مفعل" : "غير مفعل"),
       systemStatusItemHtml("إشعار الكوكيز", cookies.enabled === false ? "متوقف" : "مفعل", cookieConsentLabel(), cookies.enabled === false ? "error" : "success", cookies.enabled === false ? "متوقف" : "مفعل"),
+      systemStatusItemHtml("تقييم الصفحات", feedbackSettings.enabled === false ? "متوقف" : "مفعل", ((pageFeedbackStats && pageFeedbackStats.summary && pageFeedbackStats.summary.total) || 0) + " تقييم", feedbackSettings.enabled === false ? "info" : "success", feedbackSettings.enabled === false ? "متوقف" : "مفعل"),
       systemStatusItemHtml("المعاينة", previewRaw ? formatBytes(jsonByteSize(previewRaw)) : "لا توجد", "بيانات المعاينة المؤقتة في هذا المتصفح", previewRaw ? "info" : "success", previewRaw ? "مؤقت" : "نظيف"),
       systemStatusItemHtml("المستخدم", user.displayName || user.email || "جلسة الإدارة", roleLabel(user.role), user ? "success" : "info", user.role || "admin"),
       systemStatusItemHtml("سجل النشاط", String(activityCount), "آخر إجراءات هذا المتصفح", activityCount ? "info" : "success", activityCount ? "نشط" : "نظيف")
@@ -1020,6 +1257,8 @@
   function renderSystemConsole() {
     renderSystemStatus();
     renderAdminActivityLog();
+    renderPageFeedbackStats(pageFeedbackStats || { summary: {}, recent: [] });
+    setSystemView(activeSystemView);
   }
 
   function setMaintenanceResult(status, message) {
@@ -1131,42 +1370,44 @@
   }
 
   function downloadSystemBackup(filename) {
-    var json = dataJsonSnapshot();
-    setValue("jsonBox", json);
-    downloadJsonFile(filename || systemBackupFilename(), json);
-    addAdminActivity("تصدير نسخة احتياطية", "تم تنزيل ملف JSON بحجم " + formatBytes(jsonByteSize(json)) + ".", "success");
-    toast("تم تجهيز ملف التصدير");
+    if (!ensurePermission("backup")) return;
+    refreshSystemBackupJsonBox().then(function (json) {
+      downloadJsonFile(filename || systemBackupFilename(), json);
+      addAdminActivity("تصدير نسخة احتياطية", "تم تنزيل ملف JSON بحجم " + formatBytes(jsonByteSize(json)) + ".", "success");
+      toast("تم تجهيز ملف التصدير");
+    });
   }
 
   function copyJsonSnapshot() {
-    var json = dataJsonSnapshot();
+    if (!ensurePermission("backup")) return;
     var textarea;
-    setValue("jsonBox", json);
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(json).then(function () {
+    refreshSystemBackupJsonBox().then(function (json) {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(json).then(function () {
+          addAdminActivity("نسخ JSON", "تم نسخ نسخة المحتوى إلى الحافظة.", "success");
+          toast("تم نسخ JSON");
+        }).catch(function () {
+          toast("تعذر نسخ JSON", "error");
+        });
+        return;
+      }
+      textarea = document.createElement("textarea");
+      textarea.value = json;
+      textarea.setAttribute("readonly", "");
+      textarea.style.position = "fixed";
+      textarea.style.inset = "0 auto auto 0";
+      textarea.style.opacity = "0";
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand("copy");
         addAdminActivity("نسخ JSON", "تم نسخ نسخة المحتوى إلى الحافظة.", "success");
         toast("تم نسخ JSON");
-      }).catch(function () {
+      } catch (error) {
         toast("تعذر نسخ JSON", "error");
-      });
-      return;
-    }
-    textarea = document.createElement("textarea");
-    textarea.value = json;
-    textarea.setAttribute("readonly", "");
-    textarea.style.position = "fixed";
-    textarea.style.inset = "0 auto auto 0";
-    textarea.style.opacity = "0";
-    document.body.appendChild(textarea);
-    textarea.select();
-    try {
-      document.execCommand("copy");
-      addAdminActivity("نسخ JSON", "تم نسخ نسخة المحتوى إلى الحافظة.", "success");
-      toast("تم نسخ JSON");
-    } catch (error) {
-      toast("تعذر نسخ JSON", "error");
-    }
-    textarea.remove();
+      }
+      textarea.remove();
+    });
   }
 
   function dragHandleHtml(label) {
@@ -1212,6 +1453,79 @@
       if (project) project.slug = candidate;
       used[candidate] = true;
     });
+  }
+
+  function generatedCardCollectionSlug(index) {
+    var suffix = Date.now();
+    if (Number.isFinite(index)) suffix += "-" + (index + 1);
+    return "cards-" + suffix;
+  }
+
+  function isGeneratedCardCollectionSlug(value) {
+    return /^cards-\d+(?:-\d+)?$/.test(slugify(value));
+  }
+
+  function cardCollectionHasDraftContent(collection) {
+    return Boolean(collection && (collection.title || collection.description || (collection.cards || []).some(cardItemHasDraftContent)));
+  }
+
+  function cardItemHasDraftContent(card) {
+    return Boolean(card && (card.title || card.subtitle || card.linkValue || card.linkLabel));
+  }
+
+  function cardItemEditorSignature(card) {
+    return [
+      card.title || "",
+      card.subtitle || "",
+      card.linkType || "none",
+      card.linkValue || "",
+      card.linkLabel || "",
+      card.visible === false ? "0" : "1"
+    ].join("\u001f");
+  }
+
+  function cardCollectionEditorSignature(collection) {
+    return [
+      collection.title || "",
+      collection.slug || "",
+      collection.description || "",
+      collection.visible === false ? "0" : "1",
+      collection.showInNavigation === false ? "0" : "1",
+      (collection.cards || []).map(cardItemEditorSignature).join("\u001e")
+    ].join("\u001f");
+  }
+
+  function ensureUniqueCardCollectionSlugs(collections) {
+    var used = {};
+    (collections || []).forEach(function (collection, index) {
+      var seed = slugify(collection && (collection.slug || collection.title)) || generatedCardCollectionSlug(index);
+      var candidate = seed;
+      var suffix = 2;
+      while (used[candidate]) {
+        candidate = seed + "-" + suffix;
+        suffix += 1;
+      }
+      if (collection) collection.slug = candidate;
+      used[candidate] = true;
+    });
+  }
+
+  function cardCollectionUrl(collection) {
+    var slug = slugify(collection && (collection.slug || collection.title));
+    return "cards.html" + (slug ? "?slug=" + encodeURIComponent(slug) : "");
+  }
+
+  function cardPageLinkOptions() {
+    var options = [{ value: "", label: "اختر صفحة" }];
+    (data.pages || []).filter(function (page) {
+      return page && slugify(page.slug || page.title) && !pageHasChildren(page.slug || page.title, data.pages);
+    }).forEach(function (page) {
+      options.push({
+        value: slugify(page.slug || page.title),
+        label: pageDisplayTitle(page)
+      });
+    });
+    return options;
   }
 
   function parseLines(text, mapper) {
@@ -1292,6 +1606,7 @@
     setValue("footerCopyrightText", data.footer && data.footer.copyrightText);
     setValue("footerLegalText", data.footer && Object.prototype.hasOwnProperty.call(data.footer, "legalText") ? data.footer.legalText : data.texts.footerDisclaimer);
     fillFooterCookieFields();
+    fillPageFeedbackForm();
 
     renderHeroSlidesEditor();
     renderHomeNumbersEditor();
@@ -1300,10 +1615,12 @@
     renderSkillsEditor();
     renderFooterEditors();
     renderProjectsEditor();
+    renderCardCollectionsEditor();
     renderPagesEditor();
     renderFooterCookiePagesList();
     renderIntegrationsEditor();
     renderSystemConsole();
+    loadPageFeedbackStats();
     prepareUploadControls();
     rememberLoadedEditorState();
   }
@@ -1311,7 +1628,9 @@
   function rememberLoadedEditorState() {
     collectHomeDraft();
     collectFooterDraft();
+    collectPageFeedbackSettings();
     collectProjects();
+    collectCardCollections();
     collectPages();
     collectIntegrations();
     rememberSavedData();
@@ -2571,6 +2890,151 @@
     prepareUploadControls(root);
   }
 
+  function normalizeCardLinkType(value) {
+    return ["none", "page", "external"].indexOf(value) !== -1 ? value : "none";
+  }
+
+  function collectionCardTemplate(card, cardIndex, collectionIndex, collectionId) {
+    var cardId = ensureEntityId(card, "collection-card");
+    var panelId = "collection-card-panel-" + collectionIndex + "-" + cardIndex;
+    var accordionKey = "collectionCard:" + cardId;
+    var isOpen = openEditorAccordions.has(accordionKey);
+    var title = card.title || "بطاقة";
+    var linkType = normalizeCardLinkType(card.linkType || (card.linkValue ? "external" : "none"));
+    var selectedPage = linkType === "page" ? card.linkValue : "";
+    var externalValue = linkType === "external" ? card.linkValue : "";
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item card-item-editor nds-accordion nds-md nds-card nds-stroke" data-nds-local-accordion="ready" data-sortable-item="collectionCard" data-editor-accordion-key="' + safeText(accordionKey) + '" data-card-item-index="' + cardIndex + '" data-card-id="' + safeText(cardId) + '" data-card-collection-id="' + safeText(collectionId) + '" data-state="' + (isOpen ? "open" : "closed") + '">',
+      '<div class="nds-card-content compact-card-content nds-accordion-item">',
+      '<div class="editor-item-head sortable-editor-header nds-accordion-header">',
+      dragHandleHtml("تغيير ترتيب البطاقة"),
+      '<button class="editor-accordion-btn nds-accordion-btn nds-btn nds-subtle nds-menu-btn" type="button" data-editor-toggle data-state="' + (isOpen ? "open" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
+      '<span class="nds-accordion-title nds-card-title">' + safeText(title) + '</span>',
+      '</button>',
+      adminDeleteButton("data-delete-collection-card", cardIndex, "حذف البطاقة"),
+      '</div>',
+      '<div class="editor-accordion-collapse nds-accordion-collapse" id="' + panelId + '"' + (isOpen ? ' data-state="open" aria-hidden="false"' : ' aria-hidden="true"') + '>',
+      '<div class="editor-accordion-content nds-accordion-content">',
+      '<div class="compact-editor-body editor-accordion-body nds-accordion-body">',
+      '<div class="form-grid">',
+      inputHtml("cardTitle", "عنوان البطاقة", card.title),
+      inputHtml("cardLinkLabel", "نص زر التفاصيل", card.linkLabel || "عرض التفاصيل"),
+      '</div>',
+      textareaHtml("cardSubtitle", "النص الفرعي", card.subtitle, 3),
+      '<div class="form-grid card-link-fields">',
+      selectHtml("cardLinkType", "نوع الرابط", linkType, CARD_LINK_TYPES),
+      selectHtml("cardLinkPage", "صفحة داخلية", selectedPage, cardPageLinkOptions()),
+      inputHtml("cardLinkValue", "رابط خارجي", externalValue, "https://example.com"),
+      '</div>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-card-visible ' + (card.visible === false ? "" : "checked") + '> <span>إظهار البطاقة</span></label>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function cardItemsSectionHtml(collection, collectionId, collectionIndex) {
+    var cards = collection.cards || [];
+    var sectionKey = "card-collection-cards:" + collectionId;
+    var panelId = "card-items-panel-" + collectionId;
+    var isOpen = openEditorAccordions.has(sectionKey);
+    return [
+      '<section class="page-children-section card-items-section nds-accordion nds-md nds-card nds-stroke" data-nds-local-accordion="ready" data-page-children-section data-editor-accordion-key="' + safeText(sectionKey) + '" data-state="' + (isOpen ? "open" : "closed") + '" aria-label="بطاقات الصفحة">',
+      '<div class="nds-accordion-item">',
+      '<h3 class="page-children-head nds-accordion-header">',
+      '<button class="nds-btn nds-subtle nds-menu-btn nds-accordion-btn page-children-toggle" type="button" data-page-children-toggle data-state="' + (isOpen ? "open" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + safeText(panelId) + '">',
+      '<span class="page-children-title-row">',
+      '<span class="section-minor-title">بطاقات الصفحة</span>',
+      '<span class="nds-tag nds-sm"><span class="nds-label">' + cards.length + ' بطاقة</span></span>',
+      '</span>',
+      '</button>',
+      '<button class="nds-btn nds-secondary-outline nds-sm page-add-subpage-btn" type="button" data-add-collection-card="' + safeText(collectionId) + '" aria-label="إضافة بطاقة" title="إضافة بطاقة">',
+      '<i class="nds-icon nds-hgi-plus-sign" aria-hidden="true"></i>',
+      '<span class="nds-label">إضافة بطاقة</span>',
+      '</button>',
+      '</h3>',
+      '<div class="page-children-collapse nds-accordion-collapse" id="' + safeText(panelId) + '"' + (isOpen ? ' data-state="open" aria-hidden="false"' : ' aria-hidden="true"') + '>',
+      '<div class="page-children-collapse-content nds-accordion-content">',
+      '<div class="page-children-body nds-accordion-body">',
+      '<div class="editor-list compact-editor-list page-children-list card-items-list" data-sortable-list="collectionCards:' + safeText(collectionId) + '" data-card-items-editor>',
+      cards.length ? cards.map(function (card, cardIndex) {
+        return collectionCardTemplate(card, cardIndex, collectionIndex, collectionId);
+      }).join("") : '<div class="page-children-empty">لا توجد بطاقات في هذه الصفحة بعد.</div>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</section>'
+    ].join("");
+  }
+
+  function cardCollectionTemplate(collection, index) {
+    var collectionId = ensureEntityId(collection, "card-collection");
+    var panelId = "card-collection-panel-" + index;
+    var accordionKey = "cardCollection:" + collectionId;
+    var isOpen = openEditorAccordions.has(accordionKey);
+    var title = collection.title || "صفحة بطاقات";
+    var collectionSlug = slugify(collection.slug || collection.title) || generatedCardCollectionSlug(index);
+    var titleSlug = slugify(collection.title || "");
+    var collectionSignature;
+    var trackingLabel;
+    collection.cards = Array.isArray(collection.cards) ? collection.cards : [];
+    ensurePageTimestamps(collection);
+    collectionSignature = cardCollectionEditorSignature(collection);
+    trackingLabel = pageTrackingLabel(collection);
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item nds-accordion nds-md nds-card nds-stroke" data-nds-local-accordion="ready" data-sortable-item="cardCollections" data-editor-accordion-key="' + safeText(accordionKey) + '" data-card-collection-index="' + index + '" data-card-collection-id="' + safeText(collectionId) + '" data-card-collection-title-slug="' + safeText(titleSlug) + '" data-card-collection-created-at="' + safeText(collection.createdAt || "") + '" data-card-collection-updated-at="' + safeText(collection.updatedAt || "") + '" data-card-collection-signature="' + safeText(collectionSignature) + '" data-state="' + (isOpen ? "open" : "closed") + '">',
+      '<div class="nds-card-content compact-card-content nds-accordion-item">',
+      '<div class="editor-item-head sortable-editor-header nds-accordion-header">',
+      dragHandleHtml("تغيير ترتيب صفحة البطاقات"),
+      '<button class="editor-accordion-btn nds-accordion-btn nds-btn nds-subtle nds-menu-btn" type="button" data-editor-toggle data-state="' + (isOpen ? "open" : "") + '" aria-expanded="' + (isOpen ? "true" : "false") + '" aria-controls="' + panelId + '">',
+      '<span class="page-editor-heading nds-accordion-title">',
+      '<span class="nds-card-title">' + safeText(title) + '</span>',
+      trackingLabel ? '<span class="page-editor-timestamp">' + safeText(trackingLabel) + '</span>' : '',
+      '<span class="page-editor-meta">',
+      '<span class="nds-tag nds-sm"><span class="nds-label">' + collection.cards.length + ' بطاقة</span></span>',
+      collectionSlug ? '<span class="nds-tag nds-sm" data-status="info"><span class="nds-label">' + safeText(collectionSlug) + '</span></span>' : '',
+      '</span>',
+      '</span>',
+      '</button>',
+      adminDeleteButton("data-delete-card-collection", index, "حذف صفحة البطاقات"),
+      '</div>',
+      '<div class="editor-accordion-collapse nds-accordion-collapse" id="' + panelId + '"' + (isOpen ? ' data-state="open" aria-hidden="false"' : ' aria-hidden="true"') + '>',
+      '<div class="editor-accordion-content nds-accordion-content">',
+      '<div class="compact-editor-body editor-accordion-body nds-accordion-body">',
+      '<div class="form-grid">',
+      inputHtml("cardCollectionTitle", "اسم الصفحة", collection.title),
+      inputHtml("cardCollectionSlug", "الرابط المختصر", collectionSlug),
+      '</div>',
+      textareaHtml("cardCollectionDescription", "وصف الصفحة", collection.description, 3),
+      '<div class="admin-check-stack">',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-card-collection-visible ' + (collection.visible === false ? "" : "checked") + '> <span>نشر صفحة البطاقات</span></label>',
+      '<label class="check-line"><input class="nds-check" type="checkbox" data-card-collection-navigation-link ' + (collection.showInNavigation === false ? "" : "checked") + '> <span>إظهار في الهيدر</span></label>',
+      '</div>',
+      '<div class="admin-inline-link-row"><a class="nds-btn nds-subtle nds-sm" href="' + safeText(cardCollectionUrl(collection)) + '" target="_blank" rel="noopener noreferrer"><span class="nds-label">فتح الصفحة</span></a></div>',
+      cardItemsSectionHtml(collection, collectionId, index),
+      '</div>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderCardCollectionsEditor() {
+    var root = qs("[data-card-collections-editor]");
+    if (!root) return;
+    data.cardCollections = data.cardCollections || [];
+    root.dataset.sortableList = "cardCollections";
+    root.innerHTML = data.cardCollections.map(cardCollectionTemplate).join("");
+    if (!data.cardCollections.length) {
+      root.append(window.SiteApp.emptyState("لا توجد صفحات بطاقات", "استخدم زر إضافة صفحة بطاقات لإنشاء صفحة مثل الإدارات أو الشركات."));
+    }
+  }
+
   function pageDisplayTitle(page) {
     return page && (page.title || page.slug) || "صفحة";
   }
@@ -3138,6 +3602,78 @@
     if (!input) return;
     item = input.closest("[data-project-index]");
     input.value = slugify(input.value) || generatedProjectSlug(Number(item && item.dataset.projectIndex));
+  }
+
+  function collectCollectionCards(collectionItem, options) {
+    var keepDrafts = options && options.keepDrafts;
+    return qsa("[data-card-item-index]", collectionItem).map(function (item) {
+      var linkType = normalizeCardLinkType((qs('[data-field="cardLinkType"]', item) || {}).value || "none");
+      var pageValue = slugify((qs('[data-field="cardLinkPage"]', item) || {}).value || "");
+      var externalValue = (qs('[data-field="cardLinkValue"]', item) || {}).value || "";
+      var linkValue = linkType === "page" ? pageValue : (linkType === "external" ? externalValue.trim() : "");
+      if (!linkValue) linkType = "none";
+      return {
+        id: item.dataset.cardId || newEntityId("collection-card"),
+        title: String((qs('[data-field="cardTitle"]', item) || {}).value || "").trim(),
+        subtitle: String((qs('[data-field="cardSubtitle"]', item) || {}).value || "").trim(),
+        linkType: linkType,
+        linkValue: linkValue,
+        linkLabel: String((qs('[data-field="cardLinkLabel"]', item) || {}).value || "").trim() || "عرض التفاصيل",
+        visible: qs("[data-card-visible]", item).checked
+      };
+    }).filter(function (card) {
+      return keepDrafts || cardItemHasDraftContent(card);
+    });
+  }
+
+  function collectCardCollections(options) {
+    var keepDrafts = options && options.keepDrafts;
+    data.cardCollections = qsa("[data-card-collection-index]").map(function (item) {
+      var title = String((qs('[data-field="cardCollectionTitle"]', item) || {}).value || "").trim();
+      var slugInput = qs('[data-field="cardCollectionSlug"]', item);
+      var createdAt = normalizePageTimestampValue(item.dataset.cardCollectionCreatedAt);
+      var updatedAt = normalizePageTimestampValue(item.dataset.cardCollectionUpdatedAt, createdAt);
+      var collection = {
+        id: item.dataset.cardCollectionId || newEntityId("card-collection"),
+        title: title,
+        slug: slugify((slugInput ? slugInput.value : "") || title || generatedCardCollectionSlug(Number(item.dataset.cardCollectionIndex))),
+        description: String((qs('[data-field="cardCollectionDescription"]', item) || {}).value || "").trim(),
+        visible: qs("[data-card-collection-visible]", item).checked,
+        showInNavigation: qs("[data-card-collection-navigation-link]", item).checked,
+        showInFooter: false,
+        createdAt: createdAt,
+        updatedAt: updatedAt,
+        cards: collectCollectionCards(item, options)
+      };
+      if (cardCollectionEditorSignature(collection) !== (item.dataset.cardCollectionSignature || "")) {
+        collection.updatedAt = currentPageTimestamp();
+      }
+      return collection;
+    }).filter(function (collection) {
+      return keepDrafts || cardCollectionHasDraftContent(collection);
+    });
+    ensureUniqueCardCollectionSlugs(data.cardCollections);
+  }
+
+  function syncCardCollectionSlugFromTitle(input) {
+    var item = input ? input.closest("[data-card-collection-index]") : null;
+    var slugInput = item ? qs('[data-field="cardCollectionSlug"]', item) : null;
+    if (!slugInput) return;
+
+    var nextTitleSlug = slugify(input.value);
+    var previousTitleSlug = slugify(item.dataset.cardCollectionTitleSlug || "");
+    var currentSlug = slugify(slugInput.value);
+    if (!currentSlug || currentSlug === previousTitleSlug || isGeneratedCardCollectionSlug(currentSlug)) {
+      slugInput.value = nextTitleSlug || currentSlug || generatedCardCollectionSlug(Number(item.dataset.cardCollectionIndex));
+      item.dataset.cardCollectionTitleSlug = nextTitleSlug;
+    }
+  }
+
+  function normalizeCardCollectionSlugInput(input) {
+    var item;
+    if (!input) return;
+    item = input.closest("[data-card-collection-index]");
+    input.value = slugify(input.value) || generatedCardCollectionSlug(Number(item && item.dataset.cardCollectionIndex));
   }
 
   function collectContacts() {
@@ -3726,6 +4262,102 @@
     });
   }
 
+  function addCardCollectionDraft() {
+    var collectionId;
+    if (!ensurePermission("cards")) return;
+    collectCardCollections({ keepDrafts: true });
+    collectionId = newEntityId("card-collection");
+    data.cardCollections.unshift({
+      id: collectionId,
+      title: "صفحة بطاقات جديدة",
+      slug: generatedCardCollectionSlug(data.cardCollections.length),
+      description: "",
+      visible: true,
+      showInNavigation: true,
+      showInFooter: false,
+      createdAt: currentPageTimestamp(),
+      updatedAt: currentPageTimestamp(),
+      cards: []
+    });
+    openEditorAccordions.add("cardCollection:" + collectionId);
+    renderCardCollectionsEditor();
+  }
+
+  function addCardToCollection(collectionId) {
+    var collection;
+    var cardId;
+    if (!ensurePermission("cards")) return;
+    captureOpenEditorAccordions(qs("[data-card-collections-editor]"));
+    collectCardCollections({ keepDrafts: true });
+    collection = (data.cardCollections || []).find(function (item) {
+      return item && item.id === collectionId;
+    });
+    if (!collection) return;
+    collection.cards = collection.cards || [];
+    cardId = newEntityId("collection-card");
+    collection.cards.push({
+      id: cardId,
+      title: "",
+      subtitle: "",
+      linkType: "none",
+      linkValue: "",
+      linkLabel: "عرض التفاصيل",
+      visible: true
+    });
+    openEditorAccordions.add("cardCollection:" + collectionId);
+    openEditorAccordions.add("card-collection-cards:" + collectionId);
+    openEditorAccordions.add("collectionCard:" + cardId);
+    renderCardCollectionsEditor();
+  }
+
+  function deleteCardCollectionById(collectionId) {
+    var index;
+    if (!ensurePermission("cards") || !collectionId) return;
+    captureOpenEditorAccordions(qs("[data-card-collections-editor]"));
+    collectCardCollections({ keepDrafts: true });
+    index = (data.cardCollections || []).findIndex(function (collection) {
+      return collection && collection.id === collectionId;
+    });
+    if (index < 0) return;
+    confirmAdminDeleteThen("هل تريد حذف صفحة البطاقات هذه؟ سيتم حذف بطاقاتها أيضا.", function () {
+      data.cardCollections.splice(index, 1);
+      openEditorAccordions.delete("cardCollection:" + collectionId);
+      openEditorAccordions.delete("card-collection-cards:" + collectionId);
+      saveData();
+      renderCardCollectionsEditor();
+      refreshPublicShell();
+      toast("تم حذف صفحة البطاقات");
+    });
+  }
+
+  function deleteCollectionCard(button) {
+    var collectionItem;
+    var cardItem;
+    var collectionId;
+    var collection;
+    var cardIndex;
+    if (!ensurePermission("cards") || !button) return;
+    collectionItem = button.closest("[data-card-collection-index]");
+    cardItem = button.closest("[data-card-item-index]");
+    collectionId = collectionItem ? collectionItem.dataset.cardCollectionId : "";
+    if (!collectionItem || !cardItem || !collectionId) return;
+    captureOpenEditorAccordions(qs("[data-card-collections-editor]"));
+    collectCardCollections({ keepDrafts: true });
+    collection = (data.cardCollections || []).find(function (item) {
+      return item && item.id === collectionId;
+    });
+    if (!collection) return;
+    cardIndex = getSortableItemIndex(cardItem);
+    confirmAdminDeleteThen("هل تريد حذف هذه البطاقة؟", function () {
+      if (cardIndex > -1) collection.cards.splice(cardIndex, 1);
+      collection.updatedAt = currentPageTimestamp();
+      saveData();
+      renderCardCollectionsEditor();
+      refreshPublicShell();
+      toast("تم حذف البطاقة");
+    });
+  }
+
   function integrationLabel(integration) {
     if (integration && integration.type === "analytics") return integration.name || integration.provider || "Google Analytics";
     return integration.name || integration.provider || "تكامل";
@@ -4016,7 +4648,7 @@
       email: "",
       phone: "",
       role: "employee",
-      permissions: ["home", "footer", "projects", "pages", "uploads"],
+      permissions: ["home", "footer", "projects", "cards", "pages", "uploads"],
       active: true
     });
     renderAdminUsersEditor();
@@ -4080,6 +4712,19 @@
     renderProjectsEditor();
   }
 
+  function saveCardCollections() {
+    if (!ensurePermission("cards")) return;
+    collectCardCollections();
+    var savePromise = saveDataIfChanged();
+    if (!savePromise) return;
+    savePromise.then(function () {
+      toast("تم حفظ البطاقات");
+      refreshPublicShell();
+      addAdminActivity("حفظ البطاقات", "تم تحديث صفحات البطاقات وبطاقاتها.", "success");
+    });
+    renderCardCollectionsEditor();
+  }
+
   function savePages() {
     if (!ensurePermission("pages")) return;
     var previousData = cloneData(lastSavedSnapshot || data);
@@ -4122,6 +4767,8 @@
       collectHomeDraft();
     } else if (target === "projects") {
       collectProjects();
+    } else if (target === "cards") {
+      collectCardCollections();
     } else if (target === "pages") {
       collectPages();
     }
@@ -4131,6 +4778,12 @@
   function previewUrl(target, previewId) {
     var suffix = "?preview=" + encodeURIComponent(previewId);
     if (target === "projects") return "projects.html" + suffix;
+    if (target === "cards") {
+      var firstCollection = (data.cardCollections || []).find(function (collection) {
+        return collection && collection.visible !== false && slugify(collection.slug || collection.title);
+      });
+      return firstCollection ? cardCollectionUrl(firstCollection) + "&preview=" + encodeURIComponent(previewId) : "cards.html" + suffix;
+    }
     if (target === "pages") return "pages.html" + suffix;
     return "index.html" + suffix;
   }
@@ -4184,6 +4837,21 @@
       renderPagesEditor();
       refreshPublicShell();
       toast("تم تحديث ترتيب الصفحات");
+    }
+
+    if (root.dataset.sortableList === "cardCollections") {
+      collectCardCollections({ keepDrafts: true });
+      if (data.cardCollections.some(cardCollectionHasDraftContent)) saveData();
+      renderCardCollectionsEditor();
+      refreshPublicShell();
+      toast("تم تحديث ترتيب صفحات البطاقات");
+    }
+    if (String(root.dataset.sortableList || "").indexOf("collectionCards:") === 0) {
+      collectCardCollections({ keepDrafts: true });
+      saveData();
+      renderCardCollectionsEditor();
+      refreshPublicShell();
+      toast("تم تحديث ترتيب البطاقات");
     }
 
     if (root.dataset.sortableList === "projects") {
@@ -4748,8 +5416,29 @@
       }
     });
     qs("[data-save-projects]").addEventListener("click", saveProjects);
+    if (qs("[data-save-card-collections]")) qs("[data-save-card-collections]").addEventListener("click", saveCardCollections);
     qs("[data-save-pages]").addEventListener("click", savePages);
     if (qs("[data-save-integrations]")) qs("[data-save-integrations]").addEventListener("click", saveIntegrations);
+    if (qs("[data-save-page-feedback]")) qs("[data-save-page-feedback]").addEventListener("click", function () {
+      if (!ensurePermission("page_feedback")) return;
+      collectPageFeedbackSettings();
+      saveData().then(function () {
+        renderSystemConsole();
+        addAdminActivity("حفظ تقييم الصفحات", "تم تحديث إعدادات تقييم الصفحات العامة.", "success");
+        toast("تم حفظ إعدادات تقييم الصفحات");
+      });
+    });
+    if (qs("[data-refresh-page-feedback]")) qs("[data-refresh-page-feedback]").addEventListener("click", function () {
+      loadPageFeedbackStats().then(function () {
+        renderSystemStatus();
+        toast("تم تحديث تقييمات الصفحات");
+      });
+    });
+    qsa("[data-open-system-view]").forEach(function (button) {
+      button.addEventListener("click", function () {
+        setSystemView(button.dataset.openSystemView || "overview");
+      });
+    });
     qsa("[data-preview-target]").forEach(function (button) {
       button.addEventListener("click", function () {
         openPreview(button.dataset.previewTarget || "home");
@@ -4778,6 +5467,9 @@
       if (event.target.matches('[data-field="projectTitle"]')) {
         syncProjectSlugFromTitle(event.target);
       }
+      if (event.target.matches('[data-field="cardCollectionTitle"]')) {
+        syncCardCollectionSlugFromTitle(event.target);
+      }
       if (event.target.matches("[data-ga-measurement-input]")) {
         syncGaMeasurementStatus(event.target);
       }
@@ -4786,6 +5478,9 @@
     document.addEventListener("focusout", function (event) {
       if (event.target.matches('[data-field="projectSlug"]')) {
         normalizeProjectSlugInput(event.target);
+      }
+      if (event.target.matches('[data-field="cardCollectionSlug"]')) {
+        normalizeCardCollectionSlugInput(event.target);
       }
     });
 
@@ -4801,6 +5496,8 @@
       data.projects.push({ id: newEntityId("project"), title: "", slug: generatedProjectSlug(data.projects.length), description: "", status: "", date: "", category: "", image: "", url: "", visible: true });
       renderProjectsEditor();
     });
+
+    if (qs("[data-add-card-collection]")) qs("[data-add-card-collection]").addEventListener("click", addCardCollectionDraft);
 
     if (qs("[data-add-contact]")) qs("[data-add-contact]").addEventListener("click", function () {
       data.home.contacts = collectContacts();
@@ -4945,6 +5642,8 @@
     document.addEventListener("click", function (event) {
       var deleteHeroSlide = event.target.closest("[data-delete-hero-slide]");
       var deleteProject = event.target.closest("[data-delete-project]");
+      var deleteCardCollection = event.target.closest("[data-delete-card-collection]");
+      var deleteCollectionCardButton = event.target.closest("[data-delete-collection-card]");
       var deletePage = event.target.closest("[data-delete-page]");
       var deleteContact = event.target.closest("[data-delete-contact]");
       var deleteFooterLink = event.target.closest("[data-delete-footer-link]");
@@ -4963,6 +5662,7 @@
       var deleteSkill = event.target.closest("[data-delete-skill]");
       var deleteHomeNumber = event.target.closest("[data-delete-home-number]");
       var addSubpage = event.target.closest("[data-add-subpage]");
+      var addCollectionCard = event.target.closest("[data-add-collection-card]");
       var pageChildrenToggle = event.target.closest("[data-page-children-toggle]");
       var pageFormatButton = event.target.closest("[data-page-format]");
       var contactToggle = event.target.closest("[data-contact-toggle]");
@@ -4987,6 +5687,7 @@
       if (saveAdminUserButton) { saveAdminUser(saveAdminUserButton); return; }
       if (deleteAdminUserButton) { deleteAdminUser(deleteAdminUserButton); return; }
       if (addSubpage) { addSubpageForParent(addSubpage.dataset.addSubpage || ""); return; }
+      if (addCollectionCard) { addCardToCollection(addCollectionCard.dataset.addCollectionCard || ""); return; }
       if (pageChildrenToggle) { togglePageChildrenSection(pageChildrenToggle); return; }
       if (pageFormatButton) { applyPageTextFormat(pageFormatButton); return; }
       if (!event.target.closest("[data-icon-type-menu], [data-home-number-icon-menu], [data-option-menu], [data-select-menu]")) closeAdminInlineDropmenus();
@@ -5130,6 +5831,15 @@
         });
         return;
       }
+      if (deleteCardCollection) {
+        var collectionItem = deleteCardCollection.closest("[data-card-collection-index]");
+        deleteCardCollectionById(collectionItem ? collectionItem.dataset.cardCollectionId : "");
+        return;
+      }
+      if (deleteCollectionCardButton) {
+        deleteCollectionCard(deleteCollectionCardButton);
+        return;
+      }
       if (deletePage) {
         var deletePageItem = deletePage.closest("[data-page-index]");
         deletePageById(deletePageItem ? deletePageItem.dataset.pageId : "");
@@ -5193,6 +5903,17 @@
         applyPageEditorFontSize(event.target);
         return;
       }
+      if (event.target.matches("[data-card-collection-visible], [data-card-collection-navigation-link], [data-card-visible]")) {
+        var cardCollectionItem = event.target.closest("[data-card-collection-index]");
+        if (cardCollectionItem && event.target.matches("[data-card-collection-navigation-link]") && event.target.checked) {
+          qs("[data-card-collection-visible]", cardCollectionItem).checked = true;
+        }
+        collectCardCollections({ keepDrafts: true });
+        saveData();
+        refreshPublicShell();
+        toast("تم تحديث البطاقات");
+        return;
+      }
       if (!event.target.matches("[data-page-visible], [data-page-navigation-link], [data-page-footer-link]")) return;
       var pageItem = event.target.closest("[data-page-index]");
       if (pageItem && event.target.matches("[data-page-navigation-link], [data-page-footer-link]") && event.target.checked) {
@@ -5229,6 +5950,12 @@
     });
 
     if (qs("[data-copy-json]")) qs("[data-copy-json]").addEventListener("click", copyJsonSnapshot);
+    if (qs("[data-refresh-json]")) qs("[data-refresh-json]").addEventListener("click", function () {
+      if (!ensurePermission("backup")) return;
+      refreshSystemBackupJsonBox().then(function () {
+        toast("تم تحديث محتوى JSON");
+      });
+    });
 
     if (qs("[data-check-broken-links]")) qs("[data-check-broken-links]").addEventListener("click", runSystemLinkCheck);
     if (qs("[data-clear-preview-cache]")) qs("[data-clear-preview-cache]").addEventListener("click", clearPreviewCache);
@@ -5240,6 +5967,7 @@
 
     if (qs("[data-import-json]")) qs("[data-import-json]").addEventListener("click", function () {
       var json = value("jsonBox");
+      if (!ensurePermission("backup")) return;
       if (!json) { toast("ضع محتوى JSON أولا"); return; }
       try {
         window.SiteStore.importJson(json).then(function (importedData) {
@@ -5257,6 +5985,7 @@
     });
 
     if (qs("[data-import-local-cache]")) qs("[data-import-local-cache]").addEventListener("click", function () {
+      if (!ensurePermission("backup")) return;
       window.SiteStore.importLocalCache().then(function (importedData) {
         data = importedData;
         return fillForms();
@@ -5269,10 +5998,14 @@
     });
 
     if (qs("[data-reset-content]")) qs("[data-reset-content]").addEventListener("click", function () {
+      if (!ensurePermission("backup")) return;
       confirmAdminDeleteThen("هل تريد إعادة تعيين كل المحتوى؟ سيتم حذف التعديلات الحالية.", function () {
         window.SiteStore.reset().then(function (resetData) {
           data = resetData;
           setValue("jsonBox", "");
+          if (window.SiteStore.importPageFeedback) return window.SiteStore.importPageFeedback([]).then(function () {
+            return fillForms();
+          });
           return fillForms();
         }).then(function () {
           addAdminActivity("إعادة تعيين المحتوى", "تمت إعادة الموقع إلى البيانات الافتراضية.", "success");
@@ -5404,7 +6137,7 @@
   }
 
   function scrollAdminInlineMenuIntoView(menuPanel) {
-    var scrollParent = menuPanel ? menuPanel.closest("[data-pages-editor], [data-projects-editor]") : null;
+    var scrollParent = menuPanel ? menuPanel.closest("[data-pages-editor], [data-projects-editor], [data-card-collections-editor], [data-card-items-editor]") : null;
     if (!scrollParent) return;
     requestAnimationFrame(function () {
       var menuRect = menuPanel.getBoundingClientRect();

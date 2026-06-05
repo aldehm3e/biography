@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS site_settings (
   shell_notice_text VARCHAR(255),
   interface_texts_json LONGTEXT,
   footer_json LONGTEXT,
+  page_feedback_json LONGTEXT,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
@@ -128,6 +129,36 @@ CREATE TABLE IF NOT EXISTS projects (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+CREATE TABLE IF NOT EXISTS card_collections (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  collection_uid VARCHAR(120) UNIQUE,
+  title VARCHAR(255),
+  slug VARCHAR(255) UNIQUE,
+  description TEXT,
+  sort_order INT DEFAULT 0,
+  visible TINYINT(1) DEFAULT 1,
+  show_in_navigation TINYINT(1) DEFAULT 1,
+  show_in_footer TINYINT(1) DEFAULT 0,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS card_items (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  collection_uid VARCHAR(120),
+  card_uid VARCHAR(120),
+  title VARCHAR(255),
+  subtitle TEXT,
+  link_type VARCHAR(20),
+  link_value VARCHAR(500),
+  link_label VARCHAR(120),
+  sort_order INT DEFAULT 0,
+  visible TINYINT(1) DEFAULT 1,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  INDEX idx_card_items_collection_uid (collection_uid)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS pages (
   id INT AUTO_INCREMENT PRIMARY KEY,
   title VARCHAR(255),
@@ -207,6 +238,23 @@ CREATE TABLE IF NOT EXISTS site_backups (
   backup_name VARCHAR(255),
   content_json LONGTEXT,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS page_feedback (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  page_key VARCHAR(255) NOT NULL,
+  page_title VARCHAR(255),
+  page_type VARCHAR(80),
+  answer VARCHAR(10) NOT NULL,
+  reasons_json LONGTEXT,
+  comment TEXT,
+  path VARCHAR(500),
+  user_agent VARCHAR(255),
+  ip_hash CHAR(64),
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  INDEX idx_page_feedback_page_key (page_key),
+  INDEX idx_page_feedback_answer (answer),
+  INDEX idx_page_feedback_created_at (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 INSERT IGNORE INTO site_settings (id, language, direction, theme, brand_slogan)

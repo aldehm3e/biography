@@ -80,6 +80,28 @@ function cms_default_interface_texts(): array
     ];
 }
 
+function cms_default_page_feedback_settings(): array
+{
+    return [
+        'enabled' => true,
+        'question' => 'هل كانت هذه الصفحة مفيدة؟',
+        'yesLabel' => 'نعم',
+        'noLabel' => 'لا',
+        'yesReasonsLabel' => 'ما الذي أعجبك في الصفحة؟',
+        'noReasonsLabel' => 'ما الذي يمكن تحسينه؟',
+        'yesOptions' => "المحتوى واضح\nالمعلومات مفيدة\nسهولة الوصول للمعلومة",
+        'noOptions' => "المحتوى غير واضح\nالمعلومات غير مكتملة\nواجهت صعوبة في الاستخدام",
+        'commentLabel' => 'ملاحظات إضافية',
+        'commentPlaceholder' => 'اكتب ملاحظتك هنا',
+        'agreementText' => 'تساعدنا ملاحظتك في تحسين محتوى هذه الصفحة.',
+        'submitLabel' => 'إرسال التقييم',
+        'closeLabel' => 'إغلاق',
+        'successMessage' => 'تم استلام ملاحظتك، شكرا لك.',
+        'errorMessage' => 'تعذر إرسال الملاحظة، حاول مرة أخرى.',
+        'statisticsText' => '',
+    ];
+}
+
 function cms_default_site_data(): array
 {
     return [
@@ -102,6 +124,7 @@ function cms_default_site_data(): array
             'shellSecurityTitle' => 'الاتصال الآمن يستخدم بروتوكول HTTPS.',
             'shellSecurityDescription' => 'تأكد من ظهور القفل في المتصفح عند استخدام نسخة منشورة على الاستضافة.',
             'shellNoticeText' => 'هذا موقع شخصي مستقل وغير تابع لأي جهة حكومية.',
+            'pageFeedback' => cms_default_page_feedback_settings(),
         ],
         'navigation' => [
             'homeLabel' => 'الرئيسية',
@@ -169,6 +192,7 @@ function cms_default_site_data(): array
             ],
         ],
         'projects' => [],
+        'cardCollections' => [],
         'pages' => [],
         'integrations' => [],
         'notifications' => [],
@@ -209,6 +233,10 @@ function cms_fetch_site_data(PDO $pdo): array
         $storedFooter = json_decode((string) ($settings['footer_json'] ?? ''), true);
         if (is_array($storedFooter)) {
             $data['footer'] = cms_normalize_footer($storedFooter, $data['footer']);
+        }
+        $storedPageFeedback = json_decode((string) ($settings['page_feedback_json'] ?? ''), true);
+        if (is_array($storedPageFeedback)) {
+            $data['settings']['pageFeedback'] = cms_normalize_page_feedback_settings($storedPageFeedback, $data['settings']['pageFeedback']);
         }
     }
 
@@ -345,6 +373,40 @@ function cms_fetch_site_data(PDO $pdo): array
         ];
     }
 
+    $collections = $pdo->query('SELECT * FROM card_collections ORDER BY sort_order, id')->fetchAll();
+    $cardsByCollection = [];
+    $cards = $pdo->query('SELECT * FROM card_items ORDER BY sort_order, id')->fetchAll();
+    foreach ($cards as $card) {
+        $collectionId = (string) ($card['collection_uid'] ?? '');
+        if ($collectionId === '') {
+            continue;
+        }
+        $cardsByCollection[$collectionId][] = [
+            'id' => (string) ($card['card_uid'] ?? ''),
+            'title' => (string) ($card['title'] ?? ''),
+            'subtitle' => (string) ($card['subtitle'] ?? ''),
+            'linkType' => (string) ($card['link_type'] ?? 'none'),
+            'linkValue' => (string) ($card['link_value'] ?? ''),
+            'linkLabel' => (string) ($card['link_label'] ?? ''),
+            'visible' => (bool) ($card['visible'] ?? 1),
+        ];
+    }
+    foreach ($collections as $collection) {
+        $collectionId = (string) ($collection['collection_uid'] ?? '');
+        $data['cardCollections'][] = [
+            'id' => $collectionId,
+            'title' => (string) ($collection['title'] ?? ''),
+            'slug' => (string) ($collection['slug'] ?? ''),
+            'description' => (string) ($collection['description'] ?? ''),
+            'visible' => (bool) ($collection['visible'] ?? 1),
+            'showInNavigation' => (bool) ($collection['show_in_navigation'] ?? ($collection['visible'] ?? 1)),
+            'showInFooter' => (bool) ($collection['show_in_footer'] ?? 0),
+            'createdAt' => (string) ($collection['created_at'] ?? ''),
+            'updatedAt' => (string) ($collection['updated_at'] ?? ($collection['created_at'] ?? '')),
+            'cards' => $cardsByCollection[$collectionId] ?? [],
+        ];
+    }
+
     $integrations = $pdo->query('SELECT * FROM integrations ORDER BY sort_order, id')->fetchAll();
     foreach ($integrations as $integration) {
         $data['integrations'][] = [
@@ -455,6 +517,43 @@ function cms_ensure_home_numbers_table(PDO $pdo): void
     );
 }
 
+function cms_ensure_card_collections_tables(PDO $pdo): void
+{
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS card_collections (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            collection_uid VARCHAR(120) UNIQUE,
+            title VARCHAR(255),
+            slug VARCHAR(255) UNIQUE,
+            description TEXT,
+            sort_order INT DEFAULT 0,
+            visible TINYINT(1) DEFAULT 1,
+            show_in_navigation TINYINT(1) DEFAULT 1,
+            show_in_footer TINYINT(1) DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+
+    $pdo->exec(
+        "CREATE TABLE IF NOT EXISTS card_items (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            collection_uid VARCHAR(120),
+            card_uid VARCHAR(120),
+            title VARCHAR(255),
+            subtitle TEXT,
+            link_type VARCHAR(20),
+            link_value VARCHAR(500),
+            link_label VARCHAR(120),
+            sort_order INT DEFAULT 0,
+            visible TINYINT(1) DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_card_items_collection_uid (collection_uid)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+    );
+}
+
 function cms_column_exists(PDO $pdo, string $table, string $column): bool
 {
     $stmt = $pdo->prepare(
@@ -482,6 +581,7 @@ function cms_ensure_site_settings_columns(PDO $pdo): void
         'shell_notice_text' => 'VARCHAR(255)',
         'interface_texts_json' => 'LONGTEXT',
         'footer_json' => 'LONGTEXT',
+        'page_feedback_json' => 'LONGTEXT',
     ];
 
     foreach ($columns as $column => $definition) {
@@ -540,6 +640,7 @@ function cms_ensure_content_schema(PDO $pdo): void
     cms_ensure_footer_links_table($pdo);
     cms_ensure_integrations_table($pdo);
     cms_ensure_home_numbers_table($pdo);
+    cms_ensure_card_collections_tables($pdo);
     cms_ensure_site_settings_columns($pdo);
     cms_ensure_main_page_columns($pdo);
     cms_ensure_pages_columns($pdo);
@@ -565,6 +666,7 @@ function cms_save_site_data(PDO $pdo, array $input): array
         cms_replace_content_rows($pdo, 'achievements', $data['home']['achievements']);
         cms_replace_skills($pdo, $data['home']['skills']);
         cms_replace_projects($pdo, $data['projects']);
+        cms_replace_card_collections($pdo, $data['cardCollections']);
         cms_replace_pages($pdo, $data['pages']);
         cms_replace_contacts($pdo, $data['home']['contacts']);
         cms_replace_footer_links($pdo, $data['home']['footerLinks']);
@@ -586,20 +688,12 @@ function cms_save_site_data(PDO $pdo, array $input): array
 
 function cms_save_site_data_for_admin(PDO $pdo, array $input, array $user): array
 {
-    if (cms_admin_has_permission($user, 'utilities')
-        || (cms_admin_has_permission($user, 'settings')
-        && cms_admin_has_permission($user, 'home')
-        && cms_admin_has_permission($user, 'footer')
-        && cms_admin_has_permission($user, 'projects')
-        && cms_admin_has_permission($user, 'pages')
-        && cms_admin_has_permission($user, 'navigation')
-        && cms_admin_has_permission($user, 'integrations'))
-    ) {
+    if (cms_admin_has_permission($user, 'backup')) {
         return cms_save_site_data($pdo, $input);
     }
 
     $allowedSections = cms_content_permission_keys();
-    if (!cms_admin_has_any_permission($user, $allowedSections)) {
+    if (!cms_admin_has_any_permission($user, array_merge($allowedSections, ['page_feedback']))) {
         cms_json_response(['success' => false, 'message' => 'Permission denied.'], 403);
     }
 
@@ -609,6 +703,9 @@ function cms_save_site_data_for_admin(PDO $pdo, array $input, array $user): arra
     if (cms_admin_has_permission($user, 'settings')) {
         $current['settings'] = $incoming['settings'];
         $current['texts'] = $incoming['texts'];
+    }
+    if (cms_admin_has_permission($user, 'page_feedback')) {
+        $current['settings']['pageFeedback'] = $incoming['settings']['pageFeedback'];
     }
     if (cms_admin_has_permission($user, 'home')) {
         $current['home'] = $incoming['home'];
@@ -626,6 +723,9 @@ function cms_save_site_data_for_admin(PDO $pdo, array $input, array $user): arra
     if (cms_admin_has_permission($user, 'projects')) {
         $current['projects'] = $incoming['projects'];
     }
+    if (cms_admin_has_permission($user, 'cards')) {
+        $current['cardCollections'] = $incoming['cardCollections'];
+    }
     if (cms_admin_has_permission($user, 'pages')) {
         $current['pages'] = $incoming['pages'];
     }
@@ -636,7 +736,9 @@ function cms_save_site_data_for_admin(PDO $pdo, array $input, array $user): arra
         $current['integrations'] = $incoming['integrations'];
     }
 
-    $current['notifications'] = $incoming['notifications'];
+    if (cms_admin_has_any_permission($user, $allowedSections)) {
+        $current['notifications'] = $incoming['notifications'];
+    }
 
     return cms_save_site_data($pdo, $current);
 }
@@ -671,6 +773,7 @@ function cms_normalize_site_data(array $input): array
         'shellSecurityTitle' => cms_string($settings['shellSecurityTitle'] ?? $settings['shell_security_title'] ?? $default['settings']['shellSecurityTitle'], 255) ?: $default['settings']['shellSecurityTitle'],
         'shellSecurityDescription' => cms_string($settings['shellSecurityDescription'] ?? $settings['shell_security_description'] ?? $default['settings']['shellSecurityDescription']),
         'shellNoticeText' => cms_string($settings['shellNoticeText'] ?? $settings['shell_notice_text'] ?? $default['settings']['shellNoticeText'], 255) ?: $default['settings']['shellNoticeText'],
+        'pageFeedback' => cms_normalize_page_feedback_settings($settings['pageFeedback'] ?? $settings['page_feedback'] ?? [], $default['settings']['pageFeedback']),
     ];
 
     $data['navigation'] = [
@@ -704,6 +807,7 @@ function cms_normalize_site_data(array $input): array
     ];
 
     $data['projects'] = cms_normalize_projects($input['projects'] ?? []);
+    $data['cardCollections'] = cms_normalize_card_collections($input['cardCollections'] ?? $input['card_collections'] ?? []);
     $data['pages'] = cms_normalize_pages($input['pages'] ?? []);
     $data['footer'] = cms_normalize_footer($footer, $default['footer']);
     $data['integrations'] = cms_normalize_integrations($input['integrations'] ?? []);
@@ -894,6 +998,92 @@ function cms_normalize_projects(mixed $items): array
         ];
         if ($project['title'] !== '' || $project['description'] !== '' || $project['image'] !== '' || $project['url'] !== '') {
             $output[] = $project;
+        }
+    }
+    return $output;
+}
+
+function cms_normalize_card_collections(mixed $items): array
+{
+    if (!is_array($items)) {
+        return [];
+    }
+    $output = [];
+    $usedSlugs = [];
+    $usedIds = [];
+    foreach (array_values($items) as $index => $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $title = cms_string($item['title'] ?? $item['pageTitle'] ?? '', 255);
+        $slug = cms_unique_slug($usedSlugs, $item['slug'] ?? '', $title ?: 'cards');
+        $id = cms_string($item['id'] ?? $item['collectionId'] ?? $item['collection_uid'] ?? '', 120);
+        if ($id === '' || isset($usedIds[$id])) {
+            $id = 'cards-' . substr(hash('sha256', $slug . '|' . $title . '|' . $index), 0, 16);
+        }
+        $usedIds[$id] = true;
+        $createdAt = cms_timestamp($item['createdAt'] ?? $item['created_at'] ?? null);
+        $updatedAt = cms_timestamp($item['updatedAt'] ?? $item['updated_at'] ?? null, $createdAt);
+        $cards = cms_normalize_collection_cards($item['cards'] ?? []);
+        $collection = [
+            'id' => $id,
+            'title' => $title,
+            'slug' => $slug,
+            'description' => cms_string($item['description'] ?? '', 1000),
+            'visible' => cms_bool($item['visible'] ?? true),
+            'showInNavigation' => cms_bool($item['showInNavigation'] ?? $item['show_in_navigation'] ?? true),
+            'showInFooter' => cms_bool($item['showInFooter'] ?? $item['show_in_footer'] ?? false),
+            'createdAt' => $createdAt,
+            'updatedAt' => $updatedAt,
+            'cards' => $cards,
+        ];
+        if ($collection['title'] !== '' || $collection['description'] !== '' || count($cards) > 0) {
+            $output[] = $collection;
+        }
+    }
+    return $output;
+}
+
+function cms_normalize_collection_cards(mixed $items): array
+{
+    if (!is_array($items)) {
+        return [];
+    }
+    $output = [];
+    $usedIds = [];
+    foreach (array_values($items) as $index => $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $title = cms_string($item['title'] ?? '', 255);
+        $subtitle = cms_string($item['subtitle'] ?? $item['description'] ?? '', 1000);
+        $linkType = cms_string($item['linkType'] ?? $item['link_type'] ?? 'none', 20);
+        if (!in_array($linkType, ['none', 'page', 'external'], true)) {
+            $linkType = 'none';
+        }
+        $linkValue = cms_string($item['linkValue'] ?? $item['link_value'] ?? $item['url'] ?? '', 500);
+        if ($linkType === 'page') {
+            $linkValue = cms_slug($linkValue);
+        }
+        if ($linkValue === '') {
+            $linkType = 'none';
+        }
+        $id = cms_string($item['id'] ?? $item['cardId'] ?? $item['card_uid'] ?? '', 120);
+        if ($id === '' || isset($usedIds[$id])) {
+            $id = 'card-' . substr(hash('sha256', $title . '|' . $subtitle . '|' . $linkValue . '|' . $index), 0, 16);
+        }
+        $usedIds[$id] = true;
+        $card = [
+            'id' => $id,
+            'title' => $title,
+            'subtitle' => $subtitle,
+            'linkType' => $linkType,
+            'linkValue' => $linkValue,
+            'linkLabel' => cms_string($item['linkLabel'] ?? $item['link_label'] ?? 'عرض التفاصيل', 120) ?: 'عرض التفاصيل',
+            'visible' => cms_bool($item['visible'] ?? true),
+        ];
+        if ($card['title'] !== '' || $card['subtitle'] !== '' || $card['linkValue'] !== '') {
+            $output[] = $card;
         }
     }
     return $output;
@@ -1130,6 +1320,39 @@ function cms_normalize_footer_cookies(mixed $cookies, array $defaults): array
     return $output;
 }
 
+function cms_normalize_page_feedback_settings(mixed $settings, array $defaults): array
+{
+    $output = $defaults ?: cms_default_page_feedback_settings();
+    if (!is_array($settings)) {
+        return $output;
+    }
+
+    $output['enabled'] = cms_bool($settings['enabled'] ?? $output['enabled'] ?? true);
+    foreach ([
+        'question' => 255,
+        'yesLabel' => 80,
+        'noLabel' => 80,
+        'yesReasonsLabel' => 255,
+        'noReasonsLabel' => 255,
+        'yesOptions' => 1200,
+        'noOptions' => 1200,
+        'commentLabel' => 255,
+        'commentPlaceholder' => 255,
+        'agreementText' => 500,
+        'submitLabel' => 120,
+        'closeLabel' => 120,
+        'successMessage' => 255,
+        'errorMessage' => 255,
+        'statisticsText' => 255,
+    ] as $key => $max) {
+        if (array_key_exists($key, $settings)) {
+            $value = cms_string($settings[$key] ?? '', $max);
+            $output[$key] = $value !== '' ? $value : (string) ($output[$key] ?? '');
+        }
+    }
+    return $output;
+}
+
 function cms_normalize_footer(mixed $footer, array $defaults): array
 {
     if (!is_array($footer)) {
@@ -1250,20 +1473,22 @@ function cms_save_settings(PDO $pdo, array $data): void
 {
     $interfaceTextsJson = json_encode($data['texts'] ?? cms_default_interface_texts(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $footerJson = json_encode($data['footer'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $pageFeedbackJson = json_encode($data['settings']['pageFeedback'] ?? cms_default_page_feedback_settings(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $stmt = $pdo->prepare(
         'INSERT INTO site_settings (id, site_name, brand_name, brand_slogan, brand_logo, site_icon, language, direction, theme, phone_number, email,
          shell_topbar_text, shell_topbar_short_text, shell_verify_label, shell_verify_title, shell_verify_description,
-         shell_security_title, shell_security_description, shell_notice_text, interface_texts_json, footer_json)
+         shell_security_title, shell_security_description, shell_notice_text, interface_texts_json, footer_json, page_feedback_json)
          VALUES (1, :site_name, :brand_name, :brand_slogan, :brand_logo, :site_icon, :language, :direction, :theme, :phone_number, :email,
          :shell_topbar_text, :shell_topbar_short_text, :shell_verify_label, :shell_verify_title, :shell_verify_description,
-         :shell_security_title, :shell_security_description, :shell_notice_text, :interface_texts_json, :footer_json)
+         :shell_security_title, :shell_security_description, :shell_notice_text, :interface_texts_json, :footer_json, :page_feedback_json)
          ON DUPLICATE KEY UPDATE site_name = VALUES(site_name), brand_name = VALUES(brand_name), brand_slogan = VALUES(brand_slogan),
          brand_logo = VALUES(brand_logo), site_icon = VALUES(site_icon), language = VALUES(language), direction = VALUES(direction), theme = VALUES(theme),
          phone_number = VALUES(phone_number), email = VALUES(email), shell_topbar_text = VALUES(shell_topbar_text),
          shell_topbar_short_text = VALUES(shell_topbar_short_text), shell_verify_label = VALUES(shell_verify_label),
          shell_verify_title = VALUES(shell_verify_title), shell_verify_description = VALUES(shell_verify_description),
          shell_security_title = VALUES(shell_security_title), shell_security_description = VALUES(shell_security_description),
-         shell_notice_text = VALUES(shell_notice_text), interface_texts_json = VALUES(interface_texts_json), footer_json = VALUES(footer_json)'
+         shell_notice_text = VALUES(shell_notice_text), interface_texts_json = VALUES(interface_texts_json), footer_json = VALUES(footer_json),
+         page_feedback_json = VALUES(page_feedback_json)'
     );
     $stmt->execute([
         'site_name' => $data['settings']['siteName'],
@@ -1286,6 +1511,7 @@ function cms_save_settings(PDO $pdo, array $data): void
         'shell_notice_text' => $data['settings']['shellNoticeText'],
         'interface_texts_json' => $interfaceTextsJson === false ? '{}' : $interfaceTextsJson,
         'footer_json' => $footerJson === false ? '{}' : $footerJson,
+        'page_feedback_json' => $pageFeedbackJson === false ? '{}' : $pageFeedbackJson,
     ]);
 }
 
@@ -1417,6 +1643,47 @@ function cms_replace_projects(PDO $pdo, array $projects): void
             'sort_order' => $index,
             'visible' => cms_bool_int($project['visible']),
         ]);
+    }
+}
+
+function cms_replace_card_collections(PDO $pdo, array $collections): void
+{
+    $pdo->exec('DELETE FROM card_items');
+    $pdo->exec('DELETE FROM card_collections');
+    $collectionStmt = $pdo->prepare(
+        'INSERT INTO card_collections (collection_uid, title, slug, description, sort_order, visible, show_in_navigation, show_in_footer, created_at, updated_at)
+         VALUES (:collection_uid, :title, :slug, :description, :sort_order, :visible, :show_in_navigation, :show_in_footer, :created_at, :updated_at)'
+    );
+    $cardStmt = $pdo->prepare(
+        'INSERT INTO card_items (collection_uid, card_uid, title, subtitle, link_type, link_value, link_label, sort_order, visible)
+         VALUES (:collection_uid, :card_uid, :title, :subtitle, :link_type, :link_value, :link_label, :sort_order, :visible)'
+    );
+    foreach ($collections as $collectionIndex => $collection) {
+        $collectionStmt->execute([
+            'collection_uid' => $collection['id'],
+            'title' => $collection['title'],
+            'slug' => $collection['slug'],
+            'description' => $collection['description'],
+            'sort_order' => $collectionIndex,
+            'visible' => cms_bool_int($collection['visible']),
+            'show_in_navigation' => cms_bool_int($collection['showInNavigation'] ?? true),
+            'show_in_footer' => cms_bool_int($collection['showInFooter'] ?? false),
+            'created_at' => $collection['createdAt'] ?? gmdate('Y-m-d H:i:s'),
+            'updated_at' => $collection['updatedAt'] ?? ($collection['createdAt'] ?? gmdate('Y-m-d H:i:s')),
+        ]);
+        foreach (($collection['cards'] ?? []) as $cardIndex => $card) {
+            $cardStmt->execute([
+                'collection_uid' => $collection['id'],
+                'card_uid' => $card['id'],
+                'title' => $card['title'],
+                'subtitle' => $card['subtitle'],
+                'link_type' => $card['linkType'],
+                'link_value' => $card['linkValue'],
+                'link_label' => $card['linkLabel'],
+                'sort_order' => $cardIndex,
+                'visible' => cms_bool_int($card['visible']),
+            ]);
+        }
     }
 }
 

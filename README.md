@@ -38,6 +38,8 @@ http://localhost/Biography/install/
 - Admin login with PHP sessions, hashed passwords, and CAPTCHA.
 - User permissions for admin sections.
 - Page and subpage management from `الصفحات`.
+- Card collection pages from `البطاقات`, with optional detail/external links and header visibility.
+- Public page feedback management from `إدارة تقييم الصفحات`; the widget stays hidden on the home page.
 - One safe subpage level only.
 - Pages can use plain text or trusted admin HTML.
 - Pages and projects can have image/video media.
@@ -135,13 +137,16 @@ Use the admin panel for normal content:
 - `الإعدادات`: brand, logo, language, labels, verification text, interface text.
 - `الرئيسية`: owner content, biography, hero slides, `في أرقام`, skills, experience, achievements.
 - `المشاريع`: project cards and project media.
+- `البطاقات`: card collection pages, card titles/subtitles, optional detail links, and header visibility.
 - `الصفحات`: pages, subpages, text/HTML content, page media, header/footer visibility.
 - `التذييل`: footer columns, icons, bottom links, logos, legal text.
+- `إدارة تقييم الصفحات`: public feedback form settings and visitor feedback summaries.
+- `النسخ الاحتياطي والاستعادة`: JSON export/import, localStorage migration, and reset.
 - `الصلاحيات`: admin users and permissions.
 
 HTML page content is trusted local-admin content. Do not treat it as public-user input without server-side sanitization.
 
-Backup, restore, JSON import, localStorage migration, and reset are controlled by the `utilities` permission. Grant it only to trusted admins because it can replace site content.
+Backup, restore, JSON import, localStorage migration, and reset are controlled by the `backup` permission. Grant it only to trusted admins because it can replace site content and page feedback records.
 
 ## Installation
 

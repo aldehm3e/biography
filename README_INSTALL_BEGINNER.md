@@ -26,7 +26,9 @@ After installation, open `admin.html` and manage content from the admin panel:
 - home numbers/statistics
 - biography
 - projects
+- card pages
 - pages and subpages
+- public page feedback
 - page text or HTML
 - images and videos
 - footer

@@ -15,7 +15,7 @@ try {
         ], 400);
     }
     $payload = is_array($body['data'] ?? null) ? $body['data'] : $body;
-    $rootKeys = ['settings', 'navigation', 'texts', 'home', 'footer', 'projects', 'pages', 'integrations', 'notifications'];
+    $rootKeys = ['settings', 'navigation', 'texts', 'home', 'footer', 'projects', 'cardCollections', 'pages', 'integrations', 'notifications'];
     if (array_intersect($rootKeys, array_keys($payload)) === []) {
         cms_json_response([
             'success' => false,

@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
   <link rel="stylesheet" href="css/nds-local-components.css?v=notification-refit-20260530">
-  <link rel="stylesheet" href="css/custom.css?v=home-numbers-control-arrows-20260604">
+  <link rel="stylesheet" href="css/custom.css?v=checkbox-shared-style-admin-20260605">
 </head>
 <body data-page="admin">
   <header class="site-header">
@@ -323,6 +323,12 @@
                       <span class="nds-label" data-projects-page-label>المشاريع</span>
                     </button>
                   </li>
+                  <li data-permission="cards">
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="cards">
+                      <i class="hgi-stroke hgi-layout-grid" aria-hidden="true"></i>
+                      <span class="nds-label">البطاقات</span>
+                    </button>
+                  </li>
                   <li data-permission="pages">
                     <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="pages">
                       <i class="hgi-stroke hgi-file-01" aria-hidden="true"></i>
@@ -355,9 +361,21 @@
                 </button>
               </li>
               <li data-permission="utilities">
-                <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="utilities">
+                <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="utilities" data-system-view-target="overview">
                   <i class="hgi-stroke hgi-tools" aria-hidden="true"></i>
                   <span class="nds-label">الأدوات</span>
+                </button>
+              </li>
+              <li data-permission="page_feedback">
+                <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="utilities" data-system-view-target="pageFeedback">
+                  <i class="hgi-stroke hgi-comment-01" aria-hidden="true"></i>
+                  <span class="nds-label">إدارة تقييم الصفحات</span>
+                </button>
+              </li>
+              <li data-permission="backup">
+                <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="utilities" data-system-view-target="backup">
+                  <i class="hgi-stroke hgi-database" aria-hidden="true"></i>
+                  <span class="nds-label">النسخ الاحتياطي والاستعادة</span>
                 </button>
               </li>
               <li>
@@ -784,6 +802,25 @@
             </div>
           </section>
 
+          <section class="admin-panel" data-admin-panel="cards" data-permission="cards" hidden>
+            <div class="nds-card nds-stroke">
+              <div class="nds-card-content">
+                <div class="panel-heading">
+                  <div>
+                    <h2 class="nds-card-title">البطاقات</h2>
+                    <p class="nds-card-description">أنشئ صفحات بطاقات مستقلة مثل الإدارات أو الشركات، ثم أضف بطاقات بعناوين وروابط اختيارية.</p>
+                  </div>
+                  <div class="nds-section-action">
+                    <button class="nds-btn nds-secondary-outline" type="button" data-add-card-collection><span class="nds-label">إضافة صفحة بطاقات</span></button>
+                    <button class="nds-btn nds-secondary-outline" type="button" data-preview-target="cards"><span class="nds-label">معاينة</span></button>
+                    <button class="nds-btn nds-primary" type="button" data-save-card-collections><span class="nds-label">حفظ البطاقات</span></button>
+                  </div>
+                </div>
+                <div class="editor-list" data-card-collections-editor></div>
+              </div>
+            </div>
+          </section>
+
           <section class="admin-panel" data-admin-panel="pages" data-permission="pages" hidden>
             <div class="nds-card nds-stroke">
               <div class="nds-card-content">
@@ -905,22 +942,21 @@
             </div>
           </section>
 
-          <section class="admin-panel" data-admin-panel="utilities" data-permission="utilities" hidden>
+          <section class="admin-panel" data-admin-panel="utilities" hidden>
             <div class="nds-card nds-stroke">
               <div class="nds-card-content">
                 <div class="panel-heading">
                   <div>
-                    <h2 class="nds-card-title">أدوات النظام</h2>
-                    <p class="nds-card-description">متابعة صحة النظام، إدارة النسخ الاحتياطية، وتشغيل أدوات الصيانة من مكان واحد.</p>
+                    <h2 class="nds-card-title" data-system-panel-title>أدوات النظام</h2>
+                    <p class="nds-card-description" data-system-panel-description>متابعة صحة النظام وتشغيل أدوات الصيانة من مكان واحد.</p>
                   </div>
                   <div class="nds-section-action">
                     <button class="nds-btn nds-secondary-outline" type="button" data-refresh-system-status><span class="nds-label">تحديث الحالة</span></button>
-                    <button class="nds-btn nds-primary" type="button" data-export-json><span class="nds-label">تصدير نسخة</span></button>
                   </div>
                 </div>
 
                 <div class="system-console-stack">
-                  <section class="system-console-block" aria-labelledby="systemStatusTitle">
+                  <section class="system-console-block" aria-labelledby="systemStatusTitle" data-system-view-block="overview">
                     <div class="system-console-heading">
                       <div>
                         <h3 class="nds-card-title" id="systemStatusTitle">حالة النظام</h3>
@@ -930,15 +966,134 @@
                     <div class="system-status-grid" data-system-status-grid></div>
                   </section>
 
-                  <section class="system-console-block" aria-labelledby="systemBackupTitle">
+                  <section class="system-console-block system-tool-entry" aria-labelledby="systemFeedbackEntryTitle" data-system-view-block="overview" data-permission="page_feedback">
                     <div class="system-console-heading">
                       <div>
-                        <h3 class="nds-card-title" id="systemBackupTitle">النسخ الاحتياطي والاستعادة</h3>
-                        <p class="nds-card-description">تصدير واستيراد نسخة JSON من محتوى قاعدة البيانات، مع خيار نقل بيانات localStorage القديمة.</p>
+                        <h3 class="nds-card-title" id="systemFeedbackEntryTitle">إدارة تقييم الصفحات</h3>
+                        <p class="nds-card-description">إعداد نموذج تقييم الصفحات العامة ومتابعة ملاحظات الزوار.</p>
+                      </div>
+                      <div class="nds-section-action">
+                        <button class="nds-btn nds-primary" type="button" data-open-system-view="pageFeedback"><span class="nds-label">فتح الإدارة</span></button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="system-console-block system-tool-entry" aria-labelledby="systemBackupEntryTitle" data-system-view-block="overview" data-permission="backup">
+                    <div class="system-console-heading">
+                      <div>
+                        <h3 class="nds-card-title" id="systemBackupEntryTitle">النسخ الاحتياطي والاستعادة</h3>
+                        <p class="nds-card-description">تصدير واستيراد نسخة JSON من المحتوى وتقييمات الصفحات.</p>
+                      </div>
+                      <div class="nds-section-action">
+                        <button class="nds-btn nds-primary" type="button" data-open-system-view="backup"><span class="nds-label">فتح النسخ</span></button>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="system-console-block" aria-labelledby="pageFeedbackTitle" data-system-view-block="pageFeedback" data-permission="page_feedback" hidden>
+                    <div class="system-console-heading">
+                      <div class="sr-only">
+                        <h3 id="pageFeedbackTitle">إدارة تقييم الصفحات</h3>
+                      </div>
+                      <div class="nds-section-action">
+                        <button class="nds-btn nds-secondary-outline" type="button" data-refresh-page-feedback><span class="nds-label">تحديث التقييمات</span></button>
+                        <button class="nds-btn nds-primary" type="button" data-save-page-feedback><span class="nds-label">حفظ إعدادات التقييم</span></button>
+                      </div>
+                    </div>
+
+                    <div class="page-feedback-admin-layout">
+                      <div class="page-feedback-admin-settings">
+                        <label class="check-line page-feedback-toggle admin-check-control" for="feedbackEnabled">
+                          <input class="nds-check" type="checkbox" id="feedbackEnabled" name="feedbackEnabled">
+                          <span class="page-feedback-toggle-text">
+                            <span class="nds-label">إظهار تقييم الصفحات العامة</span>
+                            <span class="nds-form-helper">يبقى مخفيا في الصفحة الرئيسية فقط.</span>
+                          </span>
+                        </label>
+
+                        <div class="page-feedback-admin-grid">
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackQuestion"><span class="nds-label">سؤال التقييم</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackQuestion" name="feedbackQuestion" type="text"></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackYesLabel"><span class="nds-label">تسمية نعم</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackYesLabel" name="feedbackYesLabel" type="text"></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackNoLabel"><span class="nds-label">تسمية لا</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackNoLabel" name="feedbackNoLabel" type="text"></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackSubmitLabel"><span class="nds-label">زر الإرسال</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackSubmitLabel" name="feedbackSubmitLabel" type="text"></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackCloseLabel"><span class="nds-label">زر الإغلاق</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackCloseLabel" name="feedbackCloseLabel" type="text"></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackStatisticsText"><span class="nds-label">نص إحصائي اختياري</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackStatisticsText" name="feedbackStatisticsText" type="text"></div>
+                          </div>
+                        </div>
+
+                        <div class="page-feedback-admin-grid page-feedback-admin-grid-wide">
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackYesReasonsLabel"><span class="nds-label">عنوان أسباب نعم</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackYesReasonsLabel" name="feedbackYesReasonsLabel" type="text"></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackNoReasonsLabel"><span class="nds-label">عنوان أسباب لا</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackNoReasonsLabel" name="feedbackNoReasonsLabel" type="text"></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackYesOptions"><span class="nds-label">خيارات نعم</span></label></div>
+                            <div class="nds-form-control textarea-control"><textarea class="nds-input" id="feedbackYesOptions" name="feedbackYesOptions" rows="4"></textarea></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackNoOptions"><span class="nds-label">خيارات لا</span></label></div>
+                            <div class="nds-form-control textarea-control"><textarea class="nds-input" id="feedbackNoOptions" name="feedbackNoOptions" rows="4"></textarea></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackCommentLabel"><span class="nds-label">عنوان الملاحظة</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackCommentLabel" name="feedbackCommentLabel" type="text"></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackCommentPlaceholder"><span class="nds-label">تلميح الملاحظة</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackCommentPlaceholder" name="feedbackCommentPlaceholder" type="text"></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackAgreementText"><span class="nds-label">نص الموافقة</span></label></div>
+                            <div class="nds-form-control textarea-control"><textarea class="nds-input" id="feedbackAgreementText" name="feedbackAgreementText" rows="3"></textarea></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackSuccessMessage"><span class="nds-label">رسالة النجاح</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackSuccessMessage" name="feedbackSuccessMessage" type="text"></div>
+                          </div>
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="feedbackErrorMessage"><span class="nds-label">رسالة الخطأ</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="feedbackErrorMessage" name="feedbackErrorMessage" type="text"></div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="page-feedback-admin-results">
+                        <div class="page-feedback-summary-grid" data-page-feedback-summary></div>
+                        <div class="page-feedback-recent-list" data-page-feedback-list></div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="system-console-block" aria-labelledby="systemBackupTitle" data-system-view-block="backup" data-permission="backup" hidden>
+                    <div class="system-console-heading">
+                      <div class="sr-only">
+                        <h3 id="systemBackupTitle">النسخ الاحتياطي والاستعادة</h3>
                       </div>
                       <div class="nds-section-action">
                         <button class="nds-btn nds-secondary-outline" type="button" data-download-backup><span class="nds-label">تنزيل نسخة الآن</span></button>
                         <button class="nds-btn nds-secondary-outline" type="button" data-copy-json><span class="nds-label">نسخ JSON</span></button>
+                        <button class="nds-btn nds-secondary-outline" type="button" data-refresh-json><span class="nds-label">تحديث محتوى JSON</span></button>
                         <button class="nds-btn nds-primary" type="button" data-import-json><span class="nds-label">استيراد JSON</span></button>
                       </div>
                     </div>
@@ -950,6 +1105,7 @@
                       <div class="nds-form-container">
                         <div class="nds-form-header"><label for="jsonBox"><span class="nds-label">محتوى JSON</span></label></div>
                         <div class="nds-form-control textarea-control"><textarea class="nds-input" id="jsonBox" name="jsonBox" rows="12" spellcheck="false"></textarea></div>
+                        <p class="system-backup-meta" data-system-backup-meta></p>
                       </div>
                       <div class="nds-section-action system-backup-actions">
                         <button class="nds-btn nds-secondary-outline" type="button" data-import-local-cache><span class="nds-label">نقل بيانات localStorage القديمة</span></button>
@@ -958,7 +1114,7 @@
                     </div>
                   </section>
 
-                  <section class="system-console-block" aria-labelledby="systemMaintenanceTitle">
+                  <section class="system-console-block" aria-labelledby="systemMaintenanceTitle" data-system-view-block="overview">
                     <div class="system-console-heading">
                       <div>
                         <h3 class="nds-card-title" id="systemMaintenanceTitle">الصيانة</h3>
@@ -985,7 +1141,7 @@
                     </div>
                   </section>
 
-                  <section class="system-console-block" aria-labelledby="systemActivityTitle">
+                  <section class="system-console-block" aria-labelledby="systemActivityTitle" data-system-view-block="overview">
                     <div class="system-console-heading">
                       <div>
                         <h3 class="nds-card-title" id="systemActivityTitle">سجل النشاط</h3>
@@ -1050,8 +1206,8 @@
     </div>
   </footer>
 
-  <script src="js/default-data.js?v=home-numbers-bg-size-20260604"></script>
-  <script src="js/store.js?v=home-numbers-bg-size-20260604"></script>
+  <script src="js/default-data.js?v=separate-system-items-20260605"></script>
+  <script src="js/store.js?v=separate-system-items-20260605"></script>
   <script src="js/home-number-icons.js?v=home-numbers-bg-size-20260604"></script>
   <script src="assets/vendor/nds/components/js/nds-core.js"></script>
   <script src="assets/vendor/nds/components/js/nds-backdrop.js?v=nds-source-20260604"></script>
@@ -1066,9 +1222,10 @@
   <script src="assets/vendor/nds/components/js/nds-forms.js"></script>
   <script src="assets/vendor/nds/components/js/nds-alert.js?v=nds-source-20260604"></script>
   <script src="assets/vendor/nds/components/js/nds-cookies.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-user-feedback.js?v=separate-system-items-20260605"></script>
   <script src="assets/vendor/nds/components/js/nds-breadcrumb.js"></script>
   <script src="js/nds-local-components.js"></script>
-  <script src="js/app.js?v=home-numbers-autoplay-settle-20260604"></script>
-  <script src="js/admin.js?v=home-numbers-bg-size-20260604"></script>
+  <script src="js/app.js?v=checkbox-shared-style-admin-20260605"></script>
+  <script src="js/admin.js?v=separate-system-items-20260605"></script>
 </body>
 </html>

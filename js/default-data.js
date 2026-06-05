@@ -20,7 +20,25 @@
       shellVerifyDescription: "استخدم الرابط الرسمي الذي يقدمه مالك الموقع، وتجنب الروابط المختصرة أو غير المعروفة.",
       shellSecurityTitle: "الاتصال الآمن يستخدم بروتوكول HTTPS.",
       shellSecurityDescription: "تأكد من ظهور القفل في المتصفح عند استخدام نسخة منشورة على الاستضافة.",
-      shellNoticeText: "هذا موقع شخصي مستقل وغير تابع لأي جهة حكومية."
+      shellNoticeText: "هذا موقع شخصي مستقل وغير تابع لأي جهة حكومية.",
+      pageFeedback: {
+        enabled: true,
+        question: "هل كانت هذه الصفحة مفيدة؟",
+        yesLabel: "نعم",
+        noLabel: "لا",
+        yesReasonsLabel: "ما الذي أعجبك في الصفحة؟",
+        noReasonsLabel: "ما الذي يمكن تحسينه؟",
+        yesOptions: "المحتوى واضح\nالمعلومات مفيدة\nسهولة الوصول للمعلومة",
+        noOptions: "المحتوى غير واضح\nالمعلومات غير مكتملة\nواجهت صعوبة في الاستخدام",
+        commentLabel: "ملاحظات إضافية",
+        commentPlaceholder: "اكتب ملاحظتك هنا",
+        agreementText: "تساعدنا ملاحظتك في تحسين محتوى هذه الصفحة.",
+        submitLabel: "إرسال التقييم",
+        closeLabel: "إغلاق",
+        successMessage: "تم استلام ملاحظتك، شكرا لك.",
+        errorMessage: "تعذر إرسال الملاحظة، حاول مرة أخرى.",
+        statisticsText: ""
+      }
     },
     navigation: {
       homeLabel: "الرئيسية",
@@ -160,6 +178,7 @@
       }
     },
     projects: [],
+    cardCollections: [],
     pages: [],
     integrations: [],
     notifications: []

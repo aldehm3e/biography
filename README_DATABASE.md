@@ -40,6 +40,9 @@ api/config.php
 - `api/content/site-repository.php`: maps database rows to the frontend site data model.
 - `api/content/get-site.php`: public read endpoint.
 - `api/content/save-site.php`: admin-only save endpoint.
+- `api/feedback/save.php`: public page feedback submit endpoint.
+- `api/feedback/list.php`: admin feedback summary endpoint.
+- `api/feedback/export.php` / `api/feedback/import.php`: backup-scoped feedback transfer endpoints.
 - `api/auth/`: login, logout, current user, user management, and account updates.
 - `api/upload/upload-media.php`: admin uploads for media-library users and inline content editors.
 
@@ -58,14 +61,16 @@ The schema creates tables for:
 - skills
 - projects
 - pages
+- card collections
 - contacts
 - footer links
+- page feedback
 - media uploads
 - integrations
 - notifications
 - backups or supporting CMS data
 
-Footer structure and interface text overrides are stored as JSON fields in `site_settings`.
+Footer structure, page feedback settings, and interface text overrides are stored as JSON fields in `site_settings`.
 
 ## Page Data Rules
 
@@ -189,6 +194,8 @@ uploads/
 
 The database stores text, settings, and media paths. The actual uploaded files live in `uploads/`.
 
+The admin JSON backup in `النسخ الاحتياطي والاستعادة` also includes public page feedback export records. Raw IP hashes and user-agent values are not included in that JSON export.
+
 ## Restore
 
 1. Import the SQL database backup.
@@ -216,7 +223,7 @@ When changing schema:
 - Keep schema auto-checks outside active transactions.
 - Avoid repeated expensive schema checks per request.
 - Keep Arabic strings UTF-8 safe.
-- Treat the `utilities` permission as a trusted backup/restore permission because it can import or reset the full site data model.
+- Treat the `backup` permission as highly trusted because it can import or reset the full site data model and page feedback records.
 
 `api/db.php` contains shared helpers. String truncation must preserve valid UTF-8.
 

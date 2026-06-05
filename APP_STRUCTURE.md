@@ -58,6 +58,10 @@ The database is the source of truth after install. Browser `localStorage` is onl
 | --- | --- | --- | --- |
 | `api/content/get-site.php` | GET | Public | Returns full normalized site data. |
 | `api/content/save-site.php` | POST JSON | Admin | Saves site data. Empty or invalid payloads are rejected to prevent accidental resets. |
+| `api/feedback/save.php` | POST JSON | Public | Stores page feedback for public pages except the home page. |
+| `api/feedback/list.php` | GET | `page_feedback` permission | Returns page feedback summary and recent submissions. |
+| `api/feedback/export.php` | GET | `backup` permission | Exports feedback records for JSON backup. |
+| `api/feedback/import.php` | POST JSON | `backup` permission | Replaces feedback records during JSON restore. |
 | `api/auth/captcha.php` | GET | Public | Creates a login math CAPTCHA stored in session. |
 | `api/auth/login.php` | POST JSON | Public | Verifies CAPTCHA, email, password, active status, then starts the admin session. |
 | `api/auth/logout.php` | POST | Admin session optional | Clears the PHP session. |
@@ -104,7 +108,7 @@ The database is the source of truth after install. Browser `localStorage` is onl
 | `cms_fetch_site_data()` | Reads all DB tables and returns the frontend JSON model. |
 | `cms_ensure_content_schema()` | Adds compatible columns/tables for older installs, outside active transactions. |
 | `cms_save_site_data()` | Normalizes and fully replaces content tables inside a transaction. |
-| `cms_save_site_data_for_admin()` | Permission-aware save. Full save requires `utilities` or all content permissions; otherwise only permitted sections are merged into current data. |
+| `cms_save_site_data_for_admin()` | Permission-aware save. Full save requires `backup`; otherwise only permitted sections are merged into current data. |
 | `cms_normalize_site_data()` | Normalizes the full incoming JSON model. |
 | `cms_safe_path()` | Rejects empty paths and path traversal. |
 | `cms_normalize_pages()` | Enforces unique slugs, one-level subpages, valid parent links, and root-only navigation visibility. |
@@ -128,6 +132,7 @@ Fresh install creates these tables in both `install/schema.sql` and `api/install
 | `achievements` | Home achievement rows. |
 | `skills` | Home skills. |
 | `projects` | Project cards/detail content. |
+| `card_collections` | Reusable public card listing pages. |
 | `pages` | Pages and one-level subpages. |
 | `contacts` | Footer/contact links. |
 | `footer_links` | Legacy/simple footer links. |
@@ -135,6 +140,7 @@ Fresh install creates these tables in both `install/schema.sql` and `api/install
 | `site_notifications` | Admin-generated content notifications. |
 | `media_uploads` | Uploaded media metadata. |
 | `site_backups` | Reserved backup table. |
+| `page_feedback` | Public page feedback submissions. |
 
 ## Data Model Roots
 
@@ -160,6 +166,7 @@ footer
   logos
   cookies
 projects
+cardCollections
 pages
 integrations
 notifications
@@ -175,10 +182,13 @@ Keep new features inside one of these roots unless a schema/data-model change is
 | `home` | Profile, hero media, biography, numbers, skills, experience, achievements. |
 | `footer` | Footer labels, links, social/app icon groups, cookie popup. |
 | `projects` | Projects editor. |
+| `cards` | Card collection pages and card items. |
 | `pages` | Pages and subpages editor. |
 | `navigation` | Core navigation labels. |
 | `integrations` | Google Analytics and other integration settings. |
-| `utilities` | Backup, JSON import/export, reset, migration, system tools. Treat as highly trusted. |
+| `page_feedback` | Page feedback settings and visitor feedback summaries. |
+| `backup` | JSON backup/restore, feedback export/import, reset, and localStorage migration. Treat as highly trusted. |
+| `utilities` | General system status and maintenance tools. |
 | `uploads` | Direct upload permission. Content permissions also allow uploads for editor workflows. |
 | `users` | Admin user management. |
 

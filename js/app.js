@@ -10,6 +10,7 @@
   var NOTIFICATIONS_KEEP_OPEN_KEY = "websiteDemo:notificationsKeepOpen";
   var NOTIFICATION_READ_RETENTION_MS = 10 * 24 * 60 * 60 * 1000;
   var AUTH_LOADING_MIN_MS = 1200;
+  var CARD_COLLECTION_PAGE_SIZE = 15;
   var notificationSaveQueue = Promise.resolve();
   var navPageDropdownTimers = new WeakMap();
   var headerMenuExclusivityObserver = null;
@@ -575,6 +576,43 @@
     return { project: null, index: -1 };
   }
 
+  function cardCollectionSlug(collection, index) {
+    return String(collection && (collection.slug || collection.title) || ("cards-" + index)).trim();
+  }
+
+  function cardCollectionHref(collection, index, pageNumber) {
+    var slug = cardCollectionSlug(collection, index);
+    var params = new URLSearchParams();
+    if (slug) params.set("slug", slug);
+    if (pageNumber && pageNumber > 1) params.set("page", String(pageNumber));
+    return "cards.html" + (params.toString() ? "?" + params.toString() : "");
+  }
+
+  function publicCardCollections(data) {
+    return visibleItems((data && data.cardCollections) || []).filter(function (collection) {
+      return hasText(collection.title || collection.slug);
+    });
+  }
+
+  function cardCollectionBySlug(data, slug) {
+    var collections = publicCardCollections(data);
+    var normalized = String(slug || "").trim();
+    return collections.find(function (collection, index) {
+      return cardCollectionSlug(collection, index) === normalized;
+    }) || collections[0] || null;
+  }
+
+  function currentCardCollection(data) {
+    var params = new URLSearchParams(location.search);
+    return cardCollectionBySlug(data, params.get("slug") || "");
+  }
+
+  function visibleCollectionCards(collection) {
+    return visibleItems((collection && collection.cards) || []).filter(function (card) {
+      return hasText(card.title || card.subtitle);
+    });
+  }
+
   function visibleHeroSlides(home) {
     var slides = visibleItems(home.heroSlides || []).filter(function (slide) {
       return hasText(slide.image) || hasText(slide.mobileImage) || hasText(slide.video) || hasText(slide.mobileVideo);
@@ -679,6 +717,10 @@
     var title = detailTitle || baseTitle;
     if (!detailTitle) {
       if (page === "projects") title = navigationLabel(data, "projectsLabel", "مشاريعنا") + " | " + baseTitle;
+      if (page === "cards") {
+        var collection = currentCardCollection(data);
+        title = (collection && (collection.title || collection.slug) || "البطاقات") + " | " + baseTitle;
+      }
       if (page === "pages") title = navigationLabel(data, "pagesLabel", "الصفحات") + " | " + baseTitle;
       if (page === "admin") title = navigationLabel(data, "adminLabel", "الإدارة") + " | " + baseTitle;
       if (page === "notifications") title = uiText(data, "notificationsLabel", "الإشعارات") + " | " + baseTitle;
@@ -1148,6 +1190,21 @@
     return flattened;
   }
 
+  function cardCollectionNavigationItems(data) {
+    return publicCardCollections(data).filter(function (collection) {
+      return collection.showInNavigation !== false;
+    }).map(function (collection, index) {
+      var slug = cardCollectionSlug(collection, index);
+      return {
+        label: collection.title || slug,
+        href: cardCollectionHref(collection, index),
+        key: "cards:" + slug,
+        slug: slug,
+        collection: collection
+      };
+    });
+  }
+
   function isGeneratedSubpageDraft(page) {
     return String(page && page.title || "").trim() === "\u0635\u0641\u062d\u0629 \u0641\u0631\u0639\u064a\u0629 \u062c\u062f\u064a\u062f\u0629";
   }
@@ -1279,6 +1336,455 @@
     if (stamp) head.append(stamp);
   }
 
+  function pageFeedbackDefaults() {
+    return Object.assign({
+      enabled: true,
+      question: "هل كانت هذه الصفحة مفيدة؟",
+      yesLabel: "نعم",
+      noLabel: "لا",
+      yesReasonsLabel: "ما الذي أعجبك في الصفحة؟",
+      noReasonsLabel: "ما الذي يمكن تحسينه؟",
+      yesOptions: "المحتوى واضح\nالمعلومات مفيدة\nسهولة الوصول للمعلومة",
+      noOptions: "المحتوى غير واضح\nالمعلومات غير مكتملة\nواجهت صعوبة في الاستخدام",
+      commentLabel: "ملاحظات إضافية",
+      commentPlaceholder: "اكتب ملاحظتك هنا",
+      agreementText: "تساعدنا ملاحظتك في تحسين محتوى هذه الصفحة.",
+      submitLabel: "إرسال التقييم",
+      closeLabel: "إغلاق",
+      successMessage: "تم استلام ملاحظتك، شكرا لك.",
+      errorMessage: "تعذر إرسال الملاحظة، حاول مرة أخرى.",
+      statisticsText: ""
+    }, window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.settings && window.DEFAULT_SITE_DATA.settings.pageFeedback || {});
+  }
+
+  function pageFeedbackConfig(data) {
+    var settings = data && data.settings && data.settings.pageFeedback || {};
+    var output = Object.assign(pageFeedbackDefaults(), settings);
+    output.enabled = output.enabled !== false;
+    return output;
+  }
+
+  function feedbackLines(value) {
+    var seen = {};
+    return String(value || "").split(/\n+/).map(function (line) {
+      return line.trim();
+    }).filter(function (line) {
+      if (!line || seen[line]) return false;
+      seen[line] = true;
+      return true;
+    });
+  }
+
+  function feedbackCurrentProjectContext(data, path) {
+    var params = new URLSearchParams(location.search);
+    var identifier = params.get("id") || params.get("slug") || "";
+    var entry = projectEntryByIdentifier(data, identifier);
+    var project = entry.project;
+    var key = project && (project.slug || String(entry.index)) || identifier || "unknown";
+    return {
+      pageKey: "project:" + key,
+      pageTitle: project && project.title || document.title || key,
+      pageType: "project",
+      path: path
+    };
+  }
+
+  function feedbackCurrentPageContext(data) {
+    var page = document.body ? document.body.dataset.page : "home";
+    var path = window.location.pathname + window.location.search + window.location.hash;
+    var slug;
+    var pageItem;
+    var collection;
+
+    if (page === "admin") return null;
+    if (page === "home") {
+      slug = getPageSlug();
+      if (!slug) return null;
+      pageItem = routablePageItems(data).find(function (item) { return item.slug === slug; });
+      return {
+        pageKey: "page:" + slug,
+        pageTitle: pageItem && pageItem.title || document.title || slug,
+        pageType: "page",
+        path: path
+      };
+    }
+    if (page === "project-detail") return feedbackCurrentProjectContext(data, path);
+    if (page === "projects") {
+      return {
+        pageKey: "projects",
+        pageTitle: navigationLabel(data, "projectsLabel", "مشاريعنا"),
+        pageType: "projects",
+        path: path
+      };
+    }
+    if (page === "pages") {
+      return {
+        pageKey: "pages",
+        pageTitle: navigationLabel(data, "pagesLabel", "الصفحات"),
+        pageType: "pages",
+        path: path
+      };
+    }
+    if (page === "cards") {
+      collection = currentCardCollection(data);
+      slug = cardCollectionSlug(collection, 0) || "cards";
+      return {
+        pageKey: "cards:" + slug,
+        pageTitle: collection && collection.title || "البطاقات",
+        pageType: "cards",
+        path: path
+      };
+    }
+    if (page === "notifications") {
+      return {
+        pageKey: "notifications",
+        pageTitle: uiText(data, "notificationsLabel", "الإشعارات"),
+        pageType: "notifications",
+        path: path
+      };
+    }
+    return null;
+  }
+
+  function shouldRenderPageFeedback(data) {
+    return pageFeedbackConfig(data).enabled && Boolean(feedbackCurrentPageContext(data));
+  }
+
+  function createFeedbackCheckbox(id, name, label) {
+    var container = el("label", "check-line page-feedback-option");
+    var input = document.createElement("input");
+    input.type = "checkbox";
+    input.className = "nds-check";
+    input.id = id;
+    input.name = name;
+    input.value = label;
+    container.append(input, el("span", "", label));
+    return container;
+  }
+
+  function appendFeedbackOptions(root, items, options) {
+    var fieldset;
+    var legend;
+    if (!items.length) return;
+    fieldset = el("fieldset", "nds-form-group nds-check-group " + options.className);
+    fieldset.setAttribute("data-min-checked", "1");
+    fieldset.setAttribute("data-error-message", options.errorMessage || "اختر خيارا واحدا على الأقل");
+    legend = el("legend", "nds-form-group-label", options.label);
+    fieldset.append(legend);
+    items.forEach(function (item, index) {
+      fieldset.append(createFeedbackCheckbox(options.idPrefix + "-" + index, options.name, item));
+    });
+    root.append(fieldset);
+  }
+
+  function pageFeedbackCookieName(component) {
+    var key = component && component.getAttribute("data-feedback-key") || window.location.pathname + window.location.search;
+    return "nds-feedback" + String(key || "").replace(/[^a-zA-Z0-9_-]/g, "_").replace(/\./g, "-");
+  }
+
+  function getPageFeedbackCookie(component) {
+    var name = pageFeedbackCookieName(component);
+    if (window.NDS && window.NDS.Cookies && window.NDS.Cookies.get) {
+      return window.NDS.Cookies.get(name);
+    }
+    return document.cookie.split(";").map(function (item) {
+      return item.trim();
+    }).filter(function (item) {
+      return item.indexOf(name + "=") === 0;
+    }).map(function (item) {
+      return decodeURIComponent(item.slice(name.length + 1));
+    })[0] || null;
+  }
+
+  function setPageFeedbackCookie(component, value) {
+    var name = pageFeedbackCookieName(component);
+    if (window.NDS && window.NDS.Cookies && window.NDS.Cookies.set) {
+      window.NDS.Cookies.set(name, value || "submitted", 365);
+      return;
+    }
+    document.cookie = name + "=" + encodeURIComponent(value || "submitted") + "; max-age=31536000; path=/; samesite=lax";
+  }
+
+  function setPageFeedbackState(component, state) {
+    if (!component) return;
+    if (window.NDS && window.NDS.State) {
+      if (state) window.NDS.State.set(component, state);
+      else window.NDS.State.clear(component);
+      return;
+    }
+    if (state) component.dataset.state = state;
+    else component.removeAttribute("data-state");
+  }
+
+  function clearPageFeedbackStatus(component) {
+    var status = qs(".nds-user-feedback-status", component);
+    if (status && window.NDS && window.NDS.Feedback && window.NDS.Feedback.dismissAll) {
+      window.NDS.Feedback.dismissAll(status);
+    }
+    if (status) {
+      status.hidden = true;
+      status.textContent = "";
+    }
+  }
+
+  function resetPageFeedbackWidget(component) {
+    var status = qs(".nds-user-feedback-status", component);
+    var details = qs(".nds-user-feedback-details", component);
+    var submit = qs(".nds-user-feedback-submit", component);
+    var close = qs(".nds-user-feedback-close", component);
+    if (!component) return;
+    setPageFeedbackState(component, "");
+    component.removeAttribute("data-answer");
+    clearPageFeedbackStatus(component);
+    if (status) status.hidden = true;
+    if (details) details.hidden = true;
+    if (submit) submit.hidden = true;
+    if (close) close.hidden = true;
+    qsa("input[type='checkbox'], input[type='radio']", component).forEach(function (input) {
+      input.checked = false;
+    });
+    if (qs("textarea", component)) qs("textarea", component).value = "";
+  }
+
+  function showPageFeedbackStatus(component, statusName) {
+    var status = qs(".nds-user-feedback-status", component);
+    var details = qs(".nds-user-feedback-details", component);
+    var submit = qs(".nds-user-feedback-submit", component);
+    var close = qs(".nds-user-feedback-close", component);
+    var message = statusName === "error"
+      ? component.getAttribute("data-error-message") || "تعذر إرسال الملاحظة، حاول مرة أخرى."
+      : component.getAttribute("data-success-message") || "تم استلام ملاحظتك، شكرا لك.";
+    setPageFeedbackState(component, "status");
+    if (status) {
+      status.hidden = false;
+      if (window.NDS && window.NDS.Feedback && window.NDS.Feedback.create) {
+        window.NDS.Feedback.dismissAll(status);
+        window.NDS.Feedback.create({
+          message: message,
+          status: statusName || "success",
+          target: status,
+          position: "append",
+          size: "md",
+          style: "",
+          onDismiss: function () {
+            resetPageFeedbackWidget(component);
+          }
+        });
+      } else {
+        status.textContent = message;
+      }
+    }
+    if (details) details.hidden = true;
+    if (submit) submit.hidden = true;
+    if (close) close.hidden = true;
+    if (statusName !== "error") setPageFeedbackCookie(component, "submitted");
+  }
+
+  function showPageFeedbackDetails(component, answer) {
+    var details = qs(".nds-user-feedback-details", component);
+    var submit = qs(".nds-user-feedback-submit", component);
+    var close = qs(".nds-user-feedback-close", component);
+    setPageFeedbackState(component, "details");
+    component.dataset.answer = answer === "No" ? "no" : "yes";
+    if (details) details.hidden = false;
+    if (submit) submit.hidden = false;
+    if (close) close.hidden = false;
+  }
+
+  function initializePageFeedbackWidget(root) {
+    var component = qs(".nds-user-feedback", root);
+    var submitButton = qs(".nds-user-feedback-submit-btn", root);
+    if (!component || component.dataset.pageFeedbackInitialized === "true") return;
+    component.dataset.pageFeedbackInitialized = "true";
+    component.setAttribute("data-nds-user-feedback-initialized", "true");
+    if (getPageFeedbackCookie(component) === "submitted") {
+      showPageFeedbackStatus(component, "success");
+      return;
+    }
+    qsa(".nds-user-feedback-answer-btn .nds-btn", component).forEach(function (button) {
+      button.addEventListener("click", function () {
+        showPageFeedbackDetails(component, button.dataset.answer || "Yes");
+      });
+    });
+    if (qs(".nds-user-feedback-close", component)) {
+      qs(".nds-user-feedback-close", component).addEventListener("click", function () {
+        resetPageFeedbackWidget(component);
+      });
+    }
+    if (submitButton) {
+      submitButton.addEventListener("click", function (event) {
+        var form = component.closest(".nds-form") || component.closest("form");
+        var payload;
+        event.preventDefault();
+        if (submitButton.dataset.pageFeedbackSent === "true") return;
+        if (form && window.NDS && window.NDS.Forms && window.NDS.Forms.validateForm) {
+          try {
+            if (!window.NDS.Forms.validateForm(form, { showMessages: true, focusFirst: true }).valid) return;
+          } catch (error) {}
+        }
+        payload = collectPageFeedbackPayload(component);
+        if (!payload || !window.SiteStore || !window.SiteStore.savePageFeedback) return;
+        submitButton.dataset.pageFeedbackSent = "true";
+        window.SiteStore.savePageFeedback(payload).then(function () {
+          showPageFeedbackStatus(component, "success");
+        }).catch(function (error) {
+          console.warn("Unable to record page feedback.", error);
+          delete submitButton.dataset.pageFeedbackSent;
+          showPageFeedbackStatus(component, "error");
+        });
+      });
+    }
+    if (window.NDS && window.NDS.reveal) window.NDS.reveal(component);
+  }
+
+  function createPageFeedbackForm(config, context) {
+    var form = el("form", "nds-form page-feedback-form");
+    var component = el("div", "nds-user-feedback page-feedback-widget");
+    var overview = el("div", "nds-user-feedback-overview");
+    var answerButtons = el("div", "nds-user-feedback-answer-btn");
+    var yesButton = el("button", "nds-btn nds-secondary nds-md");
+    var noButton = el("button", "nds-btn nds-secondary nds-md");
+    var status = el("div", "nds-user-feedback-status");
+    var statistic = el("p", "nds-user-feedback-statistic", config.statisticsText || "");
+    var details = el("div", "nds-user-feedback-details");
+    var optionsRoot = el("div", "nds-user-feedback-options");
+    var commentContainer = el("div", "nds-form-container nds-user-feedback-comment");
+    var commentHeader = el("div", "nds-form-header");
+    var commentControl = el("div", "nds-form-control textarea-control");
+    var textarea = document.createElement("textarea");
+    var submitRow = el("div", "nds-user-feedback-submit");
+    var agreement = el("span", "nds-user-feedback-agreement", config.agreementText || "");
+    var submitButton = el("button", "nds-btn nds-primary nds-md nds-user-feedback-submit-btn");
+    var closeButton = el("button", "nds-btn nds-subtle nds-md nds-user-feedback-close");
+    var idPrefix = "page-feedback-" + context.pageKey.replace(/[^a-z0-9_-]+/gi, "-").toLowerCase();
+
+    form.action = "#";
+    form.method = "post";
+    form.dataset.pageFeedbackForm = "true";
+    component.dataset.pageFeedbackContext = JSON.stringify(context);
+    component.setAttribute("data-feedback-key", context.pageKey || context.path || "");
+    component.setAttribute("data-success-message", config.successMessage || "");
+    component.setAttribute("data-error-message", config.errorMessage || "");
+
+    yesButton.type = "button";
+    yesButton.dataset.answer = "Yes";
+    yesButton.append(el("span", "nds-label", config.yesLabel || "نعم"));
+    noButton.type = "button";
+    noButton.dataset.answer = "No";
+    noButton.append(el("span", "nds-label", config.noLabel || "لا"));
+    answerButtons.append(yesButton, noButton);
+
+    status.hidden = true;
+    statistic.hidden = !hasText(config.statisticsText);
+    overview.append(el("p", "nds-user-feedback-question", config.question || "هل كانت هذه الصفحة مفيدة؟"), answerButtons, status, statistic);
+
+    appendFeedbackOptions(optionsRoot, feedbackLines(config.yesOptions), {
+      className: "nds-why-yes",
+      idPrefix: idPrefix + "-yes",
+      name: "feedbackYesReasons",
+      label: config.yesReasonsLabel || "",
+      errorMessage: config.yesReasonsLabel || ""
+    });
+    appendFeedbackOptions(optionsRoot, feedbackLines(config.noOptions), {
+      className: "nds-why-no",
+      idPrefix: idPrefix + "-no",
+      name: "feedbackNoReasons",
+      label: config.noReasonsLabel || "",
+      errorMessage: config.noReasonsLabel || ""
+    });
+
+    commentHeader.append(el("label", "", config.commentLabel || "ملاحظات إضافية"));
+    textarea.className = "nds-input";
+    textarea.name = "feedbackComment";
+    textarea.rows = 4;
+    textarea.maxLength = 2000;
+    textarea.placeholder = config.commentPlaceholder || "";
+    commentControl.append(textarea);
+    commentContainer.append(commentHeader, commentControl);
+    details.hidden = true;
+    details.append(optionsRoot, commentContainer);
+
+    submitButton.type = "button";
+    submitButton.dataset.answer = "submit";
+    submitButton.append(el("span", "nds-label", config.submitLabel || "إرسال التقييم"));
+    closeButton.type = "button";
+    closeButton.hidden = true;
+    closeButton.append(el("span", "nds-label", config.closeLabel || "إغلاق"));
+    submitRow.hidden = true;
+    submitRow.append(agreement, submitButton);
+
+    component.append(overview, details, submitRow, closeButton);
+    form.append(component);
+    return form;
+  }
+
+  function collectPageFeedbackPayload(component) {
+    var context;
+    var answer = component && component.dataset.answer || "";
+    var selector = answer === "yes" ? ".nds-why-yes input:checked" : ".nds-why-no input:checked";
+    if (answer !== "yes" && answer !== "no") return null;
+    try {
+      context = JSON.parse(component.dataset.pageFeedbackContext || "{}");
+    } catch (error) {
+      context = {};
+    }
+    return {
+      pageKey: context.pageKey || "",
+      pageTitle: context.pageTitle || document.title || "",
+      pageType: context.pageType || "",
+      path: context.path || (window.location.pathname + window.location.search + window.location.hash),
+      answer: answer,
+      reasons: qsa(selector, component).map(function (input) { return input.value; }),
+      comment: (qs("textarea", component) || {}).value || ""
+    };
+  }
+
+  function attachPageFeedbackSubmitHandler(root) {
+    var button = qs(".nds-user-feedback-submit-btn", root);
+    if (!button || button.dataset.pageFeedbackApiBound === "true") return;
+    button.dataset.pageFeedbackApiBound = "true";
+    button.addEventListener("click", function () {
+      var component = button.closest(".nds-user-feedback");
+      var form = component && (component.closest(".nds-form") || component.closest("form"));
+      var payload;
+      if (!component || button.dataset.pageFeedbackSent === "true") return;
+      if (form && window.NDS && window.NDS.Forms && window.NDS.Forms.validateForm) {
+        try {
+          if (!window.NDS.Forms.validateForm(form, { showMessages: false, focusFirst: false }).valid) return;
+        } catch (error) {}
+      }
+      payload = collectPageFeedbackPayload(component);
+      if (!payload || !window.SiteStore || !window.SiteStore.savePageFeedback) return;
+      button.dataset.pageFeedbackSent = "true";
+      window.SiteStore.savePageFeedback(payload).catch(function (error) {
+        console.warn("Unable to record page feedback.", error);
+        delete button.dataset.pageFeedbackSent;
+      });
+    });
+  }
+
+  function renderPageFeedback(data) {
+    var previous = qs("[data-page-feedback-root]");
+    var main = qs("main");
+    var config;
+    var context;
+    var section;
+    var container;
+    if (previous) previous.remove();
+    if (!main || !shouldRenderPageFeedback(data)) return;
+    config = pageFeedbackConfig(data);
+    context = feedbackCurrentPageContext(data);
+    if (!context) return;
+    section = el("section", "nds-user-feedback-section page-feedback-section");
+    section.setAttribute("data-page-feedback-root", "");
+    section.setAttribute("aria-label", config.question || "تقييم الصفحة");
+    container = el("div", "site-container page-feedback-container");
+    container.append(createPageFeedbackForm(config, context));
+    section.append(container);
+    main.append(section);
+    initializePageFeedbackWidget(section);
+  }
+
   function footerPageItems(data) {
     return ((data && data.pages) || []).filter(function (item) {
       return item && item.showInFooter === true && hasText(item.title || item.slug) && !pageIsNavigationGroup(item, data);
@@ -1293,10 +1799,16 @@
 
   function allNavigationItems(data) {
     return baseNavigationItems(data)
+      .concat(cardCollectionNavigationItems(data))
       .concat(pageNavigationItems(data));
   }
 
   function isCurrentNav(item, page, currentSlug) {
+    if (page === "cards") {
+      var currentCollection = currentCardCollection(appState.data || {});
+      var cardSlug = currentCollection ? cardCollectionSlug(currentCollection, 0) : "";
+      return item.key === "cards:" + cardSlug;
+    }
     if (currentSlug) return item.key === "page:" + currentSlug;
     return (page === "home" && item.key === "home")
       || (page === "projects" && item.key === "projects")
@@ -1371,6 +1883,12 @@
     list.innerHTML = "";
 
     baseItems.forEach(function (item) {
+      var li = el("li", "nds-nav-item");
+      li.append(createNavLink(item, page, currentSlug));
+      list.append(li);
+    });
+
+    cardCollectionNavigationItems(data).forEach(function (item) {
       var li = el("li", "nds-nav-item");
       li.append(createNavLink(item, page, currentSlug));
       list.append(li);
@@ -1711,7 +2229,13 @@
         href: item.url
       };
     });
-    return customLinks;
+    var pageLinks = footerPageItems(data).map(function (item) {
+      return {
+        label: item.label,
+        href: item.href
+      };
+    });
+    return customLinks.concat(pageLinks);
   }
 
   function uniqueFooterLinks(links, allowLabelOnly) {
@@ -3857,9 +4381,9 @@
     data.home = data.home || {};
     data.settings = data.settings || {};
     var candidates = [];
-    baseNavigationItems(data).concat(pageNavigationItems(data).filter(function (item) {
+    allNavigationItems(data).filter(function (item) {
       return !(item.children && item.children.length);
-    })).forEach(function (item) {
+    }).forEach(function (item) {
       candidates.push({ href: item.href, text: item.label + " " + item.key });
     });
     visibleItems(data.projects || []).forEach(function (project, index) {
@@ -3872,6 +4396,19 @@
       candidates.push({
         href: pageHref(page, data),
         text: [page.title, page.slug, page.content].join(" ")
+      });
+    });
+    publicCardCollections(data).forEach(function (collection, collectionIndex) {
+      var href = cardCollectionHref(collection, collectionIndex);
+      candidates.push({
+        href: href,
+        text: [collection.title, collection.slug, collection.description].join(" ")
+      });
+      visibleCollectionCards(collection).forEach(function (card) {
+        candidates.push({
+          href: href,
+          text: [collection.title, card.title, card.subtitle, card.linkLabel].join(" ")
+        });
       });
     });
     candidates.push({
@@ -5857,6 +6394,142 @@
     });
   }
 
+  function cardInternalPageHref(slug, data) {
+    var normalized = String(slug || "").trim();
+    var page = routablePageItems(data).find(function (item) {
+      return String(item.slug || "").trim() === normalized;
+    });
+    if (page) return pageHref(page, data);
+    return normalized ? "index.html#/page/" + encodeURIComponent(normalized) : "";
+  }
+
+  function cardLinkHref(card, data) {
+    var type = String(card && card.linkType || "none").trim();
+    var value = String(card && card.linkValue || "").trim();
+    if (!value || type === "none") return "";
+    if (type === "page") return cardInternalPageHref(value, data);
+    return normalizeExternalUrl(value);
+  }
+
+  function renderCollectionCards(cards) {
+    var root = qs("[data-card-collection-list]");
+    if (!root) return;
+    root.innerHTML = "";
+    cards.forEach(function (card) {
+      var href = cardLinkHref(card, appState.data);
+      var article = el("article", "collection-card nds-card nds-stroke");
+      var content = el("div", "nds-card-content");
+      var text = el("div", "collection-card-text");
+      var title = el("h2", "nds-card-title", card.title || "");
+      text.append(title);
+      if (hasText(card.subtitle)) text.append(el("p", "nds-card-description", card.subtitle));
+      content.append(text);
+      if (href) {
+        var actions = el("div", "nds-card-actions nds-end collection-card-actions");
+        var link = el("a", "nds-btn nds-secondary nds-md");
+        var icon = document.createElement("i");
+        link.href = href;
+        if (/^https?:\/\//i.test(href)) {
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+        }
+        icon.className = "nds-icon nds-hgi-arrow-left-01";
+        icon.setAttribute("aria-hidden", "true");
+        link.append(el("span", "nds-label", card.linkLabel || "عرض التفاصيل"));
+        link.append(icon);
+        actions.append(link);
+        content.append(actions);
+      }
+      article.append(content);
+      root.append(article);
+    });
+  }
+
+  function renderCardsPagination(collection, collectionIndex, currentPage, pageCount) {
+    var root = qs("[data-card-collection-pagination]");
+    if (!root) return;
+    root.innerHTML = "";
+    root.hidden = pageCount <= 1;
+    if (pageCount <= 1) return;
+
+    var previous = el("a", "nds-btn nds-subtle nds-icon-only hero-control cards-pagination-arrow");
+    var dots = el("div", "hero-dots cards-pagination-dots");
+    var next = el("a", "nds-btn nds-subtle nds-icon-only hero-control cards-pagination-arrow");
+    var previousIcon = document.createElement("i");
+    var nextIcon = document.createElement("i");
+
+    previous.href = cardCollectionHref(collection, collectionIndex, Math.max(1, currentPage - 1));
+    previous.toggleAttribute("aria-disabled", currentPage <= 1);
+    previous.setAttribute("aria-label", "الصفحة السابقة");
+    previousIcon.className = "nds-icon nds-hgi-arrow-right-01";
+    previousIcon.setAttribute("aria-hidden", "true");
+    previous.append(previousIcon);
+    if (currentPage <= 1) previous.setAttribute("tabindex", "-1");
+
+    Array.from({ length: pageCount }).forEach(function (_, index) {
+      var page = index + 1;
+      var dot = el("a", "hero-dot cards-pagination-dot");
+      dot.href = cardCollectionHref(collection, collectionIndex, page);
+      dot.setAttribute("aria-label", "عرض صفحة البطاقات " + page);
+      if (page === currentPage) {
+        dot.dataset.state = "active";
+        dot.setAttribute("aria-current", "page");
+      }
+      dots.append(dot);
+    });
+
+    next.href = cardCollectionHref(collection, collectionIndex, Math.min(pageCount, currentPage + 1));
+    next.toggleAttribute("aria-disabled", currentPage >= pageCount);
+    next.setAttribute("aria-label", "الصفحة التالية");
+    nextIcon.className = "nds-icon nds-hgi-arrow-left-01";
+    nextIcon.setAttribute("aria-hidden", "true");
+    next.append(nextIcon);
+    if (currentPage >= pageCount) next.setAttribute("tabindex", "-1");
+
+    root.append(previous, dots, next);
+  }
+
+  function renderCardsPage(data) {
+    var empty = qs("[data-card-collection-empty]");
+    var content = qs("[data-card-collection-content]");
+    var titleNodes = qsa("[data-card-collection-title]");
+    var descriptionNode = qs("[data-card-collection-description]");
+    var breadcrumbTitle = qs("[data-card-collection-breadcrumb-title]");
+    var heroHead = qs("body[data-page='cards'] .nds-hero-section .nds-section-head");
+    var previousStamp = heroHead ? qs(".page-tracking-stamp", heroHead) : null;
+    var trackingStamp;
+    var collections = publicCardCollections(data);
+    var collection = currentCardCollection(data);
+    var collectionIndex = Math.max(0, collections.indexOf(collection));
+    var cards = visibleCollectionCards(collection);
+    var hasCollection = Boolean(collection);
+    var pageCount = Math.max(1, Math.ceil(cards.length / CARD_COLLECTION_PAGE_SIZE));
+    var requestedPage = Number(new URLSearchParams(location.search).get("page") || "1");
+    var currentPage = Math.min(pageCount, Math.max(1, Number.isFinite(requestedPage) ? requestedPage : 1));
+    var start = (currentPage - 1) * CARD_COLLECTION_PAGE_SIZE;
+    var title = hasCollection ? (collection.title || collection.slug || "البطاقات") : "البطاقات";
+    var description = hasCollection ? (collection.description || "كل البطاقات المضافة تظهر هنا بشكل منظم.") : "لم يتم العثور على صفحة البطاقات المطلوبة.";
+
+    titleNodes.forEach(function (node) { node.textContent = title; });
+    if (breadcrumbTitle) breadcrumbTitle.textContent = title;
+    if (descriptionNode) descriptionNode.textContent = description;
+    updateDocumentTitle(data, title);
+    renderSectionShareAction("body[data-page='cards'] .nds-hero-section .nds-section-head", hasCollection ? cardCollectionHref(collection, collectionIndex, currentPage) : "", title);
+    if (previousStamp) previousStamp.remove();
+    trackingStamp = pageTrackingStamp(collection);
+    if (heroHead && trackingStamp) heroHead.append(trackingStamp);
+
+    if (empty) empty.hidden = hasCollection && cards.length > 0;
+    if (content) content.hidden = !hasCollection || cards.length < 1;
+    if (!hasCollection || !cards.length) {
+      renderCardsPagination(collection, collectionIndex, 1, 1);
+      return;
+    }
+
+    renderCollectionCards(cards.slice(start, start + CARD_COLLECTION_PAGE_SIZE));
+    renderCardsPagination(collection, collectionIndex, currentPage, pageCount);
+  }
+
   function renderNotificationsPage() {
     var root = qs("[data-notifications-list]");
     var empty = qs("[data-notifications-empty]");
@@ -6017,8 +6690,10 @@
     if (document.body.dataset.page === "home") renderHome(appState.data);
     if (document.body.dataset.page === "projects") renderProjectsPage(appState.data);
     if (document.body.dataset.page === "project-detail") renderProjectDetailPage(appState.data);
+    if (document.body.dataset.page === "cards") renderCardsPage(appState.data);
     if (document.body.dataset.page === "pages") renderPagesPage(appState.data);
     if (document.body.dataset.page === "notifications") renderNotificationsPage();
+    renderPageFeedback(appState.data);
     if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.init) window.NDS.Mainnav.init();
     if (window.NDS && window.NDS.Sidemenu && window.NDS.Sidemenu.init) window.NDS.Sidemenu.init();
     initializeShareComponents();

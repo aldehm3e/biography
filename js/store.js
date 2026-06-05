@@ -18,7 +18,11 @@
     deleteMedia: "api/upload/delete-media.php",
     listUsers: "api/auth/list-users.php",
     saveUser: "api/auth/save-user.php",
-    deleteUser: "api/auth/delete-user.php"
+    deleteUser: "api/auth/delete-user.php",
+    saveFeedback: "api/feedback/save.php",
+    listFeedback: "api/feedback/list.php",
+    exportFeedback: "api/feedback/export.php",
+    importFeedback: "api/feedback/import.php"
   };
 
   var currentData = null;
@@ -74,6 +78,7 @@
   function normalize(data) {
     var cleanData = mergeObject(window.DEFAULT_SITE_DATA || {}, data || {});
     cleanData.settings = cleanData.settings || {};
+    cleanData.settings.pageFeedback = normalizePageFeedback(cleanData.settings.pageFeedback);
     cleanData.navigation = cleanData.navigation || {};
     cleanData.home = cleanData.home || {};
     cleanData.home.heroSlides = normalizeArray(cleanData.home.heroSlides);
@@ -88,6 +93,11 @@
     cleanData.home.footerLinks = normalizeArray(cleanData.home.footerLinks);
     cleanData.footer = normalizeFooter(cleanData.footer);
     cleanData.projects = normalizeArray(cleanData.projects);
+    cleanData.cardCollections = normalizeArray(cleanData.cardCollections).map(function (collection) {
+      collection = collection && typeof collection === "object" ? collection : {};
+      collection.cards = normalizeArray(collection.cards);
+      return collection;
+    });
     cleanData.pages = normalizeArray(cleanData.pages);
     cleanData.integrations = normalizeArray(cleanData.integrations);
     cleanData.notifications = normalizeArray(cleanData.notifications);
@@ -96,6 +106,32 @@
 
   function normalizeArray(value) {
     return Array.isArray(value) ? value : [];
+  }
+
+  function normalizePageFeedback(value) {
+    var defaults = window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.settings && window.DEFAULT_SITE_DATA.settings.pageFeedback || {};
+    var output = mergeObject(defaults, value && typeof value === "object" ? value : {});
+    [
+      "question",
+      "yesLabel",
+      "noLabel",
+      "yesReasonsLabel",
+      "noReasonsLabel",
+      "yesOptions",
+      "noOptions",
+      "commentLabel",
+      "commentPlaceholder",
+      "agreementText",
+      "submitLabel",
+      "closeLabel",
+      "successMessage",
+      "errorMessage",
+      "statisticsText"
+    ].forEach(function (key) {
+      output[key] = String(output[key] || "");
+    });
+    output.enabled = output.enabled !== false;
+    return output;
   }
 
   function normalizeFooter(footer) {
@@ -253,13 +289,50 @@
 
     importJson: function (jsonText) {
       var parsed = JSON.parse(jsonText);
-      return save(parsed);
+      var siteData = parsed && parsed.schema === "biography.site-backup" ? parsed.data : parsed;
+      var feedbackRecords = parsed && parsed.schema === "biography.site-backup" && parsed.pageFeedback
+        ? parsed.pageFeedback.records
+        : null;
+      return save(siteData).then(function (savedData) {
+        if (!feedbackRecords || !window.SiteStore.importPageFeedback) return savedData;
+        return window.SiteStore.importPageFeedback(feedbackRecords).then(function () {
+          return savedData;
+        });
+      });
     },
 
     importLocalCache: function () {
       var cached = legacyLocalData || readLocal();
       if (!cached) return Promise.reject(new Error("No local cache was found."));
       return save(cached);
+    },
+
+    savePageFeedback: function (payload) {
+      return requestJson(API.saveFeedback, {
+        method: "POST",
+        body: JSON.stringify(payload || {})
+      });
+    },
+
+    listPageFeedback: function () {
+      return requestJson(API.listFeedback).then(function (payload) {
+        return payload.data || {};
+      });
+    },
+
+    exportPageFeedback: function () {
+      return requestJson(API.exportFeedback).then(function (payload) {
+        return payload.data || { records: [] };
+      });
+    },
+
+    importPageFeedback: function (records) {
+      return requestJson(API.importFeedback, {
+        method: "POST",
+        body: JSON.stringify({ records: records || [] })
+      }).then(function (payload) {
+        return payload.data || {};
+      });
     },
 
     me: function () {

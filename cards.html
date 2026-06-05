@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="صفحة المشاريع.">
+  <meta name="description" content="صفحة البطاقات.">
   <script>
     (function () {
       try {
@@ -14,15 +14,14 @@
       } catch (error) {}
     })();
   </script>
-  <title>مشاريعنا</title>
-  <!-- Reusable NDS frontend toolkit is vendored locally under assets/vendor/nds/. -->
+  <title>البطاقات</title>
   <link rel="icon" type="image/svg+xml" href="assets/images/site-mark.svg" data-site-favicon>
   <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
   <link rel="stylesheet" href="css/nds-local-components.css?v=notification-refit-20260530">
   <link rel="stylesheet" href="css/custom.css?v=checkbox-shared-style-admin-20260605">
 </head>
-<body data-page="projects">
+<body data-page="cards">
   <header class="site-header">
     <div class="nds-topbar nds-content-wrapper" role="region" aria-label="شريط المعلومات">
       <button class="nds-btn nds-menu-btn nds-digitalStamp-tab" type="button" aria-expanded="false" aria-controls="nds-digitalStamp">
@@ -40,18 +39,14 @@
       <div class="nds-content-wrapper">
         <div class="nds-digitalStamp-notices">
           <div class="nds-digitalStamp-card">
-            <div class="nds-digitalStamp-icon">
-              <i class="nds-icon nds-hgi-link-04" aria-hidden="true"></i>
-            </div>
+            <div class="nds-digitalStamp-icon"><i class="nds-icon nds-hgi-link-04" aria-hidden="true"></i></div>
             <div class="nds-digitalStamp-content">
               <div class="nds-digitalStamp-heading" data-shell-verify-title>تحقق من رابط الموقع قبل إدخال أي بيانات.</div>
               <div class="nds-digitalStamp-description" data-shell-verify-description>استخدم الرابط الرسمي الذي يقدمه مالك الموقع، وتجنب الروابط المختصرة أو غير المعروفة.</div>
             </div>
           </div>
           <div class="nds-digitalStamp-card">
-            <div class="nds-digitalStamp-icon">
-              <i class="nds-icon nds-hgi-square-lock-01" aria-hidden="true"></i>
-            </div>
+            <div class="nds-digitalStamp-icon"><i class="nds-icon nds-hgi-square-lock-01" aria-hidden="true"></i></div>
             <div class="nds-digitalStamp-content">
               <div class="nds-digitalStamp-heading" data-shell-security-title>الاتصال الآمن يستخدم بروتوكول HTTPS.</div>
               <div class="nds-digitalStamp-description" data-shell-security-description>تأكد من ظهور القفل في المتصفح عند استخدام نسخة منشورة على الاستضافة.</div>
@@ -60,9 +55,7 @@
         </div>
         <div class="nds-digitalStamp-register">
           <img src="assets/images/site-mark.svg" width="31" height="31" alt="" loading="lazy" aria-hidden="true" data-site-mark>
-          <div>
-            <span data-shell-notice-text>هذا موقع شخصي مستقل وغير تابع لأي جهة حكومية.</span>
-          </div>
+          <div><span data-shell-notice-text>هذا موقع شخصي مستقل وغير تابع لأي جهة حكومية.</span></div>
         </div>
       </div>
     </div>
@@ -85,16 +78,8 @@
         <div class="nds-collapse" id="ndsNavCollapse" data-nav-panel hidden>
           <div class="nds-collapse-content">
             <ul class="nds-nav-primary" data-nav-list>
-              <li class="nds-nav-item">
-                <a class="nds-nav-link nds-btn nds-subtle nav-link" href="index.html">
-                  <span class="nds-label">الرئيسية</span>
-                </a>
-              </li>
-              <li class="nds-nav-item">
-                <a class="nds-nav-link nds-btn nds-subtle nav-link" href="projects.html">
-                  <span class="nds-label">المشاريع</span>
-                </a>
-              </li>
+              <li class="nds-nav-item"><a class="nds-nav-link nds-btn nds-subtle nav-link" href="index.html"><span class="nds-label">الرئيسية</span></a></li>
+              <li class="nds-nav-item"><a class="nds-nav-link nds-btn nds-subtle nav-link" href="projects.html"><span class="nds-label">المشاريع</span></a></li>
             </ul>
             <div class="nds-nav-item nds-show-more">
               <button class="nds-nav-link nds-btn nds-subtle nds-indicator nds-full" type="button" title="Show More" aria-label="Show More" data-nav-scroll="next">
@@ -142,7 +127,7 @@
                       <hr class="nds-divider">
                       <a href="notifications.html" class="nds-btn nds-subtle nds-full">
                         <i class="nds-icon nds-hgi-notification-02" aria-hidden="true"></i>
-                        <span class="nds-label">&#1593;&#1585;&#1590; &#1603;&#1604; &#1575;&#1604;&#1573;&#1588;&#1593;&#1575;&#1585;&#1575;&#1578;</span>
+                        <span class="nds-label">عرض كل الإشعارات</span>
                       </a>
                     </div>
                   </div>
@@ -167,14 +152,8 @@
                         </div>
                         <hr class="nds-divider">
                         <div class="nds-persona-action">
-                          <a href="admin.html" class="nds-btn nds-subtle nds-dropdown-item">
-                            <i class="nds-icon nds-hgi-identity-card" aria-hidden="true"></i>
-                            <span class="nds-label">لوحة الادارة</span>
-                          </a>
-                          <button type="button" class="nds-btn nds-subtle nds-destructive nds-dropdown-item" id="logoutBtn" data-admin-persona-logout>
-                            <i class="nds-icon nds-hgi-door-01" aria-hidden="true"></i>
-                            <span class="nds-label">تسجيل خروج</span>
-                          </button>
+                          <a href="admin.html" class="nds-btn nds-subtle nds-dropdown-item"><i class="nds-icon nds-hgi-identity-card" aria-hidden="true"></i><span class="nds-label">لوحة الإدارة</span></a>
+                          <button type="button" class="nds-btn nds-subtle nds-destructive nds-dropdown-item" id="logoutBtn" data-admin-persona-logout><i class="nds-icon nds-hgi-door-01" aria-hidden="true"></i><span class="nds-label">تسجيل خروج</span></button>
                         </div>
                       </div>
                     </div>
@@ -199,40 +178,36 @@
       <nav class="nds-breadcrumb-nav" aria-label="Breadcrumb">
         <ol class="nds-breadcrumb">
           <li><a href="index.html" data-home-page-label>الرئيسية</a></li>
-          <li class="nds-truncate" aria-current="page" data-projects-page-label>مشاريعنا</li>
+          <li class="nds-truncate" aria-current="page" data-card-collection-breadcrumb-title>البطاقات</li>
         </ol>
       </nav>
       <div class="nds-section-wrapper">
         <div class="nds-section-head">
           <div class="nds-section-action nds-minimal" data-section-share-action></div>
-          <h1 class="nds-section-title" data-projects-page-label>مشاريعنا</h1>
-          <p class="nds-section-description">تظهر المشاريع هنا بعد إضافتها من لوحة الإدارة، وتبقى منظمة حتى عند زيادة العدد.</p>
+          <h1 class="nds-section-title" data-card-collection-title>البطاقات</h1>
+          <p class="nds-section-description" data-card-collection-description>كل البطاقات المضافة تظهر هنا بشكل منظم.</p>
         </div>
       </div>
     </section>
 
-    <section class="nds-content-section" data-projects-empty>
+    <section class="nds-content-section" data-card-collection-empty>
       <div class="site-container">
         <div class="nds-card nds-stroke nds-empty-state premium-empty">
           <div class="nds-card-content">
             <div class="empty-icon" aria-hidden="true"></div>
-            <h2 class="nds-card-title">لم تتم إضافة مشاريع بعد</h2>
-            <p class="nds-card-description">يمكنك إضافة المشاريع من لوحة الإدارة.</p>
-            <a class="nds-btn nds-primary" href="admin.html"><span class="nds-label">إضافة مشروع</span></a>
+            <h2 class="nds-card-title">لا توجد بطاقات بعد</h2>
+            <p class="nds-card-description">يمكنك إضافة صفحات البطاقات من لوحة الإدارة.</p>
+            <a class="nds-btn nds-primary" href="admin.html"><span class="nds-label">إضافة بطاقات</span></a>
           </div>
         </div>
       </div>
     </section>
 
-    <section class="nds-content-section" data-projects-content hidden>
-      <div class="site-container project-page-container nds-section-wrapper">
-        <div class="nds-section-head">
-          <p class="nds-section-subtitle">قائمة المشاريع</p>
-          <h2 class="nds-section-title">الأعمال المضافة</h2>
-        </div>
-        <div class="nds-section-action project-filters" data-project-filters></div>
+    <section class="nds-content-section" data-card-collection-content hidden>
+      <div class="site-container card-collection-container nds-section-wrapper">
         <div class="nds-section-body">
-          <div class="project-grid" data-project-list></div>
+          <div class="card-collection-grid" data-card-collection-list></div>
+          <nav class="cards-pagination" aria-label="تنقل صفحات البطاقات" data-card-collection-pagination hidden></nav>
         </div>
       </div>
     </section>
