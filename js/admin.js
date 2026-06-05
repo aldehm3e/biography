@@ -4497,12 +4497,14 @@
     var collectionItem;
     var cardItem;
     var collectionId;
+    var cardId;
     var collection;
     var cardIndex;
     if (!ensurePermission("cards") || !button) return;
     collectionItem = button.closest("[data-card-collection-index]");
     cardItem = button.closest("[data-card-item-index]");
     collectionId = collectionItem ? collectionItem.dataset.cardCollectionId : "";
+    cardId = cardItem ? cardItem.dataset.cardId : "";
     if (!collectionItem || !cardItem || !collectionId) return;
     captureOpenEditorAccordions(qs("[data-card-collections-editor]"));
     collectCardCollections({ keepDrafts: true });
@@ -4510,8 +4512,11 @@
       return item && item.id === collectionId;
     });
     if (!collection) return;
-    cardIndex = getSortableItemIndex(cardItem);
     confirmAdminDeleteThen("هل تريد حذف هذه البطاقة؟", function () {
+      cardIndex = (collection.cards || []).findIndex(function (card) {
+        return card && card.id === cardId;
+      });
+      if (cardIndex < 0) cardIndex = getSortableItemIndex(cardItem);
       if (cardIndex > -1) collection.cards.splice(cardIndex, 1);
       collection.updatedAt = currentPageTimestamp();
       saveData();
@@ -5978,13 +5983,18 @@
         return;
       }
       if (deleteProject) {
+        var deleteProjectItem = deleteProject.closest("[data-project-index]");
+        var deleteProjectId = deleteProjectItem ? deleteProjectItem.dataset.projectId : "";
         confirmAdminDeleteThen("هل تريد حذف المشروع؟", function () {
-          var projectItem = deleteProject.closest("[data-project-index]");
-          var projectIndex = getSortableItemIndex(projectItem);
+          var projectIndex;
           var removedProject;
           collectProjects({ keepDrafts: true });
+          projectIndex = (data.projects || []).findIndex(function (project) {
+            return project && ensureEntityId(project, "project") === deleteProjectId;
+          });
+          if (projectIndex < 0) projectIndex = getSortableItemIndex(deleteProjectItem);
           if (projectIndex > -1) removedProject = data.projects.splice(projectIndex, 1)[0];
-          if (projectHasDraftContent(removedProject)) saveData();
+          if (removedProject) saveData();
           renderProjectsEditor();
           toast("تم حذف المشروع");
         });

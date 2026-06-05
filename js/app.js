@@ -264,6 +264,17 @@
         setBodyState(true, config);
         return;
       }
+      if (config.owner === "modal" && !surfaces.length && !config.modalSurfaceDeferred) {
+        config.modalSurfaceDeferred = true;
+        backdropElement.dataset.ndsBackdropBlocking = "true";
+        backdropElement.style.zIndex = config.zIndex;
+        setBodyState(true, config);
+        syncScrollLock();
+        window.requestAnimationFrame(function () {
+          if (currentConfig === config && isActive) applyBlockingState(config);
+        });
+        return;
+      }
       mutedElements = qsa(NDS.focusableSel || FOCUSABLE_SELECTOR).filter(function (element) {
         if (element === backdropElement || backdropElement.contains(element)) return false;
         return !isInsideAny(element, surfaces);
@@ -4371,98 +4382,6 @@
     });
   }
 
-  function isAdminPage() {
-    return Boolean(document.body && document.body.dataset.page === "admin");
-  }
-
-  function isAdminHeaderFastActionTrigger(trigger) {
-    var root = headerActionDropdownFromTrigger(trigger);
-    return Boolean(isAdminPage()
-      && root
-      && root.matches(".site-search-dropdown, .notification-dropdown, .admin-persona-dropdown, .mobile-account-dropdown"));
-  }
-
-  function hasAdminBlockingOverlay() {
-    return Boolean(qs(".nds-modal:not([hidden])[aria-hidden='false']")
-      || qs(".admin-sidemenu[data-state~='open'], .nds-sidemenu[data-state~='open'], .nds-sidemenu[data-state~='opening']"));
-  }
-
-  function clearAdminHeaderBackdrop() {
-    if (!isAdminPage() || hasAdminBlockingOverlay()) return;
-    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.hide) {
-      window.NDS.Backdrop.hide("site-header");
-    }
-    qsa("[data-nds-backdrop]").forEach(function (backdrop) {
-      backdrop.style.display = "";
-      backdrop.removeAttribute("data-state");
-      backdrop.removeAttribute("data-nds-backdrop-blocking");
-    });
-    removeDataStateTokens(document.body, ["backdrop"]);
-    delete document.body.dataset.siteOverlay;
-    delete document.body.dataset.ndsBackdropActive;
-    delete document.body.dataset.ndsBackdropOwner;
-    delete document.body.dataset.ndsBackdropContext;
-    document.body.style.removeProperty("top");
-    clearSiteBackdropSurfaces();
-  }
-
-  function scheduleAdminHeaderBackdropClear() {
-    clearAdminHeaderBackdrop();
-    window.requestAnimationFrame(clearAdminHeaderBackdrop);
-    window.setTimeout(clearAdminHeaderBackdrop, 80);
-    window.setTimeout(clearAdminHeaderBackdrop, 260);
-  }
-
-  function setAdminHeaderActionDropdownOpen(root, open) {
-    if (!root) return;
-    var trigger = qs(":scope > .nds-nav-link, :scope > .nds-btn", root) || qs(".nds-nav-link, .nds-btn", root);
-    if (open) {
-      root.dataset.state = "open opened";
-      root.setAttribute("data-state", "open opened");
-      if (trigger) {
-        trigger.dataset.state = "active";
-        trigger.setAttribute("data-state", "active");
-        trigger.setAttribute("aria-expanded", "true");
-      }
-      scheduleHeaderActionDropdownFit(root);
-      if (root.classList.contains("notification-dropdown")) {
-        stabilizeNotificationDropdown(root);
-        refreshNotificationComponents(root);
-        syncNotificationTriggerState(root);
-      }
-      if (root.classList.contains("site-search-dropdown")) {
-        window.setTimeout(function () {
-          var input = qs(".site-search-input", root);
-          if (input && hasOpenStateToken(root)) input.focus();
-        }, 60);
-      }
-      return;
-    }
-    delete root.dataset.state;
-    root.removeAttribute("data-state");
-    qsa("[aria-expanded], [data-state]", root).forEach(function (node) {
-      removeDataStateTokens(node, ["active", "open", "opened", "opening", "closing"]);
-      if (node.hasAttribute("aria-expanded")) node.setAttribute("aria-expanded", "false");
-    });
-  }
-
-  function closeAdminHeaderActionDropdowns(except) {
-    qsa(".site-header .header-actions .nds-dropdown, .site-header .nds-nav-minimal .nds-dropdown").forEach(function (root) {
-      if (root !== except) setAdminHeaderActionDropdownOpen(root, false);
-    });
-  }
-
-  function toggleAdminHeaderActionDropdown(trigger) {
-    var root = headerActionDropdownFromTrigger(trigger);
-    if (!root) return;
-    var shouldOpen = !hasOpenStateToken(root);
-    closeNavDropmenus(null, { dismissNative: false, instant: true });
-    closeAdminHeaderActionDropdowns(shouldOpen ? root : null);
-    setAdminHeaderActionDropdownOpen(root, shouldOpen);
-    syncSiteDropdownBackdrop();
-    scheduleAdminHeaderBackdropClear();
-  }
-
   function setupDropmenus() {
     document.addEventListener("click", function (event) {
       var trigger = event.target.closest(".nav-pages-trigger");
@@ -4478,13 +4397,6 @@
       }
       if (mobileNavLink) {
         closeMobileNavPanelAfterNavigation();
-      }
-      if (headerActionTrigger && isAdminHeaderFastActionTrigger(headerActionTrigger)) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-        toggleAdminHeaderActionDropdown(headerActionTrigger);
-        return;
       }
       if (headerActionTrigger) {
         var header = event.target.closest(".site-header");
@@ -4512,10 +4424,6 @@
       if (!event.target.closest(".nav-pages-item")) {
         closeNavDropmenus(null, { dismissNative: false });
       }
-      if (isAdminPage() && !event.target.closest(".site-header .header-actions .nds-dropdown, .site-header .nds-nav-minimal .nds-dropdown")) {
-        closeAdminHeaderActionDropdowns(null);
-        scheduleAdminHeaderBackdropClear();
-      }
       if (hasNativeMainnavDropdowns()) {
         scheduleNavPageDropdownSync();
         return;
@@ -4530,10 +4438,6 @@
     document.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") return;
       closeNavDropmenus();
-      if (isAdminPage()) {
-        closeAdminHeaderActionDropdowns(null);
-        scheduleAdminHeaderBackdropClear();
-      }
       scheduleNavPageDropdownSync();
     });
   }
