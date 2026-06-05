@@ -60,7 +60,7 @@ The database is the source of truth after install. Browser `localStorage` is onl
 | `api/content/save-site.php` | POST JSON | Admin | Saves site data. Empty or invalid payloads are rejected to prevent accidental resets. |
 | `api/feedback/save.php` | POST JSON | Public | Stores page feedback for public pages except the home page. |
 | `api/feedback/list.php` | GET | `page_feedback` permission | Returns page feedback summary and recent submissions. |
-| `api/feedback/export.php` | GET | `backup` permission | Exports feedback records for JSON backup. |
+| `api/feedback/export.php` | GET | `page_feedback` or `backup` permission | Exports feedback records as JSON. |
 | `api/feedback/import.php` | POST JSON | `backup` permission | Replaces feedback records during JSON restore. |
 | `api/auth/captcha.php` | GET | Public | Creates a login math CAPTCHA stored in session. |
 | `api/auth/login.php` | POST JSON | Public | Verifies CAPTCHA, email, password, active status, then starts the admin session. |

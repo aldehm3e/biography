@@ -42,7 +42,8 @@ api/config.php
 - `api/content/save-site.php`: admin-only save endpoint.
 - `api/feedback/save.php`: public page feedback submit endpoint.
 - `api/feedback/list.php`: admin feedback summary endpoint.
-- `api/feedback/export.php` / `api/feedback/import.php`: backup-scoped feedback transfer endpoints.
+- `api/feedback/export.php`: feedback export endpoint for `page_feedback` or `backup` users.
+- `api/feedback/import.php`: backup-scoped feedback restore endpoint.
 - `api/auth/`: login, logout, current user, user management, and account updates.
 - `api/upload/upload-media.php`: admin uploads for media-library users and inline content editors.
 

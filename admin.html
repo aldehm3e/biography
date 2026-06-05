@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
   <link rel="stylesheet" href="css/nds-local-components.css?v=notification-refit-20260530">
-  <link rel="stylesheet" href="css/custom.css?v=checkbox-shared-style-admin-20260605">
+  <link rel="stylesheet" href="css/custom.css?v=feedback-accordion-export-20260605">
 </head>
 <body data-page="admin">
   <header class="site-header">
@@ -966,36 +966,13 @@
                     <div class="system-status-grid" data-system-status-grid></div>
                   </section>
 
-                  <section class="system-console-block system-tool-entry" aria-labelledby="systemFeedbackEntryTitle" data-system-view-block="overview" data-permission="page_feedback">
-                    <div class="system-console-heading">
-                      <div>
-                        <h3 class="nds-card-title" id="systemFeedbackEntryTitle">إدارة تقييم الصفحات</h3>
-                        <p class="nds-card-description">إعداد نموذج تقييم الصفحات العامة ومتابعة ملاحظات الزوار.</p>
-                      </div>
-                      <div class="nds-section-action">
-                        <button class="nds-btn nds-primary" type="button" data-open-system-view="pageFeedback"><span class="nds-label">فتح الإدارة</span></button>
-                      </div>
-                    </div>
-                  </section>
-
-                  <section class="system-console-block system-tool-entry" aria-labelledby="systemBackupEntryTitle" data-system-view-block="overview" data-permission="backup">
-                    <div class="system-console-heading">
-                      <div>
-                        <h3 class="nds-card-title" id="systemBackupEntryTitle">النسخ الاحتياطي والاستعادة</h3>
-                        <p class="nds-card-description">تصدير واستيراد نسخة JSON من المحتوى وتقييمات الصفحات.</p>
-                      </div>
-                      <div class="nds-section-action">
-                        <button class="nds-btn nds-primary" type="button" data-open-system-view="backup"><span class="nds-label">فتح النسخ</span></button>
-                      </div>
-                    </div>
-                  </section>
-
                   <section class="system-console-block" aria-labelledby="pageFeedbackTitle" data-system-view-block="pageFeedback" data-permission="page_feedback" hidden>
                     <div class="system-console-heading">
                       <div class="sr-only">
                         <h3 id="pageFeedbackTitle">إدارة تقييم الصفحات</h3>
                       </div>
                       <div class="nds-section-action">
+                        <button class="nds-btn nds-secondary-outline" type="button" data-export-page-feedback><span class="nds-label">تصدير التقييمات</span></button>
                         <button class="nds-btn nds-secondary-outline" type="button" data-refresh-page-feedback><span class="nds-label">تحديث التقييمات</span></button>
                         <button class="nds-btn nds-primary" type="button" data-save-page-feedback><span class="nds-label">حفظ إعدادات التقييم</span></button>
                       </div>
@@ -1226,6 +1203,6 @@
   <script src="assets/vendor/nds/components/js/nds-breadcrumb.js"></script>
   <script src="js/nds-local-components.js"></script>
   <script src="js/app.js?v=checkbox-shared-style-admin-20260605"></script>
-  <script src="js/admin.js?v=separate-system-items-20260605"></script>
+  <script src="js/admin.js?v=feedback-accordion-export-4-20260605"></script>
 </body>
 </html>

@@ -9052,13 +9052,6 @@ body {
   justify-content: flex-start;
 }
 
-.system-tool-entry {
-  border: 1px solid var(--colors-neutral-200);
-  border-radius: var(--radius-sm);
-  background: var(--background-default);
-  padding: var(--spacing-lg);
-}
-
 .system-backup-meta {
   margin: var(--spacing-sm) 0 0;
   color: var(--text-secondary-paragraph);
@@ -11130,14 +11123,20 @@ body[data-page="notifications"] .site-header .nds-main-nav :is(.header-actions, 
 }
 
 .page-feedback-toggle {
-  align-items: flex-start;
+  align-items: center;
   width: fit-content;
   margin: 0;
 }
 
 .page-feedback-toggle-text {
-  display: grid;
-  gap: 2px;
+  display: inline-flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.page-feedback-toggle .nds-form-helper {
+  display: inline;
 }
 
 .page-feedback-admin-grid {
@@ -11166,18 +11165,50 @@ body[data-page="notifications"] .site-header .nds-main-nav :is(.header-actions, 
 }
 
 .page-feedback-recent-item {
-  display: grid;
-  gap: 8px;
   border: 1px solid var(--border-secondary, #e5e7eb);
   border-radius: 8px;
   background: var(--background-default, #fff);
-  padding: 14px;
+  overflow: hidden;
+}
+
+.page-feedback-recent-item[open] {
+  border-color: var(--colors-primary-sa-flag-300, #9bd7bd);
+  box-shadow: 0 10px 24px rgba(16, 24, 40, 0.08);
 }
 
 .page-feedback-recent-head {
-  display: flex;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
   align-items: center;
   gap: 10px;
+  padding: 14px;
+  cursor: pointer;
+  list-style: none;
+}
+
+.page-feedback-recent-head::-webkit-details-marker {
+  display: none;
+}
+
+.page-feedback-recent-head::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-inline-end: 2px solid currentColor;
+  border-block-end: 2px solid currentColor;
+  color: var(--text-tertiary, #6b7280);
+  transform: rotate(45deg);
+  transition: transform var(--nds-transition);
+}
+
+.page-feedback-recent-item[open] .page-feedback-recent-head::after {
+  transform: rotate(225deg);
+}
+
+.page-feedback-recent-body {
+  display: grid;
+  gap: 8px;
+  padding: 0 14px 14px;
 }
 
 .page-feedback-recent-title {
@@ -11232,8 +11263,17 @@ body[data-page="notifications"] .site-header .nds-main-nav :is(.header-actions, 
     grid-template-columns: 1fr;
   }
 
+  .page-feedback-toggle-text {
+    display: grid;
+    white-space: normal;
+  }
+
   .page-feedback-recent-head {
     align-items: flex-start;
-    flex-wrap: wrap;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+  }
+
+  .page-feedback-recent-time {
+    grid-column: 2 / -1;
   }
 }

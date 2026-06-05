@@ -996,18 +996,21 @@
       ].join("");
       return;
     }
-    listRoot.innerHTML = recent.slice(0, 8).map(function (item) {
+    listRoot.innerHTML = recent.slice(0, 12).map(function (item) {
       var reasons = Array.isArray(item.reasons) && item.reasons.length ? item.reasons.join("، ") : "";
       return [
-        '<article class="page-feedback-recent-item" data-answer="' + safeText(item.answer || "") + '">',
-        '<div class="page-feedback-recent-head">',
+        '<details class="page-feedback-recent-item" data-answer="' + safeText(item.answer || "") + '">',
+        '<summary class="page-feedback-recent-head">',
         '<span class="nds-tag nds-xs" data-status="' + (item.answer === "yes" ? "success" : "warning") + '"><span class="nds-label">' + safeText(feedbackAnswerLabel(item.answer)) + '</span></span>',
         '<strong class="page-feedback-recent-title">' + safeText(item.pageTitle || item.pageKey || "صفحة") + '</strong>',
         '<time class="page-feedback-recent-time" datetime="' + safeText(item.createdAt) + '">' + safeText(formatAdminDateTime(item.createdAt)) + '</time>',
-        '</div>',
+        '</summary>',
+        '<div class="page-feedback-recent-body">',
         reasons ? '<p class="page-feedback-recent-reasons">' + safeText(reasons) + '</p>' : '',
         item.comment ? '<p class="page-feedback-recent-comment">' + safeText(item.comment) + '</p>' : '',
-        '</article>'
+        item.path ? '<p class="page-feedback-recent-comment">' + safeText(item.path) + '</p>' : '',
+        '</div>',
+        '</details>'
       ].join("");
     }).join("");
   }
@@ -1367,6 +1370,21 @@
       URL.revokeObjectURL(link.href);
       link.remove();
     }, 0);
+  }
+
+  function pageFeedbackExportFilename() {
+    return "page-feedback-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".json";
+  }
+
+  function downloadPageFeedbackExport() {
+    var link = document.createElement("a");
+    link.href = "api/feedback/export.php?download=1&limit=50000";
+    link.download = pageFeedbackExportFilename();
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    addAdminActivity("تصدير تقييمات الصفحات", "تم طلب تنزيل ملف تقييمات الصفحات.", "success");
+    toast("بدأ تصدير التقييمات");
   }
 
   function downloadSystemBackup(filename) {
@@ -5434,11 +5452,7 @@
         toast("تم تحديث تقييمات الصفحات");
       });
     });
-    qsa("[data-open-system-view]").forEach(function (button) {
-      button.addEventListener("click", function () {
-        setSystemView(button.dataset.openSystemView || "overview");
-      });
-    });
+    if (qs("[data-export-page-feedback]")) qs("[data-export-page-feedback]").addEventListener("click", downloadPageFeedbackExport);
     qsa("[data-preview-target]").forEach(function (button) {
       button.addEventListener("click", function () {
         openPreview(button.dataset.previewTarget || "home");
