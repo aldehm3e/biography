@@ -1011,13 +1011,15 @@
     var name = accountDisplayName(data);
     var role = data.home.title || "Administrator";
     var portalLabel = uiText(data, "adminPortalLabel", "الإدارة");
-    item.className = "nds-nav-item nds-dropdown admin-persona-dropdown account-menu-item";
-    item.dataset.accountMenu = "desktop";
+    item.className = isAuthenticated
+      ? "nds-nav-item nds-dropdown nds-login nds-icon-only nds-auth admin-persona-dropdown account-menu-item"
+      : "nds-nav-item nds-icon-only nds-guest admin-persona-dropdown account-menu-item";
+    item.dataset.accountMenu = "auth";
     resetAccountDropdownRoot(item);
 
     if (!isAuthenticated) {
       item.innerHTML = [
-        '<button class="nds-nav-link nds-btn nds-subtle account-login-trigger" type="button" data-login-trigger aria-label="' + escapeHtml(uiText(data, "loginLabel", "تسجيل الدخول")) + '" title="' + escapeHtml(uiText(data, "loginLabel", "تسجيل الدخول")) + '">',
+        '<button class="nds-nav-link nds-btn nds-subtle nds-indicator account-login-trigger" type="button" data-login-trigger aria-label="' + escapeHtml(uiText(data, "loginLabel", "تسجيل الدخول")) + '" title="' + escapeHtml(uiText(data, "loginLabel", "تسجيل الدخول")) + '">',
         '<i class="nds-icon nds-icon-avatar" aria-hidden="true"></i>',
         '<span class="nds-label">' + escapeHtml(uiText(data, "loginLabel", "تسجيل الدخول")) + '</span>',
         '</button>'
@@ -1026,8 +1028,9 @@
     }
 
     item.innerHTML = [
-      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator header-admin-link account-persona-trigger" type="button" aria-haspopup="true" aria-expanded="false">',
+      '<button class="nds-nav-link nds-btn nds-subtle nds-lg nds-indicator header-admin-link account-persona-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-label="' + escapeHtml(name) + '" title="' + escapeHtml(name) + '">',
       personaAvatarMarkup(data, name, true),
+      '<span class="nds-label">' + escapeHtml(name) + '</span>',
       '</button>',
       '<div class="nds-dropdown-menu nds-fit">',
       '<div class="nds-dropdown-content">',
@@ -1050,10 +1053,9 @@
   }
 
   function renderMobileAccountMenu(data) {
-    var actions = qs(".header-actions");
-    if (!actions) return;
-    var section = qs("[data-mobile-account-section]", actions);
-    if (section) section.remove();
+    qsa(".site-header [data-mobile-account-section]").forEach(function (section) {
+      section.remove();
+    });
   }
 
   function ensureMobileTopbarThemeToggle(data) {
@@ -1135,10 +1137,11 @@
   }
 
   function updateTopbarScrollState(header, currentY, delta) {
-    if (currentY <= TOPBAR_SCROLL_TRIGGER_PX || delta < -TOPBAR_SCROLL_DELTA_PX || hasOpenHeaderSurface()) {
+    if (currentY <= TOPBAR_SCROLL_TRIGGER_PX) {
       setTopbarCollapsed(false, header);
       return;
     }
+    if (hasOpenHeaderSurface()) return;
     if (delta > TOPBAR_SCROLL_DELTA_PX) {
       setTopbarCollapsed(true, header);
     }
@@ -1168,60 +1171,14 @@
       return;
     }
     var toggler = qs(".nds-mainNav-toggler", minimal);
+    qsa(".nds-nav-minimal [data-mobile-admin-shortcut]").forEach(function (item) { item.remove(); });
     dedupeHeaderActions();
     Array.prototype.slice.call(minimal.children).forEach(function (item) {
-      if (item === toggler || item.dataset.mobileAdminShortcut || item.dataset.mobileThemeShortcut || item.dataset.mobileNotificationsRoot) return;
+      if (item === toggler || item.dataset.mobileThemeShortcut || item.dataset.mobileNotificationsRoot) return;
       if (item.classList && (item.classList.contains("site-search-dropdown") || item.classList.contains("nds-search"))) return;
       item.remove();
     });
     qsa("[data-mobile-header-date]", minimal).forEach(function (item) { item.remove(); });
-    var adminItem = qs("[data-mobile-admin-shortcut]", minimal);
-    if (!adminItem) {
-      adminItem = document.createElement("li");
-      adminItem.dataset.mobileAdminShortcut = "true";
-      if (toggler) {
-        minimal.insertBefore(adminItem, toggler);
-      } else {
-        minimal.append(adminItem);
-      }
-    }
-    var portalLabel = uiText(data, "adminPortalLabel", "الإدارة");
-    var isAuthenticated = isAdminAuthenticated();
-    var accountName = accountDisplayName(data);
-    var accountRole = data && data.home ? data.home.title || "Administrator" : "Administrator";
-    var accountConfig = currentAuthConfig();
-    if (!isAuthenticated) portalLabel = uiText(data, "loginLabel", "تسجيل الدخول");
-    adminItem.className = isAuthenticated ? "nds-nav-item nds-dropdown mobile-admin-shortcut mobile-account-dropdown" : "nds-nav-item mobile-admin-shortcut";
-    resetAccountDropdownRoot(adminItem);
-    if (toggler) minimal.insertBefore(adminItem, toggler);
-    adminItem.innerHTML = isAuthenticated ? [
-      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator account-persona-trigger mobile-account-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-label="' + escapeHtml(portalLabel) + '" title="' + escapeHtml(portalLabel) + '">',
-      personaAvatarMarkup(data, accountName, true),
-      '<span class="nds-label">' + escapeHtml(portalLabel) + '</span>',
-      '</button>',
-      '<div class="nds-dropdown-menu nds-fit">',
-      '<div class="nds-dropdown-content">',
-      '<div class="nds-column">',
-      '<div class="nds-persona nds-sm mobile-account-persona">',
-      '<div class="nds-persona-info">',
-      '<span class="nds-persona-name">' + escapeHtml(accountName) + '</span>',
-      '<span class="nds-persona-role nds-truncate">' + escapeHtml(accountRole) + '</span>',
-      '<span class="nds-persona-desc">' + escapeHtml(accountConfig.email) + '</span>',
-      '</div>',
-      '<hr class="nds-divider">',
-      '<div class="nds-persona-action mobile-account-actions mobile-header-account-actions">',
-      accountActionsMarkup(portalLabel),
-      '</div>',
-      '</div>',
-      '</div>',
-      '</div>',
-      '</div>'
-    ].join("") : [
-      '<button class="nds-nav-link nds-btn nds-subtle nds-indicator" type="button" data-login-trigger aria-label="' + escapeHtml(portalLabel) + '" title="' + escapeHtml(portalLabel) + '">',
-      '<i class="nds-icon nds-icon-avatar" aria-hidden="true"></i>',
-      '<span class="nds-label">' + escapeHtml(portalLabel) + '</span>',
-      '</button>'
-    ].join("");
 
     var themeItem = qs("[data-mobile-theme-shortcut]", minimal);
     if (!themeItem) {
@@ -2039,6 +1996,7 @@
       list.append(li);
     });
 
+    renderMobileAccountMenu(data);
     setupHeaderNavScroller(list);
   }
 
@@ -4871,16 +4829,27 @@
     var button = panel ? qs(".nds-show-more [data-nav-scroll]", panel) : null;
     var control = button ? button.closest(".nds-show-more") : null;
     if (!button) return;
-    var hasOverflow = list.scrollHeight > list.clientHeight + 8;
-    var atEnd = list.scrollTop + list.clientHeight >= list.scrollHeight - 8;
+    var listVisible = list.clientHeight > 0;
+    var hasOverflow = listVisible && list.scrollHeight > list.clientHeight + 8;
+    var atStart = !hasOverflow || list.scrollTop <= 8;
+    var atEnd = hasOverflow && list.scrollTop + list.clientHeight >= list.scrollHeight - 8;
+    if (listVisible) {
+      list.dataset.state = [
+        hasOverflow ? "has-more" : "",
+        atStart ? "at-start" : "",
+        atEnd ? "at-end" : ""
+      ].filter(Boolean).join(" ");
+    }
     if (control) control.hidden = !hasOverflow;
+    if (control) control.dataset.navScrollState = atEnd ? "at-end" : "has-more";
+    button.dataset.navScrollDirection = atEnd ? "up" : "down";
     button.hidden = false;
     button.setAttribute("aria-label", atEnd ? "العودة إلى أعلى التنقل" : "عرض المزيد من روابط التنقل");
     button.title = atEnd ? "أعلى" : "المزيد";
     var icon = qs(".nds-icon", button);
     if (icon) {
-      icon.classList.toggle("nds-hgi-arrow-down-01", !atEnd);
-      icon.classList.toggle("nds-hgi-arrow-up-01", atEnd);
+      icon.classList.add("nds-hgi-arrow-down-01");
+      icon.classList.remove("nds-hgi-arrow-up-01");
     }
   }
 
@@ -4946,12 +4915,13 @@
     return trigger ? trigger.closest(".site-header .header-actions .nds-dropdown, .site-header .nds-nav-minimal .nds-dropdown") : null;
   }
 
-  function fitHeaderActionDropdown(root) {
-    if (!root || window.matchMedia("(max-width: 960px)").matches) return;
+  function fitHeaderActionDropdown(root, immediate) {
+    if (!root) return;
     var menu = qs(".nds-dropdown-menu.nds-fit", root);
     var trigger = qs(":scope > .nds-nav-link, :scope > .nds-btn", root) || qs(".nds-nav-link, .nds-btn", root);
     if (!menu || !trigger) return;
-    window.requestAnimationFrame(function () {
+    var applyFit = function () {
+      var isMobile = window.matchMedia("(max-width: 960px)").matches;
       var nav = root.closest(".nds-main-nav");
       var navRect = nav ? nav.getBoundingClientRect() : trigger.getBoundingClientRect();
       var triggerRect = trigger.getBoundingClientRect();
@@ -4959,14 +4929,19 @@
       var rootRect = fixedRoot ? fixedRoot.getBoundingClientRect() : { left: 0, top: 0 };
       var viewportWidth = document.documentElement.clientWidth || window.innerWidth || 0;
       var pad = Math.max(16, parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--site-gutter")) || 16);
-      var menuWidth = Math.min(menu.getBoundingClientRect().width || menu.offsetWidth || 360, Math.max(240, viewportWidth - (pad * 2)));
+      var menuWidth = isMobile
+        ? Math.max(240, viewportWidth - (pad * 2))
+        : Math.min(menu.getBoundingClientRect().width || menu.offsetWidth || 360, Math.max(240, viewportWidth - (pad * 2)));
       var isRtl = (document.documentElement.dir || "").toLowerCase() === "rtl"
         || getComputedStyle(document.documentElement).direction === "rtl";
-      var left = isRtl ? triggerRect.right - menuWidth : triggerRect.left;
+      var top = isMobile ? triggerRect.bottom : navRect.bottom;
+      var left = isMobile ? pad : (isRtl ? triggerRect.right - menuWidth : triggerRect.left);
       left = Math.max(pad, Math.min(left, viewportWidth - pad - menuWidth));
-      menu.style.setProperty("--header-action-menu-top", Math.round(navRect.bottom - rootRect.top) + "px");
+      menu.style.setProperty("--header-action-menu-top", Math.round(top - rootRect.top) + "px");
       menu.style.setProperty("--header-action-menu-left", Math.round(left - rootRect.left) + "px");
-    });
+    };
+    if (immediate) applyFit();
+    else window.requestAnimationFrame(applyFit);
   }
 
   function fitOpenHeaderActionDropdowns() {
@@ -4979,6 +4954,16 @@
   }
 
   function scheduleHeaderActionDropdownFit(root) {
+    var startedAt = (window.performance && window.performance.now) ? window.performance.now() : Date.now();
+    var followFit = function (now) {
+      var elapsed = (typeof now === "number" ? now : Date.now()) - startedAt;
+      var states = (root && root.dataset && root.dataset.state || "").split(/\s+/);
+      var isOpen = states.indexOf("open") !== -1 || states.indexOf("opening") !== -1 || states.indexOf("opened") !== -1;
+      if (!root || !root.isConnected || !isOpen) return;
+      fitHeaderActionDropdown(root, true);
+      if (elapsed < 360) window.requestAnimationFrame(followFit);
+    };
+    window.requestAnimationFrame(followFit);
     window.requestAnimationFrame(function () {
       fitHeaderActionDropdown(root);
     });
@@ -4988,6 +4973,12 @@
     window.setTimeout(function () {
       fitHeaderActionDropdown(root);
     }, 260);
+    window.setTimeout(function () {
+      fitHeaderActionDropdown(root);
+    }, 420);
+    window.setTimeout(function () {
+      fitHeaderActionDropdown(root);
+    }, 680);
   }
 
   function prepareHeaderActionDropdown(trigger) {
