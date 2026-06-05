@@ -2998,26 +2998,6 @@ html[data-theme="dark"] [data-state~="loading"],
   background-color: transparent;
 }
 
-.nds-alert.nds-toast:is([data-status="error"], [data-status="critical"]) .nds-alert-icon {
-  --nds-icon-size: 24px;
-  color: #d92d20;
-}
-
-.nds-alert.nds-toast:is([data-status="error"], [data-status="critical"]) .nds-feedback-icon,
-.nds-alert.nds-toast:is([data-status="error"], [data-status="critical"]) .nds-feedback-icon .nds-icon,
-.nds-alert.nds-toast:is([data-status="error"], [data-status="critical"]) .nds-feedback-icon .nds-icon::before {
-  width: var(--nds-icon-size);
-  height: var(--nds-icon-size);
-  color: inherit;
-  font-size: var(--nds-icon-size);
-  line-height: var(--nds-icon-size);
-}
-
-.nds-alert.nds-toast:is([data-status="error"], [data-status="critical"]) .nds-feedback-icon .nds-icon::before {
-  background: currentColor;
-  background-color: currentColor;
-}
-
 .nds-alert.nds-toast:not([hidden]) .nds-alert-close {
   background: transparent;
 }
@@ -7382,9 +7362,7 @@ body[data-page="admin"] .admin-panel[data-admin-panel="home"] .compact-editor-it
 .admin-persona-dropdown .nds-destructive.nds-dropdown-item,
 .account-menu-item .nds-destructive.nds-dropdown-item,
 .mobile-account-dropdown .nds-destructive.nds-dropdown-item {
-  --btn-color: #d92d20;
-  --site-icon-size: 28px;
-  min-height: 48px;
+  min-height: 44px;
   color: #d92d20;
   font-size: var(--typo-text-md-FS);
   font-weight: 600;
@@ -7393,20 +7371,13 @@ body[data-page="admin"] .admin-panel[data-admin-panel="home"] .compact-editor-it
 .admin-persona-dropdown .nds-destructive.nds-dropdown-item .nds-icon,
 .account-menu-item .nds-destructive.nds-dropdown-item .nds-icon,
 .mobile-account-dropdown .nds-destructive.nds-dropdown-item .nds-icon {
-  width: var(--site-icon-size);
-  height: var(--site-icon-size);
-  min-width: var(--site-icon-size);
-  min-height: var(--site-icon-size);
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
   color: inherit;
-  font-size: var(--site-icon-size);
-  line-height: var(--site-icon-size);
-}
-
-.admin-persona-dropdown .nds-destructive.nds-dropdown-item .nds-icon::before,
-.account-menu-item .nds-destructive.nds-dropdown-item .nds-icon::before,
-.mobile-account-dropdown .nds-destructive.nds-dropdown-item .nds-icon::before {
-  background: currentColor;
-  background-color: currentColor;
+  font-size: 22px;
+  line-height: 22px;
 }
 
 .admin-persona-dropdown .nds-destructive.nds-dropdown-item:hover,

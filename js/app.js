@@ -139,7 +139,16 @@
 
     function activeSurfaceElements(config) {
       var explicit = normalizeElements(config && (config.surface || config.surfaces || config.target || config.targets));
-      var discovered = qsa(SURFACE_SELECTOR);
+      var discovered;
+      if (isLightHeaderBackdrop(config)) {
+        discovered = explicit.length ? [] : qsa([
+          '.nds-collapse[data-state~="open"], .nds-collapse[data-state~="opening"]',
+          '.site-header .nds-dropdown[data-state~="open"], .site-header .nds-dropdown[data-state~="opening"]',
+          '.site-header .nav-pages-item[data-state~="open"], .site-header .nav-pages-item[data-state~="opening"]'
+        ].join(", "), qs(".site-header") || document);
+      } else {
+        discovered = qsa(SURFACE_SELECTOR);
+      }
       var surfaces = [];
       explicit.concat(discovered).forEach(function (element) {
         if (element !== backdropElement && surfaces.indexOf(element) === -1 && document.contains(element)) {
@@ -216,6 +225,14 @@
       return DEFAULT_OWNER;
     }
 
+    function isLightHeaderBackdrop(config) {
+      return Boolean(config && (config.context === "header" || config.owner === "nav"));
+    }
+
+    function shouldSkipAdminHeaderBackdrop(config) {
+      return document.body && document.body.dataset.page === "admin" && isLightHeaderBackdrop(config);
+    }
+
     function normalizeConfig(config) {
       config = config || {};
       var explicitOwner = Boolean(config.owner || config.id);
@@ -237,10 +254,16 @@
     function applyBlockingState(config) {
       if (!backdropElement) return;
       restoreMutedElements();
-      activeSurfaceElements(config).forEach(function (surface) {
+      var surfaces = activeSurfaceElements(config);
+      surfaces.forEach(function (surface) {
         surface.dataset.ndsBackdropSurface = "true";
       });
-      var surfaces = activeSurfaceElements(config);
+      if (isLightHeaderBackdrop(config)) {
+        backdropElement.dataset.ndsBackdropBlocking = "true";
+        backdropElement.style.zIndex = config.zIndex;
+        setBodyState(true, config);
+        return;
+      }
       mutedElements = qsa(NDS.focusableSel || FOCUSABLE_SELECTOR).filter(function (element) {
         if (element === backdropElement || backdropElement.contains(element)) return false;
         return !isInsideAny(element, surfaces);
@@ -298,6 +321,22 @@
     function show(config) {
       initBackdrop();
       var nextConfig = normalizeConfig(config);
+      if (shouldSkipAdminHeaderBackdrop(nextConfig)) {
+        if (nextConfig.owner) {
+          activeOwners = activeOwners.filter(function (entry) {
+            return entry.owner !== nextConfig.owner;
+          });
+        }
+        if (isActive && !activeOwners.length) {
+          reset();
+        } else {
+          restoreMutedElements();
+          setBodyState(Boolean(activeOwners.length), topEntry() && topEntry().config);
+          if (activeOwners.length) activateTopConfig();
+        }
+        if (nextConfig.onShow) nextConfig.onShow();
+        return;
+      }
       if (nextConfig.explicitOwner) {
         activeOwners = activeOwners.filter(function (entry) {
           return entry.owner !== nextConfig.owner;
@@ -938,6 +977,17 @@
     }
   }
 
+  function resetAccountDropdownRoot(root) {
+    if (!root) return;
+    root.removeAttribute("data-state");
+    root.removeAttribute("data-site-backdrop-surface");
+    root.removeAttribute("data-nds-backdrop-surface");
+    qsa("[aria-expanded], [data-state]", root).forEach(function (node) {
+      removeDataStateTokens(node, ["active", "open", "opened", "opening", "closing"]);
+      if (node.hasAttribute("aria-expanded")) node.setAttribute("aria-expanded", "false");
+    });
+  }
+
   function renderDesktopAccountMenu(data) {
     var item = qs(".admin-persona-dropdown");
     if (!item) return;
@@ -948,6 +998,7 @@
     var portalLabel = uiText(data, "adminPortalLabel", "الإدارة");
     item.className = "nds-nav-item nds-dropdown admin-persona-dropdown account-menu-item";
     item.dataset.accountMenu = "desktop";
+    resetAccountDropdownRoot(item);
 
     if (!isAuthenticated) {
       item.innerHTML = [
@@ -1059,6 +1110,7 @@
     var accountConfig = currentAuthConfig();
     if (!isAuthenticated) portalLabel = uiText(data, "loginLabel", "تسجيل الدخول");
     adminItem.className = isAuthenticated ? "nds-nav-item nds-dropdown mobile-admin-shortcut mobile-account-dropdown" : "nds-nav-item mobile-admin-shortcut";
+    resetAccountDropdownRoot(adminItem);
     if (toggler) minimal.insertBefore(adminItem, toggler);
     adminItem.innerHTML = isAuthenticated ? [
       '<button class="nds-nav-link nds-btn nds-subtle nds-indicator account-persona-trigger mobile-account-trigger" type="button" aria-haspopup="true" aria-expanded="false" aria-label="' + escapeHtml(portalLabel) + '" title="' + escapeHtml(portalLabel) + '">',
@@ -3149,6 +3201,12 @@
     forceClearBackdrop();
   }
 
+  function settleLoginSuccessOverlays() {
+    closeAccountOverlays();
+    window.requestAnimationFrame(closeAccountOverlays);
+    window.setTimeout(closeAccountOverlays, 180);
+  }
+
   function logoutButtons(trigger) {
     var buttons = [];
     if (trigger) buttons.push(trigger);
@@ -3389,6 +3447,7 @@
           setLoginLoading(false);
           renderAccountMenu(appState.data || window.SiteStore.current());
           closeLoginModal();
+          settleLoginSuccessOverlays();
           loginForm.reset();
           clearLoginFeedback();
           showToast("\u062a\u0645 \u062a\u0633\u062c\u064a\u0644 \u0627\u0644\u062f\u062e\u0648\u0644", "success");
@@ -4039,6 +4098,16 @@
   function setSiteDropdownBackdropActive(active) {
     var roots = active ? openHeaderOverlayRoots() : [];
     clearSiteBackdropSurfaces();
+    if (document.body && document.body.dataset.page === "admin") {
+      delete document.body.dataset.siteOverlay;
+      if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.getOwners && window.NDS.Backdrop.hide) {
+        if (window.NDS.Backdrop.getOwners().indexOf("site-header") !== -1) {
+          window.NDS.Backdrop.hide("site-header");
+        }
+      }
+      resetBackdropWhenIdle();
+      return;
+    }
     if (active && roots.length && window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.show) {
       roots.forEach(function (root) {
         root.dataset.siteBackdropSurface = "true";
@@ -4049,6 +4118,7 @@
         context: "header",
         surface: roots,
         zIndex: 1195,
+        preventScroll: false,
         onClick: dismissSiteBackdropOverlays
       });
       return;
@@ -4301,6 +4371,98 @@
     });
   }
 
+  function isAdminPage() {
+    return Boolean(document.body && document.body.dataset.page === "admin");
+  }
+
+  function isAdminHeaderFastActionTrigger(trigger) {
+    var root = headerActionDropdownFromTrigger(trigger);
+    return Boolean(isAdminPage()
+      && root
+      && root.matches(".site-search-dropdown, .notification-dropdown, .admin-persona-dropdown, .mobile-account-dropdown"));
+  }
+
+  function hasAdminBlockingOverlay() {
+    return Boolean(qs(".nds-modal:not([hidden])[aria-hidden='false']")
+      || qs(".admin-sidemenu[data-state~='open'], .nds-sidemenu[data-state~='open'], .nds-sidemenu[data-state~='opening']"));
+  }
+
+  function clearAdminHeaderBackdrop() {
+    if (!isAdminPage() || hasAdminBlockingOverlay()) return;
+    if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.hide) {
+      window.NDS.Backdrop.hide("site-header");
+    }
+    qsa("[data-nds-backdrop]").forEach(function (backdrop) {
+      backdrop.style.display = "";
+      backdrop.removeAttribute("data-state");
+      backdrop.removeAttribute("data-nds-backdrop-blocking");
+    });
+    removeDataStateTokens(document.body, ["backdrop"]);
+    delete document.body.dataset.siteOverlay;
+    delete document.body.dataset.ndsBackdropActive;
+    delete document.body.dataset.ndsBackdropOwner;
+    delete document.body.dataset.ndsBackdropContext;
+    document.body.style.removeProperty("top");
+    clearSiteBackdropSurfaces();
+  }
+
+  function scheduleAdminHeaderBackdropClear() {
+    clearAdminHeaderBackdrop();
+    window.requestAnimationFrame(clearAdminHeaderBackdrop);
+    window.setTimeout(clearAdminHeaderBackdrop, 80);
+    window.setTimeout(clearAdminHeaderBackdrop, 260);
+  }
+
+  function setAdminHeaderActionDropdownOpen(root, open) {
+    if (!root) return;
+    var trigger = qs(":scope > .nds-nav-link, :scope > .nds-btn", root) || qs(".nds-nav-link, .nds-btn", root);
+    if (open) {
+      root.dataset.state = "open opened";
+      root.setAttribute("data-state", "open opened");
+      if (trigger) {
+        trigger.dataset.state = "active";
+        trigger.setAttribute("data-state", "active");
+        trigger.setAttribute("aria-expanded", "true");
+      }
+      scheduleHeaderActionDropdownFit(root);
+      if (root.classList.contains("notification-dropdown")) {
+        stabilizeNotificationDropdown(root);
+        refreshNotificationComponents(root);
+        syncNotificationTriggerState(root);
+      }
+      if (root.classList.contains("site-search-dropdown")) {
+        window.setTimeout(function () {
+          var input = qs(".site-search-input", root);
+          if (input && hasOpenStateToken(root)) input.focus();
+        }, 60);
+      }
+      return;
+    }
+    delete root.dataset.state;
+    root.removeAttribute("data-state");
+    qsa("[aria-expanded], [data-state]", root).forEach(function (node) {
+      removeDataStateTokens(node, ["active", "open", "opened", "opening", "closing"]);
+      if (node.hasAttribute("aria-expanded")) node.setAttribute("aria-expanded", "false");
+    });
+  }
+
+  function closeAdminHeaderActionDropdowns(except) {
+    qsa(".site-header .header-actions .nds-dropdown, .site-header .nds-nav-minimal .nds-dropdown").forEach(function (root) {
+      if (root !== except) setAdminHeaderActionDropdownOpen(root, false);
+    });
+  }
+
+  function toggleAdminHeaderActionDropdown(trigger) {
+    var root = headerActionDropdownFromTrigger(trigger);
+    if (!root) return;
+    var shouldOpen = !hasOpenStateToken(root);
+    closeNavDropmenus(null, { dismissNative: false, instant: true });
+    closeAdminHeaderActionDropdowns(shouldOpen ? root : null);
+    setAdminHeaderActionDropdownOpen(root, shouldOpen);
+    syncSiteDropdownBackdrop();
+    scheduleAdminHeaderBackdropClear();
+  }
+
   function setupDropmenus() {
     document.addEventListener("click", function (event) {
       var trigger = event.target.closest(".nav-pages-trigger");
@@ -4316,6 +4478,13 @@
       }
       if (mobileNavLink) {
         closeMobileNavPanelAfterNavigation();
+      }
+      if (headerActionTrigger && isAdminHeaderFastActionTrigger(headerActionTrigger)) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+        toggleAdminHeaderActionDropdown(headerActionTrigger);
+        return;
       }
       if (headerActionTrigger) {
         var header = event.target.closest(".site-header");
@@ -4343,6 +4512,10 @@
       if (!event.target.closest(".nav-pages-item")) {
         closeNavDropmenus(null, { dismissNative: false });
       }
+      if (isAdminPage() && !event.target.closest(".site-header .header-actions .nds-dropdown, .site-header .nds-nav-minimal .nds-dropdown")) {
+        closeAdminHeaderActionDropdowns(null);
+        scheduleAdminHeaderBackdropClear();
+      }
       if (hasNativeMainnavDropdowns()) {
         scheduleNavPageDropdownSync();
         return;
@@ -4357,6 +4530,10 @@
     document.addEventListener("keydown", function (event) {
       if (event.key !== "Escape") return;
       closeNavDropmenus();
+      if (isAdminPage()) {
+        closeAdminHeaderActionDropdowns(null);
+        scheduleAdminHeaderBackdropClear();
+      }
       scheduleNavPageDropdownSync();
     });
   }
