@@ -973,11 +973,83 @@
     ].join("");
   }
 
+  function feedbackRecordHtml(item) {
+    var reasons = Array.isArray(item.reasons) && item.reasons.length ? item.reasons.join("، ") : "";
+    return [
+      '<article class="page-feedback-record-item">',
+      '<div class="page-feedback-record-head">',
+      '<span class="nds-tag nds-xs" data-status="' + (item.answer === "yes" ? "success" : "warning") + '"><span class="nds-label">' + safeText(feedbackAnswerLabel(item.answer)) + '</span></span>',
+      '<time class="page-feedback-record-time" datetime="' + safeText(item.createdAt || "") + '">' + safeText(formatAdminDateTime(item.createdAt)) + '</time>',
+      '</div>',
+      '<div class="page-feedback-record-body">',
+      reasons ? '<p class="page-feedback-record-text">' + safeText(reasons) + '</p>' : '',
+      item.comment ? '<p class="page-feedback-record-text">' + safeText(item.comment) + '</p>' : '',
+      item.path ? '<p class="page-feedback-record-path">' + safeText(item.path) + '</p>' : '',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function feedbackGroupHtml(group, index) {
+    var records = Array.isArray(group.recent) ? group.recent : [];
+    var title = group.pageTitle || group.pageKey || "صفحة";
+    var panelId = "page-feedback-group-" + index;
+    var total = Number(group.total || 0);
+    var yes = Number(group.yes || 0);
+    var no = Number(group.no || 0);
+    var latestAt = group.lastFeedbackAt || (records[0] && records[0].createdAt) || "";
+    var path = group.path || (records[0] && records[0].path) || "";
+    return [
+      '<article class="page-feedback-group nds-accordion nds-md nds-card nds-stroke" data-nds-local-accordion="ready" data-state="closed">',
+      '<div class="nds-card-content compact-card-content nds-accordion-item">',
+      '<div class="page-feedback-group-head nds-accordion-header">',
+      '<button class="page-feedback-group-btn nds-accordion-btn nds-btn nds-subtle nds-menu-btn" type="button" data-page-feedback-group-toggle aria-expanded="false" aria-controls="' + safeText(panelId) + '">',
+      '<span class="page-feedback-group-title nds-accordion-title">',
+      '<span class="page-feedback-group-name">' + safeText(title) + '</span>',
+      path ? '<span class="page-feedback-group-path">' + safeText(path) + '</span>' : '',
+      '</span>',
+      '<span class="page-feedback-group-meta">',
+      '<span class="nds-tag nds-xs"><span class="nds-label">' + safeText(total + " تقييم") + '</span></span>',
+      '<span class="nds-tag nds-xs" data-status="success"><span class="nds-label">' + safeText(yes + " نعم") + '</span></span>',
+      '<span class="nds-tag nds-xs" data-status="warning"><span class="nds-label">' + safeText(no + " لا") + '</span></span>',
+      '<time class="page-feedback-group-time" datetime="' + safeText(latestAt) + '">' + safeText(formatAdminDateTime(latestAt)) + '</time>',
+      '</span>',
+      '</button>',
+      '</div>',
+      '<div class="page-feedback-group-collapse nds-accordion-collapse" id="' + safeText(panelId) + '" aria-hidden="true">',
+      '<div class="page-feedback-group-content nds-accordion-content">',
+      '<div class="page-feedback-group-body nds-accordion-body">',
+      records.length ? '<div class="page-feedback-record-list">' + records.map(feedbackRecordHtml).join("") + '</div>' : '<p class="page-feedback-group-empty">لا توجد عينات حديثة لهذه الصفحة.</p>',
+      total > records.length ? '<p class="page-feedback-group-note">تظهر هنا عينة حديثة محدودة فقط. التصدير يحتوي على السجل الكامل.</p>' : '',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function setPageFeedbackGroupState(button, isOpen) {
+    var panel = qs("#" + button.getAttribute("aria-controls"));
+    var item = button.closest(".page-feedback-group");
+    button.setAttribute("aria-expanded", String(isOpen));
+    button.dataset.state = isOpen ? "open" : "";
+    if (panel) {
+      panel.dataset.state = isOpen ? "open" : "";
+      panel.setAttribute("aria-hidden", String(!isOpen));
+    }
+    if (item) item.dataset.state = isOpen ? "open" : "closed";
+  }
+
+  function togglePageFeedbackGroup(button) {
+    setPageFeedbackGroupState(button, button.getAttribute("aria-expanded") !== "true");
+  }
+
   function renderPageFeedbackStats(stats) {
     var summaryRoot = qs("[data-page-feedback-summary]");
     var listRoot = qs("[data-page-feedback-list]");
     var summary = stats && stats.summary || {};
-    var recent = stats && stats.recent || [];
+    var pages = stats && Array.isArray(stats.pages) ? stats.pages : [];
     if (summaryRoot) {
       summaryRoot.innerHTML = [
         feedbackSummaryItemHtml("إجمالي التقييمات", String(summary.total || 0), "كل الصفحات العامة"),
@@ -987,7 +1059,7 @@
       ].join("");
     }
     if (!listRoot) return;
-    if (!recent.length) {
+    if (!pages.length) {
       listRoot.innerHTML = [
         '<div class="integration-status-card">',
         '<span class="integration-status-dot" aria-hidden="true"></span>',
@@ -996,23 +1068,7 @@
       ].join("");
       return;
     }
-    listRoot.innerHTML = recent.slice(0, 12).map(function (item) {
-      var reasons = Array.isArray(item.reasons) && item.reasons.length ? item.reasons.join("، ") : "";
-      return [
-        '<details class="page-feedback-recent-item" data-answer="' + safeText(item.answer || "") + '">',
-        '<summary class="page-feedback-recent-head">',
-        '<span class="nds-tag nds-xs" data-status="' + (item.answer === "yes" ? "success" : "warning") + '"><span class="nds-label">' + safeText(feedbackAnswerLabel(item.answer)) + '</span></span>',
-        '<strong class="page-feedback-recent-title">' + safeText(item.pageTitle || item.pageKey || "صفحة") + '</strong>',
-        '<time class="page-feedback-recent-time" datetime="' + safeText(item.createdAt) + '">' + safeText(formatAdminDateTime(item.createdAt)) + '</time>',
-        '</summary>',
-        '<div class="page-feedback-recent-body">',
-        reasons ? '<p class="page-feedback-recent-reasons">' + safeText(reasons) + '</p>' : '',
-        item.comment ? '<p class="page-feedback-recent-comment">' + safeText(item.comment) + '</p>' : '',
-        item.path ? '<p class="page-feedback-recent-comment">' + safeText(item.path) + '</p>' : '',
-        '</div>',
-        '</details>'
-      ].join("");
-    }).join("");
+    listRoot.innerHTML = pages.map(feedbackGroupHtml).join("");
   }
 
   function loadPageFeedbackStats() {
@@ -5678,6 +5734,7 @@
       var addSubpage = event.target.closest("[data-add-subpage]");
       var addCollectionCard = event.target.closest("[data-add-collection-card]");
       var pageChildrenToggle = event.target.closest("[data-page-children-toggle]");
+      var pageFeedbackGroupToggle = event.target.closest("[data-page-feedback-group-toggle]");
       var pageFormatButton = event.target.closest("[data-page-format]");
       var contactToggle = event.target.closest("[data-contact-toggle]");
       var editorToggle = event.target.closest("[data-editor-toggle]");
@@ -5703,6 +5760,7 @@
       if (addSubpage) { addSubpageForParent(addSubpage.dataset.addSubpage || ""); return; }
       if (addCollectionCard) { addCardToCollection(addCollectionCard.dataset.addCollectionCard || ""); return; }
       if (pageChildrenToggle) { togglePageChildrenSection(pageChildrenToggle); return; }
+      if (pageFeedbackGroupToggle) { togglePageFeedbackGroup(pageFeedbackGroupToggle); return; }
       if (pageFormatButton) { applyPageTextFormat(pageFormatButton); return; }
       if (!event.target.closest("[data-icon-type-menu], [data-home-number-icon-menu], [data-option-menu], [data-select-menu]")) closeAdminInlineDropmenus();
       if (contactToggle) { toggleContactPanel(contactToggle); return; }

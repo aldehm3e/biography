@@ -8,10 +8,11 @@ try {
     $pdo = cms_pdo();
     cms_require_permission($pdo, 'page_feedback');
     $limit = isset($_GET['limit']) ? (int) $_GET['limit'] : 40;
+    $perPage = isset($_GET['perPage']) ? (int) $_GET['perPage'] : 4;
 
     cms_json_response([
         'success' => true,
-        'data' => cms_fetch_page_feedback_stats($pdo, $limit),
+        'data' => cms_fetch_page_feedback_stats($pdo, $limit, $perPage),
     ]);
 } catch (Throwable $error) {
     cms_json_response([

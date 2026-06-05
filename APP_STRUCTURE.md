@@ -59,7 +59,7 @@ The database is the source of truth after install. Browser `localStorage` is onl
 | `api/content/get-site.php` | GET | Public | Returns full normalized site data. |
 | `api/content/save-site.php` | POST JSON | Admin | Saves site data. Empty or invalid payloads are rejected to prevent accidental resets. |
 | `api/feedback/save.php` | POST JSON | Public | Stores page feedback for public pages except the home page. |
-| `api/feedback/list.php` | GET | `page_feedback` permission | Returns page feedback summary and recent submissions. |
+| `api/feedback/list.php` | GET | `page_feedback` permission | Returns page feedback summary, page groups, and limited recent samples per page. |
 | `api/feedback/export.php` | GET | `page_feedback` or `backup` permission | Exports feedback records as JSON. |
 | `api/feedback/import.php` | POST JSON | `backup` permission | Replaces feedback records during JSON restore. |
 | `api/auth/captcha.php` | GET | Public | Creates a login math CAPTCHA stored in session. |
@@ -186,7 +186,7 @@ Keep new features inside one of these roots unless a schema/data-model change is
 | `pages` | Pages and subpages editor. |
 | `navigation` | Core navigation labels. |
 | `integrations` | Google Analytics and other integration settings. |
-| `page_feedback` | Page feedback settings and visitor feedback summaries. |
+| `page_feedback` | Page feedback settings, page-grouped visitor summaries, and feedback export. |
 | `backup` | JSON backup/restore, feedback export/import, reset, and localStorage migration. Treat as highly trusted. |
 | `utilities` | General system status and maintenance tools. |
 | `uploads` | Direct upload permission. Content permissions also allow uploads for editor workflows. |

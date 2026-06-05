@@ -39,7 +39,7 @@ http://localhost/Biography/install/
 - User permissions for admin sections.
 - Page and subpage management from `الصفحات`.
 - Card collection pages from `البطاقات`, with optional detail/external links and header visibility.
-- Public page feedback management from `إدارة تقييم الصفحات`; the widget stays hidden on the home page.
+- Public page feedback management from `إدارة تقييم الصفحات`; the widget stays hidden on the home page, admin summaries are grouped by page, and full records export as JSON.
 - One safe subpage level only.
 - Pages can use plain text or trusted admin HTML.
 - Pages and projects can have image/video media.
@@ -140,7 +140,7 @@ Use the admin panel for normal content:
 - `البطاقات`: card collection pages, card titles/subtitles, optional detail links, and header visibility.
 - `الصفحات`: pages, subpages, text/HTML content, page media, header/footer visibility.
 - `التذييل`: footer columns, icons, bottom links, logos, legal text.
-- `إدارة تقييم الصفحات`: public feedback form settings and visitor feedback summaries.
+- `إدارة تقييم الصفحات`: public feedback form settings, page-grouped visitor summaries, and feedback JSON export.
 - `النسخ الاحتياطي والاستعادة`: JSON export/import, localStorage migration, and reset.
 - `الصلاحيات`: admin users and permissions.
 
