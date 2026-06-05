@@ -8158,6 +8158,10 @@ body {
   padding-block-start: var(--site-shell-height);
 }
 
+body[data-topbar-collapsed="true"] {
+  --site-shell-height: var(--nds-nav-height);
+}
+
 .site-header {
   position: fixed;
   inset-block-start: 0;
@@ -8180,6 +8184,7 @@ body {
 }
 
 .site-header .nds-topbar {
+  block-size: var(--nds-topbar-height);
   min-height: var(--nds-topbar-height);
   display: flex;
   align-items: center;
@@ -8190,6 +8195,17 @@ body {
   border-block-end: 1px solid var(--border-neutral-primary);
   font-size: var(--typo-text-sm-FS);
   line-height: var(--typo-text-sm-LH);
+  overflow: clip;
+}
+
+body[data-topbar-collapsed="true"] .site-header .nds-topbar {
+  block-size: 0;
+  min-height: 0;
+  border-block-end-color: transparent;
+  border-block-end-width: 0;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-100%);
 }
 
 .site-header .nds-digitalStamp-tab {
@@ -8232,6 +8248,21 @@ body {
   flex: 0 0 auto;
   border-radius: 2px;
   box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05);
+}
+
+.site-header .topbar-date-calendar-icon,
+.site-datetime-item .topbar-date-calendar-icon {
+  width: 24px;
+  height: 24px;
+  flex: 0 0 24px;
+  color: var(--icon-default);
+  font-size: 24px;
+  line-height: 1;
+}
+
+.site-header .topbar-date-calendar-icon::before,
+.site-datetime-item .topbar-date-calendar-icon::before {
+  line-height: 1;
 }
 
 .site-header .nds-digitalStamp-sm-text {
@@ -8294,6 +8325,22 @@ body {
 .site-datetime-item .nds-icon {
   flex: 0 0 auto;
   color: var(--icon-default);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  body {
+    transition: padding-block-start 220ms cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  .site-header .nds-topbar {
+    transition:
+      block-size 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      min-height 220ms cubic-bezier(0.22, 1, 0.36, 1),
+      border-color 180ms ease,
+      opacity 160ms ease,
+      transform 220ms cubic-bezier(0.22, 1, 0.36, 1);
+    will-change: block-size, min-height, opacity, transform;
+  }
 }
 
 #nds-digitalStamp {
@@ -10451,21 +10498,27 @@ body[data-page="admin"] .contact-editor-block:last-of-type {
     background: var(--background-default) !important;
     box-shadow: var(--shadow-lg) !important;
     clip-path: none !important;
+    opacity: 0;
     transform: translateY(-100%) !important;
-    transition: transform var(--nds-transition) !important;
-    will-change: transform;
+    transition:
+      transform var(--site-header-menu-motion, var(--nds-transition)),
+      opacity var(--site-header-menu-motion, var(--nds-transition)) !important;
+    will-change: transform, opacity;
   }
 
   .site-header .nds-main-nav .header-actions :is(.site-search-dropdown, .notification-dropdown, .admin-persona-dropdown, .mobile-account-dropdown)[data-state~="open"]:not([data-state~="opening"]):not([data-state~="closing"]) .nds-dropdown-menu.nds-fit > .nds-dropdown-content,
   .site-header .nds-main-nav .header-actions :is(.site-search-dropdown, .notification-dropdown, .admin-persona-dropdown, .mobile-account-dropdown)[data-state~="opened"] .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    opacity: 1;
     transform: translateY(0) !important;
   }
 
   .site-header .nds-main-nav .header-actions :is(.site-search-dropdown, .notification-dropdown, .admin-persona-dropdown, .mobile-account-dropdown)[data-state~="opening"] .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    opacity: 0;
     transform: translateY(-100%) !important;
   }
 
   .site-header .nds-main-nav .header-actions :is(.site-search-dropdown, .notification-dropdown, .admin-persona-dropdown, .mobile-account-dropdown)[data-state~="closing"] .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    opacity: 0;
     transform: translateY(-100%) !important;
   }
 
@@ -10495,6 +10548,7 @@ body[data-page="admin"] .contact-editor-block:last-of-type {
   }
 
   .site-header .nds-main-nav .header-actions .notification-dropdown[data-notification-stable="true"] .nds-dropdown-menu.nds-fit > .nds-dropdown-content {
+    opacity: 1 !important;
     transform: translateY(0) !important;
     transition: none !important;
     will-change: auto;
@@ -10518,6 +10572,7 @@ body[data-page="admin"] .contact-editor-block:last-of-type {
 
 /* Global NDS navigation state pass: header and admin side menu */
 .site-header .nds-main-nav {
+  --site-header-menu-motion: 220ms cubic-bezier(0.22, 1, 0.36, 1);
   --site-nav-state-block-size: var(--nds-nav-height);
   --site-nav-state-hover-bg: var(--colors-neutral-100);
   --site-nav-state-pressed-bg: var(--colors-neutral-200);
@@ -11011,17 +11066,22 @@ body[data-page="notifications"] .site-header .nds-main-nav :is(.header-actions, 
     border-radius: 0 0 var(--radius-md) var(--radius-md) !important;
     background: var(--background-default);
     box-shadow: var(--shadow-lg);
+    opacity: 0;
     transform: translateY(-100%) !important;
-    transition: transform var(--nds-transition) !important;
-    will-change: transform;
+    transition:
+      transform var(--site-header-menu-motion, var(--nds-transition)),
+      opacity var(--site-header-menu-motion, var(--nds-transition)) !important;
+    will-change: transform, opacity;
   }
 
   .site-header .nds-main-nav .nav-pages-item[data-state~="open"]:not([data-state~="opening"]):not([data-state~="closing"]) .nav-pages-menu > .nds-dropdown-content,
   .site-header .nds-main-nav .nav-pages-item[data-state~="opened"] .nav-pages-menu > .nds-dropdown-content {
+    opacity: 1;
     transform: translateY(0) !important;
   }
 
   .site-header .nds-main-nav .nav-pages-item:is([data-state~="opening"], [data-state~="closing"]) .nav-pages-menu > .nds-dropdown-content {
+    opacity: 0;
     transform: translateY(-100%) !important;
   }
 
@@ -11049,6 +11109,13 @@ body[data-page="notifications"] .site-header .nds-main-nav :is(.header-actions, 
   .site-header .nds-main-nav .nav-pages-menu :is(.nav-pages-list, .nds-dropmenu-scroll) > :is(.nds-dropdown-item, .nds-dropmenu-item):last-child {
     border-end-start-radius: var(--radius-md) !important;
     border-end-end-radius: var(--radius-md) !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header .nds-main-nav .header-actions :is(.site-search-dropdown, .notification-dropdown, .admin-persona-dropdown, .mobile-account-dropdown) .nds-dropdown-menu.nds-fit > .nds-dropdown-content,
+  .site-header .nds-main-nav .nav-pages-item .nav-pages-menu > .nds-dropdown-content {
+    transition: none !important;
   }
 }
 

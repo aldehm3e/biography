@@ -4,6 +4,8 @@
   var HERO_SLIDE_DURATION = 8500;
   var HOME_NUMBERS_SLIDE_DURATION = 6500;
   var HOME_NUMBERS_AUTOPLAY_RESUME_MS = 9000;
+  var TOPBAR_SCROLL_TRIGGER_PX = 24;
+  var TOPBAR_SCROLL_DELTA_PX = 6;
   var SITE_DATA_KEY = "websiteDemo:siteData";
   var LEGACY_NOTIFICATIONS_KEY = "websiteDemo:notifications";
   var NOTIFICATION_STATE_KEY = "websiteDemo:notificationState";
@@ -30,7 +32,10 @@
     homeNumbersTimer: null,
     homeNumbersResumeTimer: null,
     homeNumbersSettleTimer: null,
-    clockTimer: null
+    clockTimer: null,
+    topbarScrollLastY: 0,
+    topbarScrollFrame: null,
+    topbarCollapsed: false
   };
 
   function qs(selector, root) {
@@ -220,24 +225,22 @@
       if (config && config.context) return config.context;
       if (config && Number(config.zIndex) >= 1800) return "modal";
       if (config && config.clickToClose === false && config.escapeClose === false) return "ipv";
-      if (hasOwn(config, "preventScroll")) return "sidemenu";
       if (config && Number(config.zIndex) === 999) return "nav";
+      if (hasOwn(config, "preventScroll")) return "sidemenu";
       return DEFAULT_OWNER;
     }
 
     function isLightHeaderBackdrop(config) {
-      return Boolean(config && (config.context === "header" || config.owner === "nav"));
-    }
-
-    function shouldSkipAdminHeaderBackdrop(config) {
-      return document.body && document.body.dataset.page === "admin" && isLightHeaderBackdrop(config);
+      return Boolean(config && (config.context === "header" || config.owner === "nav" || config.owner === "site-header" || config.owner === "header"));
     }
 
     function normalizeConfig(config) {
       config = config || {};
       var explicitOwner = Boolean(config.owner || config.id);
+      var owner = explicitOwner ? (config.owner || config.id) : inferOwner(config);
+      var preventScroll = config.preventScroll !== false;
       return {
-        owner: explicitOwner ? (config.owner || config.id) : inferOwner(config),
+        owner: owner,
         explicitOwner: explicitOwner,
         context: config.context || null,
         surface: config.surface || config.surfaces || config.target || config.targets || null,
@@ -245,7 +248,7 @@
         onClick: config.onClick || null,
         onShow: config.onShow || null,
         onHide: config.onHide || null,
-        preventScroll: config.preventScroll !== false,
+        preventScroll: preventScroll,
         escapeClose: config.escapeClose !== false,
         clickToClose: config.clickToClose !== false
       };
@@ -262,6 +265,7 @@
         backdropElement.dataset.ndsBackdropBlocking = "true";
         backdropElement.style.zIndex = config.zIndex;
         setBodyState(true, config);
+        syncScrollLock();
         return;
       }
       if (config.owner === "modal" && !surfaces.length && !config.modalSurfaceDeferred) {
@@ -332,28 +336,20 @@
     function show(config) {
       initBackdrop();
       var nextConfig = normalizeConfig(config);
-      if (shouldSkipAdminHeaderBackdrop(nextConfig)) {
-        if (nextConfig.owner) {
-          activeOwners = activeOwners.filter(function (entry) {
-            return entry.owner !== nextConfig.owner;
-          });
-        }
-        if (isActive && !activeOwners.length) {
-          reset();
-        } else {
-          restoreMutedElements();
-          setBodyState(Boolean(activeOwners.length), topEntry() && topEntry().config);
-          if (activeOwners.length) activateTopConfig();
-        }
-        if (nextConfig.onShow) nextConfig.onShow();
-        return;
-      }
       if (nextConfig.explicitOwner) {
         activeOwners = activeOwners.filter(function (entry) {
           return entry.owner !== nextConfig.owner;
         });
+      } else {
+        var activeTop = topEntry();
+        if (isActive && activeTop && activeTop.owner === nextConfig.owner) {
+          activeTop.config = nextConfig;
+          activeTop.count = (activeTop.count || 1) + 1;
+          activateTopConfig();
+          return;
+        }
       }
-      activeOwners.push({ owner: nextConfig.owner, config: nextConfig });
+      activeOwners.push({ owner: nextConfig.owner, config: nextConfig, count: 1 });
       if (isActive) {
         activateTopConfig();
         return;
@@ -374,7 +370,15 @@
           return entry.owner !== owner;
         });
       } else {
-        activeOwners.pop();
+        var activeTop = topEntry();
+        if (activeTop) {
+          activeTop.count = (activeTop.count || 1) - 1;
+          if (activeTop.count > 0) {
+            activateTopConfig();
+            return;
+          }
+          activeOwners.pop();
+        }
       }
       if (activeOwners.length) {
         activateTopConfig();
@@ -1087,6 +1091,73 @@
     button.title = label;
     var labelNode = qs(".nds-label", button);
     if (labelNode) labelNode.textContent = label;
+  }
+
+  function hasOpenHeaderSurface() {
+    return Boolean(qs([
+      "#nds-digitalStamp[data-state~='open']",
+      "#nds-digitalStamp[data-state~='opening']",
+      "#nds-digitalStamp[data-state~='opened']",
+      ".site-header .nds-collapse[data-state~='open']",
+      ".site-header .nds-collapse[data-state~='opening']",
+      ".site-header .nds-collapse[data-state~='opened']",
+      ".site-header .nds-dropdown[data-state~='open']",
+      ".site-header .nds-dropdown[data-state~='opening']",
+      ".site-header .nds-dropdown[data-state~='opened']",
+      ".site-header .nav-pages-item[data-state~='open']",
+      ".site-header .nav-pages-item[data-state~='opening']",
+      ".site-header .nav-pages-item[data-state~='opened']"
+    ].join(", ")));
+  }
+
+  function setTopbarCollapsed(collapsed, header) {
+    var body = document.body;
+    var topbar;
+    header = header || qs(".site-header");
+    if (!header || !body || appState.topbarCollapsed === collapsed) return;
+    appState.topbarCollapsed = collapsed;
+    topbar = qs(".nds-topbar", header);
+    if (collapsed) {
+      header.dataset.topbarCollapsed = "true";
+      body.dataset.topbarCollapsed = "true";
+      if (topbar) {
+        topbar.setAttribute("aria-hidden", "true");
+        topbar.inert = true;
+      }
+    } else {
+      delete header.dataset.topbarCollapsed;
+      delete body.dataset.topbarCollapsed;
+      if (topbar) {
+        topbar.removeAttribute("aria-hidden");
+        topbar.inert = false;
+      }
+    }
+  }
+
+  function updateTopbarScrollState(header, currentY, delta) {
+    if (currentY <= TOPBAR_SCROLL_TRIGGER_PX || delta < -TOPBAR_SCROLL_DELTA_PX || hasOpenHeaderSurface()) {
+      setTopbarCollapsed(false, header);
+      return;
+    }
+    if (delta > TOPBAR_SCROLL_DELTA_PX) {
+      setTopbarCollapsed(true, header);
+    }
+  }
+
+  function setupTopbarScrollMotion() {
+    var header = qs(".site-header");
+    if (!header) return;
+    appState.topbarScrollLastY = Math.max(0, window.scrollY || window.pageYOffset || 0);
+    window.addEventListener("scroll", function () {
+      if (appState.topbarScrollFrame) return;
+      appState.topbarScrollFrame = window.requestAnimationFrame(function () {
+        var currentY = Math.max(0, window.scrollY || window.pageYOffset || 0);
+        var delta = currentY - appState.topbarScrollLastY;
+        appState.topbarScrollFrame = null;
+        updateTopbarScrollState(header, currentY, delta);
+        appState.topbarScrollLastY = currentY;
+      });
+    }, { passive: true });
   }
 
   function updateHeaderActions(data) {
@@ -4072,13 +4143,7 @@
     return [
       ".site-header .nav-pages-item[data-state~='open']",
       ".site-header .nav-pages-item[data-state~='opening']",
-      ".site-header .nav-pages-item[data-state~='opened']",
-      ".site-header .header-actions .nds-dropdown[data-state~='open']",
-      ".site-header .header-actions .nds-dropdown[data-state~='opening']",
-      ".site-header .header-actions .nds-dropdown[data-state~='opened']",
-      ".site-header .nds-nav-minimal .nds-dropdown[data-state~='open']",
-      ".site-header .nds-nav-minimal .nds-dropdown[data-state~='opening']",
-      ".site-header .nds-nav-minimal .nds-dropdown[data-state~='opened']"
+      ".site-header .nav-pages-item[data-state~='opened']"
     ].join(", ");
   }
 
@@ -4098,6 +4163,17 @@
     return openHeaderOverlayRoots().length > 0;
   }
 
+  function shouldUseSiteHeaderBackdrop() {
+    return !window.matchMedia("(max-width: 960px)").matches;
+  }
+
+  function hasBlockingBackdropOwner() {
+    if (!(window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.getOwners)) return false;
+    return window.NDS.Backdrop.getOwners().some(function (owner) {
+      return owner === "modal" || owner === "sidemenu" || owner === "ipv";
+    });
+  }
+
   function dismissSiteBackdropOverlays() {
     closeNavDropmenus(null, { dismissNative: true });
     closeHeaderActionDropdowns({ localOnly: true });
@@ -4109,14 +4185,18 @@
   function setSiteDropdownBackdropActive(active) {
     var roots = active ? openHeaderOverlayRoots() : [];
     clearSiteBackdropSurfaces();
-    if (document.body && document.body.dataset.page === "admin") {
+    if (active && !shouldUseSiteHeaderBackdrop()) {
       delete document.body.dataset.siteOverlay;
-      if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.getOwners && window.NDS.Backdrop.hide) {
-        if (window.NDS.Backdrop.getOwners().indexOf("site-header") !== -1) {
-          window.NDS.Backdrop.hide("site-header");
-        }
+      if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.hide) {
+        window.NDS.Backdrop.hide("site-header");
       }
-      resetBackdropWhenIdle();
+      return;
+    }
+    if (active && hasBlockingBackdropOwner()) {
+      delete document.body.dataset.siteOverlay;
+      if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.hide) {
+        window.NDS.Backdrop.hide("site-header");
+      }
       return;
     }
     if (active && roots.length && window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.show) {
@@ -4129,7 +4209,6 @@
         context: "header",
         surface: roots,
         zIndex: 1195,
-        preventScroll: false,
         onClick: dismissSiteBackdropOverlays
       });
       return;
@@ -4391,7 +4470,7 @@
         event.preventDefault();
         event.stopPropagation();
         if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-        closeHeaderActionDropdowns({ localOnly: true });
+        closeHeaderActionDropdowns({ localOnly: !shouldUseSiteHeaderBackdrop() });
         toggleNavPageDropdown(trigger, event);
         return;
       }
@@ -5280,7 +5359,7 @@
     nodes.forEach(function (node) {
       node.dateTime = now.toISOString();
       node.innerHTML = [
-        '<span class="site-datetime-item"><i class="nds-icon nds-hgi-calendar-03" aria-hidden="true"></i><span>' + dateLabel + '</span></span>',
+        '<span class="site-datetime-item"><i class="hgi hgi-stroke hgi-calendar-03 topbar-date-calendar-icon" aria-hidden="true"></i><span>' + dateLabel + '</span></span>',
         '<span class="site-datetime-item"><i class="nds-icon nds-hgi-clock-01" aria-hidden="true"></i><span>' + timeLabel + '</span></span>'
       ].join("");
     });
@@ -5319,13 +5398,13 @@
       node.dateTime = now.toISOString();
       node.title = dateLabel + " - " + timeLabel;
       node.innerHTML = [
-        '<span class="site-datetime-item"><i class="nds-icon nds-hgi-calendar-03" aria-hidden="true"></i><span>' + displayDate + '</span></span>',
+        '<span class="site-datetime-item"><i class="hgi hgi-stroke hgi-calendar-03 topbar-date-calendar-icon" aria-hidden="true"></i><span>' + displayDate + '</span></span>',
         '<span class="site-datetime-item"><i class="nds-icon nds-hgi-clock-01" aria-hidden="true"></i><span>' + timeLabel + '</span></span>'
       ].join("");
     });
     dateNodes.forEach(function (node) {
       node.title = dateLabel;
-      node.innerHTML = '<i class="nds-icon nds-hgi-calendar-03" aria-hidden="true"></i><span class="text">' + dateLabel + '</span>';
+      node.innerHTML = '<i class="hgi hgi-stroke hgi-calendar-03 topbar-date-calendar-icon" aria-hidden="true"></i><span class="text">' + dateLabel + '</span>';
     });
     timeNodes.forEach(function (node) {
       node.title = timeLabel;
@@ -6815,6 +6894,7 @@
     setupSiteSearch();
     setupThemeToggle();
     setupHeaderNavScrollEvents();
+    setupTopbarScrollMotion();
     setupClock();
     setupHeroEvents();
     setupProjectFilterEvents();
