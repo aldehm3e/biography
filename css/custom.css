@@ -3008,8 +3008,9 @@ html[data-theme="dark"] [data-state~="loading"],
 
 .nds-alert.nds-toast .nds-alert-close.nds-progress {
   --progress-size: calc(var(--btn-size, 32px) - 8px);
-  --progress-track-color: var(--_btn-loading-track, rgba(22, 22, 22, 0.12));
-  --progress-color: currentColor;
+  --progress-track-color: rgba(22, 22, 22, 0.1);
+  --progress-color: rgba(22, 22, 22, 0.58);
+  color: #475467;
 }
 
 .nds-alert.nds-toast .nds-alert-close.nds-progress .nds-icon {
@@ -3033,6 +3034,12 @@ html[data-theme="dark"] [data-state~="loading"],
 .nds-alert.nds-toast .nds-alert-close.nds-progress .nds-progress-circle svg circle.nds-progress-track {
   animation: button-progress-countdown linear forwards;
   animation-duration: var(--progress-duration, 4000ms);
+}
+
+html[data-theme="dark"] .nds-alert.nds-toast .nds-alert-close.nds-progress {
+  --progress-track-color: rgba(255, 255, 255, 0.18);
+  --progress-color: rgba(255, 255, 255, 0.72);
+  color: rgba(255, 255, 255, 0.82);
 }
 
 @keyframes button-progress-countdown {
@@ -7355,7 +7362,22 @@ body[data-page="admin"] .admin-panel[data-admin-panel="home"] .compact-editor-it
 .admin-persona-dropdown .nds-destructive.nds-dropdown-item,
 .account-menu-item .nds-destructive.nds-dropdown-item,
 .mobile-account-dropdown .nds-destructive.nds-dropdown-item {
-  color: #b42318;
+  min-height: 44px;
+  color: #d92d20;
+  font-size: var(--typo-text-md-FS);
+  font-weight: 600;
+}
+
+.admin-persona-dropdown .nds-destructive.nds-dropdown-item .nds-icon,
+.account-menu-item .nds-destructive.nds-dropdown-item .nds-icon,
+.mobile-account-dropdown .nds-destructive.nds-dropdown-item .nds-icon {
+  width: 22px;
+  height: 22px;
+  min-width: 22px;
+  min-height: 22px;
+  color: inherit;
+  font-size: 22px;
+  line-height: 22px;
 }
 
 .admin-persona-dropdown .nds-destructive.nds-dropdown-item:hover,
