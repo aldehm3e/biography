@@ -9,7 +9,7 @@
       try {
         var savedData = JSON.parse(localStorage.getItem("websiteDemo:siteData") || "null");
         var savedTheme = savedData && savedData.settings && savedData.settings.theme;
-        var quickTheme = savedTheme || localStorage.getItem("websiteDemo:theme");
+        var quickTheme = localStorage.getItem("websiteDemo:theme") || savedTheme;
         if (quickTheme === "dark" || quickTheme === "light") document.documentElement.dataset.theme = quickTheme;
       } catch (error) {}
     })();
@@ -19,7 +19,7 @@
   <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
   <link rel="stylesheet" href="css/nds-local-components.css?v=notification-refit-20260530">
-  <link rel="stylesheet" href="css/custom.css?v=topbar-collapse-final-20260605">
+  <link rel="stylesheet" href="css/custom.css?v=darkmode-reveal-stable-20260606">
 </head>
 <body data-page="project-detail">
   <header class="site-header">
@@ -260,6 +260,6 @@
   <script src="assets/vendor/nds/components/js/nds-copy.js"></script>
   <script src="assets/vendor/nds/components/js/nds-share.js"></script>
   <script src="js/nds-local-components.js"></script>
-  <script src="js/app.js?v=topbar-collapse-final-20260605"></script>
+  <script src="js/app.js?v=darkmode-reveal-stable-20260606"></script>
 </body>
 </html>
