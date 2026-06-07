@@ -5094,6 +5094,10 @@
       var list = panel ? qs("[data-nav-list]", panel) : null;
       if (!list) return;
       if (window.matchMedia("(max-width: 960px)").matches) {
+        if (!button.closest(".nds-show-more")) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
         var verticalAmount = Math.max(180, Math.floor(list.clientHeight * 0.82));
         var atEnd = list.scrollTop + list.clientHeight >= list.scrollHeight - 8;
         list.scrollTo({ top: atEnd ? 0 : list.scrollTop + verticalAmount, behavior: "smooth" });
@@ -5102,7 +5106,7 @@
       }
       var amount = Math.max(180, Math.floor(list.clientWidth * 0.72));
       list.scrollBy({ left: button.dataset.navScroll === "next" ? -amount : amount, behavior: "smooth" });
-    });
+    }, true);
 
     document.addEventListener("click", function (event) {
       if (!event.target.closest("[data-nav-toggle], .nds-mainNav-toggler")) return;
@@ -5148,10 +5152,17 @@
         atEnd ? "at-end" : ""
       ].filter(Boolean).join(" ");
     }
-    if (control) control.hidden = !hasOverflow;
+    if (control) {
+      control.hidden = !hasOverflow;
+      if (!hasOverflow) control.removeAttribute("data-nav-scroll-state");
+    }
+    button.hidden = !hasOverflow;
+    if (!hasOverflow) {
+      button.removeAttribute("data-nav-scroll-direction");
+      return;
+    }
     if (control) control.dataset.navScrollState = atEnd ? "at-end" : "has-more";
     button.dataset.navScrollDirection = atEnd ? "up" : "down";
-    button.hidden = false;
     button.setAttribute("aria-label", atEnd ? "العودة إلى أعلى التنقل" : "عرض المزيد من روابط التنقل");
     button.title = atEnd ? "أعلى" : "المزيد";
     var icon = qs(".nds-icon", button);
