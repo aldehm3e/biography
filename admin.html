@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css">
   <link rel="stylesheet" href="css/nds-local-components.css?v=notification-refit-20260530">
-  <link rel="stylesheet" href="css/custom.css?v=darkmode-reveal-stable-20260606">
+  <link rel="stylesheet" href="css/custom.css?v=darkmode-motion-fix-20260607">
 </head>
 <body data-page="admin">
   <header class="site-header">
@@ -32,6 +32,8 @@
         <span id="nds-digitalStamp-verify-text" class="nds-link nds-primary" data-shell-verify-label>كيف تتحقق؟</span>
       </button>
       <div class="nds-topbar-info">
+        <span id="nds-cityName" class="nds-text-icon site-city-name" aria-live="polite"></span>
+        <span id="nds-weatherInfo" class="nds-text-icon site-weather-info" data-latitude="24.5247" data-longitude="39.5692" aria-live="polite"></span>
         <span id="nds-date" class="nds-text-icon" data-date-part aria-live="polite"></span>
         <span id="nds-realTimeClock" class="nds-text-icon" data-time-part aria-live="polite"></span>
       </div>
@@ -1187,6 +1189,7 @@
   <script src="js/store.js?v=separate-system-items-20260605"></script>
   <script src="js/home-number-icons.js?v=home-numbers-bg-size-20260604"></script>
   <script src="assets/vendor/nds/components/js/nds-core.js"></script>
+  <script src="assets/vendor/nds/components/js/nds-cityWeather.js?v=auto-location-20260607"></script>
   <script src="assets/vendor/nds/components/js/nds-backdrop.js?v=nds-source-20260604"></script>
   <script src="assets/vendor/nds/components/js/nds-mainnav.js?v=nds-source-20260604"></script>
   <script src="assets/vendor/nds/components/js/nds-drawer.js"></script>
@@ -1202,7 +1205,7 @@
   <script src="assets/vendor/nds/components/js/nds-user-feedback.js?v=separate-system-items-20260605"></script>
   <script src="assets/vendor/nds/components/js/nds-breadcrumb.js"></script>
   <script src="js/nds-local-components.js"></script>
-  <script src="js/app.js?v=darkmode-reveal-stable-20260606"></script>
+  <script src="js/app.js?v=darkmode-motion-fix-20260607"></script>
   <script src="js/admin.js?v=delete-confirm-fix-20260605"></script>
 </body>
 </html>

@@ -28,6 +28,8 @@
   var homeTopPinReleaseToken = 0;
   var themeScrollReleaseToken = 0;
   var headerActionScrollReleaseToken = 0;
+  var themeTransitionActive = false;
+  var cityWeatherInitialized = false;
 
   var appState = {
     data: null,
@@ -294,8 +296,8 @@
       config = config || {};
       var explicitOwner = Boolean(config.owner || config.id);
       var owner = explicitOwner ? (config.owner || config.id) : inferOwner(config);
-      var isHeaderOwner = owner === "nav" || owner === "site-header" || owner === "header" || config.context === "header";
-      var preventScroll = hasOwn(config, "preventScroll") ? config.preventScroll !== false : !isHeaderOwner;
+      var isSiteHeaderOwner = owner === "site-header" || owner === "header" || config.context === "header";
+      var preventScroll = hasOwn(config, "preventScroll") ? config.preventScroll !== false : !isSiteHeaderOwner;
       return {
         owner: owner,
         explicitOwner: explicitOwner,
@@ -1083,34 +1085,154 @@
     });
   }
 
-  function setTopbarCollapsed(collapsed, header) {
+  function setDigitalStampCollapsed(collapsed, header) {
+    var stamp;
+    var trigger;
+    header = header || qs(".site-header");
+    if (!header) return;
+    stamp = qs("#nds-digitalStamp", header);
+    trigger = qs(".nds-digitalStamp-tab", header);
+    if (!stamp) return;
+    if (collapsed) {
+      removeDataStateTokens(stamp, ["open", "opened", "opening", "closing"]);
+      setDigitalStampClosedInline(stamp, true);
+      stamp.setAttribute("aria-hidden", "true");
+      stamp.inert = true;
+      if (trigger) {
+        trigger.setAttribute("aria-expanded", "false");
+        removeDataStateTokens(trigger, ["expanded"]);
+      }
+    } else {
+      stamp.removeAttribute("aria-hidden");
+      stamp.inert = false;
+      setDigitalStampClosedInline(stamp, false);
+    }
+  }
+
+  function setDigitalStampClosedInline(stamp, closed) {
+    if (!stamp || !stamp.style) return;
+    ["gridTemplateRows", "borderBlockEndColor", "boxShadow", "opacity", "pointerEvents", "transform"].forEach(function (property) {
+      stamp.style[property] = "";
+    });
+    if (!closed) return;
+    stamp.style.gridTemplateRows = "0fr";
+    stamp.style.borderBlockEndColor = "transparent";
+    stamp.style.boxShadow = "none";
+    stamp.style.opacity = "0";
+    stamp.style.pointerEvents = "none";
+    stamp.style.transform = "translateY(-8px)";
+  }
+
+  function settleDigitalStampClosedState(trigger) {
+    var header = trigger && trigger.closest ? trigger.closest(".site-header") : qs(".site-header");
+    var stamp;
+    if (!header) return;
+    trigger = trigger || qs(".nds-digitalStamp-tab", header);
+    stamp = qs("#nds-digitalStamp", header);
+    if (!trigger || !stamp) return;
+    if (trigger.getAttribute("aria-expanded") === "true") {
+      setDigitalStampClosedInline(stamp, false);
+      return;
+    }
+    removeDataStateTokens(stamp, ["open", "opened", "opening", "closing"]);
+    removeDataStateTokens(trigger, ["expanded"]);
+    setDigitalStampClosedInline(stamp, true);
+  }
+
+  function scheduleDigitalStampStateSettle(trigger) {
+    var header = trigger && trigger.closest ? trigger.closest(".site-header") : qs(".site-header");
+    var stamp = header ? qs("#nds-digitalStamp", header) : null;
+    if (trigger && trigger.getAttribute("aria-expanded") !== "true") {
+      setDigitalStampClosedInline(stamp, false);
+    }
+    [360, 760, 1120].forEach(function (delay) {
+      window.setTimeout(function () {
+        settleDigitalStampClosedState(trigger);
+      }, delay);
+    });
+  }
+
+  function setupDigitalStampStateGuard() {
+    document.addEventListener("click", function (event) {
+      var trigger = event.target.closest(".site-header .nds-digitalStamp-tab");
+      if (!trigger) return;
+      scheduleDigitalStampStateSettle(trigger);
+    }, true);
+  }
+
+  function setTopbarCollapsedInline(topbar, body, collapsed) {
+    if (topbar && topbar.style) {
+      ["blockSize", "minHeight", "maxBlockSize", "borderBlockEndWidth", "opacity", "pointerEvents", "transform"].forEach(function (property) {
+        topbar.style[property] = "";
+      });
+      if (collapsed) {
+        topbar.style.blockSize = "0px";
+        topbar.style.minHeight = "0px";
+        topbar.style.maxBlockSize = "0px";
+        topbar.style.borderBlockEndWidth = "0px";
+        topbar.style.opacity = "0";
+        topbar.style.pointerEvents = "none";
+        topbar.style.transform = "translateY(-100%)";
+      }
+    }
+    if (body && body.style) {
+      body.style.paddingBlockStart = "";
+      if (collapsed) body.style.paddingBlockStart = "var(--nds-nav-height)";
+    }
+  }
+
+  function scheduleTopbarCollapsedSettle(header, body, topbar) {
+    [360, 760, 1120].forEach(function (delay) {
+      window.setTimeout(function () {
+        if (!body || body.dataset.topbarCollapsed !== "true") return;
+        if (header && header.dataset.topbarCollapsed !== "true") return;
+        setTopbarCollapsedInline(topbar || qs(".nds-topbar", header), body, true);
+      }, delay);
+    });
+  }
+
+  function setTopbarCollapsed(collapsed, header, instant) {
     var body = document.body;
     var topbar;
+    var locked = Boolean(collapsed && instant);
     header = header || qs(".site-header");
     if (!header || !body) return;
     if (
       appState.topbarCollapsed === collapsed
       && (header.dataset.topbarCollapsed === "true") === collapsed
-      && (header.dataset.topbarLocked === "true") === collapsed
+      && (header.dataset.topbarLocked === "true") === locked
       && (body.dataset.topbarCollapsed === "true") === collapsed
-      && (body.dataset.topbarLocked === "true") === collapsed
+      && (body.dataset.topbarLocked === "true") === locked
     ) return;
     appState.topbarCollapsed = collapsed;
     topbar = qs(".nds-topbar", header);
+    setDigitalStampCollapsed(collapsed, header);
     if (collapsed) {
       header.dataset.topbarCollapsed = "true";
-      header.dataset.topbarLocked = "true";
       body.dataset.topbarCollapsed = "true";
-      body.dataset.topbarLocked = "true";
+      if (locked) {
+        header.dataset.topbarLocked = "true";
+        body.dataset.topbarLocked = "true";
+      } else {
+        delete header.dataset.topbarLocked;
+        delete body.dataset.topbarLocked;
+      }
       if (topbar) {
         topbar.setAttribute("aria-hidden", "true");
         topbar.inert = true;
+      }
+      if (locked) {
+        setTopbarCollapsedInline(topbar, body, true);
+      } else {
+        setTopbarCollapsedInline(topbar, body, false);
+        scheduleTopbarCollapsedSettle(header, body, topbar);
       }
     } else {
       delete header.dataset.topbarCollapsed;
       delete header.dataset.topbarLocked;
       delete body.dataset.topbarCollapsed;
       delete body.dataset.topbarLocked;
+      setTopbarCollapsedInline(topbar, body, false);
       if (topbar) {
         topbar.removeAttribute("aria-hidden");
         topbar.inert = false;
@@ -1163,7 +1285,7 @@
 
   function restoreThemeViewportScroll(left, top) {
     top = Math.max(0, Math.round(Number(top) || 0));
-    if (top <= 1 && document.body && document.body.style && document.body.style.top) {
+    if (top <= 1 && document.body && document.body.style && document.body.style.top && !document.body.dataset.ndsBackdropActive) {
       document.body.style.top = "";
       if (document.body.dataset) delete document.body.dataset.ndsScrollLockY;
     }
@@ -1221,15 +1343,15 @@
     window.setTimeout(release, 420);
   }
 
-  function updateTopbarScrollState(header, currentY, delta) {
-    setTopbarCollapsed(currentY > TOPBAR_SCROLL_TRIGGER_PX, header);
+  function updateTopbarScrollState(header, currentY, delta, instant) {
+    setTopbarCollapsed(currentY > TOPBAR_SCROLL_TRIGGER_PX, header, instant);
   }
 
   function setupTopbarScrollMotion() {
     var header = qs(".site-header");
     if (!header) return;
     appState.topbarScrollLastY = currentScrollTop();
-    updateTopbarScrollState(header, appState.topbarScrollLastY, 0);
+    updateTopbarScrollState(header, appState.topbarScrollLastY, 0, true);
     window.addEventListener("scroll", function () {
       if (appState.topbarScrollFrame) return;
       appState.topbarScrollFrame = window.requestAnimationFrame(function () {
@@ -3459,7 +3581,7 @@
     return items;
   }
 
-  function saveNotifications(items) {
+  function saveNotifications(items, options) {
     var current = loadNotifications();
     var state = readNotificationState();
     var nextByKey = {};
@@ -3490,7 +3612,7 @@
       }
     });
     writeNotificationState(state);
-    window.dispatchEvent(new CustomEvent("site:notificationschange"));
+    if (!(options && options.silent)) window.dispatchEvent(new CustomEvent("site:notificationschange"));
   }
 
   function normalizeNotifications(items) {
@@ -3889,25 +4011,10 @@
     window.setTimeout(finish, 220);
   }
 
-  function rememberNotificationDropdownOpen(root) {
+  function forgetNotificationDropdownOpen() {
     try {
-      window.sessionStorage.setItem(NOTIFICATIONS_KEEP_OPEN_KEY, notificationRootMode(root));
+      window.sessionStorage.removeItem(NOTIFICATIONS_KEEP_OPEN_KEY);
     } catch (error) {}
-  }
-
-  function restoreRememberedNotificationDropdown() {
-    var mode = "";
-    try {
-      mode = window.sessionStorage.getItem(NOTIFICATIONS_KEEP_OPEN_KEY) || "";
-      if (mode) window.sessionStorage.removeItem(NOTIFICATIONS_KEEP_OPEN_KEY);
-    } catch (error) {}
-    if (!mode) return;
-    window.requestAnimationFrame(function () {
-      setNotificationDropdownOpen(notificationRootForMode(mode));
-    });
-    window.setTimeout(function () {
-      settleNotificationDropdownOpen(notificationRootForMode(mode));
-    }, 260);
   }
 
   function emptyNotificationsMarkup() {
@@ -3951,7 +4058,6 @@
     if ((existing.dataset.state || "").indexOf("open") !== -1) {
       scheduleHeaderActionDropdownFit(existing);
     }
-    restoreRememberedNotificationDropdown();
   }
 
   function openNotifications() {
@@ -4036,6 +4142,9 @@
 
   function setSiteDropdownBackdropActive(active) {
     var roots = active ? openHeaderOverlayRoots() : [];
+    var lockScroll = roots.some(function (root) {
+      return root.classList && root.classList.contains("nav-pages-item");
+    });
     clearSiteBackdropSurfaces();
     if (active && !shouldUseSiteHeaderBackdrop()) {
       delete document.body.dataset.siteOverlay;
@@ -4060,6 +4169,7 @@
         owner: "site-header",
         context: "header",
         surface: roots,
+        preventScroll: lockScroll,
         zIndex: 1195,
         onClick: dismissSiteBackdropOverlays
       });
@@ -4123,7 +4233,54 @@
     }, 360);
   }
 
+  function handleNotificationActionClick(event) {
+    var action = event.target.closest("[data-notification-view], [data-notification-read], [data-notification-dismiss]");
+    var item = action && action.closest("[data-notification-id]");
+    var actionRoot = item && item.closest("[data-notifications-root]");
+    if (!action || !item || !actionRoot) return false;
+
+    event.preventDefault();
+    event.stopPropagation();
+    if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+
+    if (action.matches("[data-notification-view]")) {
+      var viewHref = action.getAttribute("href") || "notifications.html";
+      forgetNotificationDropdownOpen();
+      saveNotifications(loadNotifications().filter(function (notification) {
+        return notification.id !== item.dataset.notificationId;
+      }), { silent: true });
+      navigateAfterHeaderAction(action.href || viewHref);
+      return true;
+    }
+
+    if (action.matches("[data-notification-read]")) {
+      prepareNotificationDropdownMutation(actionRoot);
+      saveNotifications(loadNotifications().map(function (notification) {
+        if (notification.id === item.dataset.notificationId) markNotificationRead(notification);
+        return notification;
+      }));
+      keepNotificationDropdownOpen(actionRoot, { instant: true });
+      return true;
+    }
+
+    if (action.matches("[data-notification-dismiss]")) {
+      var notificationId = item.dataset.notificationId;
+      prepareNotificationDropdownMutation(actionRoot);
+      animateNotificationRemoval(item, function () {
+        saveNotifications(loadNotifications().filter(function (notification) {
+          return notification.id !== notificationId;
+        }));
+        keepNotificationDropdownOpen(actionRoot, { instant: true });
+      });
+      return true;
+    }
+
+    return false;
+  }
+
   function setupNotifications() {
+    document.addEventListener("click", handleNotificationActionClick, true);
+
     document.addEventListener("click", function (event) {
       queueNotificationTriggerStateSync();
 
@@ -4146,48 +4303,6 @@
       if (event.target.closest(".header-admin-link, .mobile-account-trigger, .nds-mainNav-toggler")) {
         closeNotificationDropdown({ localOnly: true });
       }
-
-      var item = event.target.closest("[data-notification-id]");
-      var actionRoot = item && item.closest("[data-notifications-root]");
-      if (event.target.closest("[data-notification-view]") && item && actionRoot) {
-        var viewLink = event.target.closest("[data-notification-view]");
-        var viewHref = viewLink && viewLink.getAttribute("href") || "notifications.html";
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-        saveNotifications(loadNotifications().filter(function (notification) {
-          return notification.id !== item.dataset.notificationId;
-        }));
-        rememberNotificationDropdownOpen(actionRoot);
-        window.location.href = viewHref;
-        return;
-      }
-      if (event.target.closest("[data-notification-read]") && item && actionRoot) {
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-        prepareNotificationDropdownMutation(actionRoot);
-        saveNotifications(loadNotifications().map(function (notification) {
-          if (notification.id === item.dataset.notificationId) markNotificationRead(notification);
-          return notification;
-        }));
-        keepNotificationDropdownOpen(actionRoot, { instant: true });
-        return;
-      }
-      if (event.target.closest("[data-notification-dismiss]") && item && actionRoot) {
-        var notificationId = item.dataset.notificationId;
-        event.preventDefault();
-        event.stopPropagation();
-        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
-        prepareNotificationDropdownMutation(actionRoot);
-        animateNotificationRemoval(item, function () {
-          saveNotifications(loadNotifications().filter(function (notification) {
-            return notification.id !== notificationId;
-          }));
-          keepNotificationDropdownOpen(actionRoot, { instant: true });
-        });
-        return;
-      }
     });
 
     window.addEventListener("site:notificationschange", renderNotifications);
@@ -4208,6 +4323,23 @@
     });
     syncSiteDropdownBackdrop();
     resetBackdropWhenIdle();
+  }
+
+  function closeHeaderOverlaysBeforeNavigation() {
+    pinBodyScrollLockToTop();
+    closeNotificationDropdown({ localOnly: true });
+    closeMobileAccountDropdown({ localOnly: true });
+    closeHeaderActionDropdowns({ localOnly: true });
+    closeNavDropmenus(null, { dismissNative: false, instant: true });
+    clearNavPanelState();
+    dismissNdsHeaderOverlays();
+    clearNavPanelState();
+    forceClearBackdrop();
+  }
+
+  function navigateAfterHeaderAction(href) {
+    closeHeaderOverlaysBeforeNavigation();
+    window.location.assign(href || "notifications.html");
   }
 
   function closeMobileAccountDropdown(options) {
@@ -4360,6 +4492,7 @@
   function setupDropmenus() {
     document.addEventListener("click", function (event) {
       var trigger = event.target.closest(".nav-pages-trigger");
+      var navScrollTrigger = event.target.closest("[data-nav-scroll], .nds-show-more");
       var headerActionTrigger = event.target.closest(".site-header .header-actions .nds-dropdown > .nds-nav-link, .site-header .nds-nav-minimal .nds-dropdown > .nds-nav-link");
       var mobileNavLink = event.target.closest("[data-nav-panel] .nds-nav-primary a[href]");
       var hashPageHomeLink = event.target.closest("a[href]");
@@ -4395,6 +4528,9 @@
         if (event.stopImmediatePropagation) event.stopImmediatePropagation();
         closeHeaderActionDropdowns({ localOnly: !shouldUseSiteHeaderBackdrop() });
         toggleNavPageDropdown(trigger, event);
+        return;
+      }
+      if (navScrollTrigger) {
         return;
       }
       if (mobileNavLink) {
@@ -4942,15 +5078,15 @@
     });
   }
 
-  function setupHeaderNavScrollEvents() {
-    var scheduleMobileControlSync = function () {
-      syncMobileNavScrollControls();
-      window.requestAnimationFrame(syncMobileNavScrollControls);
-      window.setTimeout(syncMobileNavScrollControls, 120);
-      window.setTimeout(syncMobileNavScrollControls, 360);
-      window.setTimeout(syncMobileNavScrollControls, 720);
-    };
+  function scheduleMobileNavScrollControlSync() {
+    syncMobileNavScrollControls();
+    window.requestAnimationFrame(syncMobileNavScrollControls);
+    window.setTimeout(syncMobileNavScrollControls, 120);
+    window.setTimeout(syncMobileNavScrollControls, 360);
+    window.setTimeout(syncMobileNavScrollControls, 720);
+  }
 
+  function setupHeaderNavScrollEvents() {
     document.addEventListener("click", function (event) {
       var button = event.target.closest("[data-nav-scroll]");
       if (!button) return;
@@ -4970,7 +5106,7 @@
 
     document.addEventListener("click", function (event) {
       if (!event.target.closest("[data-nav-toggle], .nds-mainNav-toggler")) return;
-      scheduleMobileControlSync();
+      scheduleMobileNavScrollControlSync();
     });
 
     document.addEventListener("wheel", function (event) {
@@ -5153,12 +5289,51 @@
     }, 680);
   }
 
+  function releaseHeaderActionOpeningState(root) {
+    var states = (root && root.dataset && root.dataset.state || "").split(/\s+/);
+    if (!root || states.indexOf("open") === -1 || states.indexOf("opening") === -1) return;
+    removeDataStateTokens(root, ["opening"]);
+    fitHeaderActionDropdown(root);
+    syncSiteDropdownBackdrop();
+  }
+
+  function settleHeaderActionDropdownState(root) {
+    var states = (root && root.dataset && root.dataset.state || "").split(/\s+/);
+    if (!root || states.indexOf("open") === -1) return;
+    if (states.indexOf("opened") !== -1) removeDataStateTokens(root, ["opening", "closing"]);
+    fitHeaderActionDropdown(root);
+    syncSiteDropdownBackdrop();
+  }
+
+  function scheduleHeaderActionDropdownStateSettle(root) {
+    if (!root) return;
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        releaseHeaderActionOpeningState(root);
+      });
+    });
+    [60, 140, 240].forEach(function (delay) {
+      window.setTimeout(function () {
+        releaseHeaderActionOpeningState(root);
+      }, delay);
+    });
+    [320, 520, 820].forEach(function (delay) {
+      window.setTimeout(function () {
+        settleHeaderActionDropdownState(root);
+      }, delay);
+    });
+  }
+
   function prepareHeaderActionDropdown(trigger) {
     var root = headerActionDropdownFromTrigger(trigger);
     closeNavDropmenus(null, { dismissNative: false, instant: true });
     scheduleNavPageDropdownSync();
     scheduleNavPagesCloseForHeaderAction();
-    if (root) scheduleHeaderActionDropdownFit(root);
+    scheduleMobileNavScrollControlSync();
+    if (root) {
+      scheduleHeaderActionDropdownFit(root);
+      scheduleHeaderActionDropdownStateSettle(root);
+    }
   }
 
   function updateNavPageListDropdownState(list) {
@@ -5293,18 +5468,21 @@
     if (isOpen) {
       item.dataset.state = "open opening";
       updateNavPageListDropdownState(list);
+      scheduleMobileNavScrollControlSync();
       fitNavPageDropdown(item);
       window.requestAnimationFrame(function () {
         window.requestAnimationFrame(function () {
           if ((item.dataset.state || "").indexOf("open") === -1) return;
           item.dataset.state = "open";
           updateNavPageListDropdownState(list);
+          scheduleMobileNavScrollControlSync();
           fitNavPageDropdown(item);
         });
       });
       navPageDropdownTimers.set(item, window.setTimeout(function () {
         if ((item.dataset.state || "").split(/\s+/).indexOf("open") !== -1) item.dataset.state = "open opened";
         updateNavPageListDropdownState(list);
+        scheduleMobileNavScrollControlSync();
         fitNavPageDropdown(item);
         navPageDropdownTimers.delete(item);
       }, 240));
@@ -5319,11 +5497,13 @@
     }
     item.dataset.state = "open closing";
     updateNavPageListDropdownState(list);
+    scheduleMobileNavScrollControlSync();
     navPageDropdownTimers.set(item, window.setTimeout(function () {
       item.dataset.state = "";
       item.removeAttribute("data-state");
       resetNavPageDropdownPosition(menu);
       updateNavPageListDropdownState(list);
+      scheduleMobileNavScrollControlSync();
       navPageDropdownTimers.delete(item);
     }, 240));
   }
@@ -5337,16 +5517,16 @@
       event.preventDefault();
       event.stopPropagation();
       if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+      if (themeTransitionActive || document.documentElement.classList.contains("theme-transitioning")) return;
       scrollLeft = currentScrollLeft();
-      scrollTop = rawViewportScrollTop();
+      scrollTop = currentScrollTop();
       preserveThemeScrollPosition(scrollLeft, scrollTop);
       closeHeaderDropdownsForThemeToggle();
       restoreThemeViewportScroll(scrollLeft, scrollTop);
       toggleTheme(button, {
         scrollLeft: scrollLeft,
         scrollTop: scrollTop,
-        preserveStarted: true,
-        revealPoint: themeRevealPoint(button)
+        preserveStarted: true
       });
     }, true);
   }
@@ -5381,7 +5561,7 @@
     var shouldPreserveScroll = Boolean(options && (options.preserveStarted || options.preserveScroll));
 
     if (shouldPreserveScroll && !(options && options.preserveStarted)) preserveThemeScrollPosition(scrollLeft, scrollTop);
-    if (announce && origin && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (announce && origin && !(options && options.skipMotion) && !window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
       applyThemeWithMotion(next, origin, {
         revealPoint: options && options.revealPoint,
         scrollLeft: scrollLeft,
@@ -5422,11 +5602,17 @@
     var scrollLeft = options && Number.isFinite(options.scrollLeft) ? options.scrollLeft : currentScrollLeft();
     var scrollTop = options && Number.isFinite(options.scrollTop) ? options.scrollTop : rawViewportScrollTop();
     var transition;
+    var cleanupTimer;
+    var cleanedUp = false;
     var commit = function () {
       commitTheme(next);
       if (shouldPreserveScroll) restoreThemeViewportScroll(scrollLeft, scrollTop);
     };
     var cleanup = function () {
+      if (cleanedUp) return;
+      cleanedUp = true;
+      if (cleanupTimer) window.clearTimeout(cleanupTimer);
+      themeTransitionActive = false;
       document.documentElement.classList.remove("theme-transitioning");
       document.documentElement.style.removeProperty("--theme-reveal-x");
       document.documentElement.style.removeProperty("--theme-reveal-y");
@@ -5442,6 +5628,7 @@
       return;
     }
 
+    themeTransitionActive = true;
     document.documentElement.classList.add("theme-transitioning");
     document.documentElement.style.setProperty("--theme-reveal-x", point.x + "px");
     document.documentElement.style.setProperty("--theme-reveal-y", point.y + "px");
@@ -5474,6 +5661,7 @@
       );
     }).catch(function () {});
 
+    cleanupTimer = window.setTimeout(cleanup, 960);
     transition.finished.then(cleanup).catch(cleanup);
   }
 
@@ -5494,7 +5682,32 @@
     var scrollTop = options && Number.isFinite(options.scrollTop) ? options.scrollTop : rawViewportScrollTop();
     var layer = document.createElement("div");
     var reveal;
+    var revealTimer;
+    var fadeTimer;
+    var revealDone = false;
+    var layerRemoved = false;
+    var removeLayer = function () {
+      if (layerRemoved) return;
+      layerRemoved = true;
+      if (fadeTimer) window.clearTimeout(fadeTimer);
+      document.documentElement.classList.remove("theme-transitioning");
+      themeTransitionActive = false;
+      layer.remove();
+      if (shouldPreserveScroll) restoreThemeViewportScroll(scrollLeft, scrollTop);
+    };
+    var finishReveal = function () {
+      var fade;
+      if (revealDone) return;
+      revealDone = true;
+      if (revealTimer) window.clearTimeout(revealTimer);
+      commitTheme(next);
+      if (shouldPreserveScroll) restoreThemeViewportScroll(scrollLeft, scrollTop);
+      fade = layer.animate({ opacity: [1, 0] }, { duration: 180, easing: "ease", fill: "forwards" });
+      fade.onfinish = removeLayer;
+      fadeTimer = window.setTimeout(removeLayer, 260);
+    };
 
+    themeTransitionActive = true;
     document.documentElement.classList.add("theme-transitioning");
     layer.className = "theme-reveal-layer";
     layer.style.setProperty("--theme-reveal-x", point.x + "px");
@@ -5517,21 +5730,22 @@
       }
     );
 
-    reveal.onfinish = function () {
-      commitTheme(next);
-      if (shouldPreserveScroll) restoreThemeViewportScroll(scrollLeft, scrollTop);
-      layer.animate({ opacity: [1, 0] }, { duration: 180, easing: "ease", fill: "forwards" }).onfinish = function () {
-        document.documentElement.classList.remove("theme-transitioning");
-        layer.remove();
-        if (shouldPreserveScroll) restoreThemeViewportScroll(scrollLeft, scrollTop);
-      };
-    };
+    reveal.onfinish = finishReveal;
+    revealTimer = window.setTimeout(finishReveal, 900);
   }
 
   function setupClock() {
     updateClock();
     clearInterval(appState.clockTimer);
     appState.clockTimer = setInterval(updateClock, 30000);
+  }
+
+  function setupCityWeather() {
+    if (cityWeatherInitialized) return;
+    if (!qs("#nds-cityName") || !qs("#nds-weatherInfo")) return;
+    if (!window.NDS || !window.NDS.CityWeather || !window.NDS.CityWeather.init) return;
+    cityWeatherInitialized = true;
+    window.NDS.CityWeather.init();
   }
 
   function updateClock() {
@@ -6880,10 +7094,11 @@
         var viewLink = event.target.closest("[data-notification-view]");
         var viewHref = viewLink && viewLink.getAttribute("href") || "notifications.html";
         event.preventDefault();
+        forgetNotificationDropdownOpen();
         saveNotifications(loadNotifications().filter(function (notification) {
           return notification.id !== card.dataset.notificationId;
-        }));
-        window.location.href = viewHref;
+        }), { silent: true });
+        navigateAfterHeaderAction(viewLink && viewLink.href || viewHref);
         return;
       }
       if (event.target.closest("[data-notification-read]")) {
@@ -7008,8 +7223,10 @@
     setupSiteSearch();
     setupThemeToggle();
     setupHeaderNavScrollEvents();
+    setupDigitalStampStateGuard();
     setupTopbarScrollMotion();
     setupClock();
+    setupCityWeather();
     setupHeroEvents();
     setupProjectFilterEvents();
     setupLoginModal();

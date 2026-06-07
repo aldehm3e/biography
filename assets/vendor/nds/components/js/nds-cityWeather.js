@@ -31,13 +31,126 @@
         parent.appendChild(span);
     }
 
+    const LOCATION_CACHE_KEY = 'city_weather_location_v1';
+    const LOCATION_CACHE_MINUTES = 15;
+    const GEOLOCATION_TIMEOUT = 9000;
+    let activeCoordinates = null;
+    let initialized = false;
+    let locationPromise = null;
+    let weatherTimer = null;
+
+    function roundCoordinate(value) {
+        return Math.round(value * 10000) / 10000;
+    }
+
+    function isValidCoordinates(lat, lng) {
+        return Number.isFinite(lat) && Number.isFinite(lng) &&
+            lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
+    }
+
+    function getFallbackCoordinates(el) {
+        const lat = +(el?.dataset.latitude || 24.7136);
+        const lng = +(el?.dataset.longitude || 46.6753);
+        return isValidCoordinates(lat, lng)
+            ? { lat: roundCoordinate(lat), lng: roundCoordinate(lng) }
+            : { lat: 24.7136, lng: 46.6753 };
+    }
+
+    function applyCoordinates(el, coordinates, source) {
+        if (!el || !coordinates) return;
+        el.dataset.latitude = String(roundCoordinate(coordinates.lat));
+        el.dataset.longitude = String(roundCoordinate(coordinates.lng));
+        el.dataset.locationSource = source || 'fallback';
+    }
+
+    function getCachedCoordinates() {
+        const cached = NDS.cache.get(LOCATION_CACHE_KEY);
+        if (!cached || typeof cached !== 'object') return null;
+        const lat = +cached.lat;
+        const lng = +cached.lng;
+        return isValidCoordinates(lat, lng) ? { lat: roundCoordinate(lat), lng: roundCoordinate(lng) } : null;
+    }
+
+    function cacheCoordinates(coordinates) {
+        NDS.cache.set(LOCATION_CACHE_KEY, {
+            lat: roundCoordinate(coordinates.lat),
+            lng: roundCoordinate(coordinates.lng)
+        }, LOCATION_CACHE_MINUTES);
+    }
+
+    function requestBrowserCoordinates() {
+        if (!navigator.geolocation) {
+            return Promise.reject(new Error('Geolocation unavailable'));
+        }
+
+        return new Promise((resolve, reject) => {
+            navigator.geolocation.getCurrentPosition(position => {
+                const coords = position && position.coords;
+                const lat = coords ? +coords.latitude : NaN;
+                const lng = coords ? +coords.longitude : NaN;
+                if (!isValidCoordinates(lat, lng)) {
+                    reject(new Error('Invalid geolocation coordinates'));
+                    return;
+                }
+
+                resolve({ lat: roundCoordinate(lat), lng: roundCoordinate(lng) });
+            }, reject, {
+                enableHighAccuracy: false,
+                maximumAge: LOCATION_CACHE_MINUTES * 60 * 1000,
+                timeout: GEOLOCATION_TIMEOUT
+            });
+        });
+    }
+
+    async function resolveCoordinates() {
+        const weatherEl = document.getElementById('nds-weatherInfo');
+        const fallback = getFallbackCoordinates(weatherEl);
+        if (!weatherEl || weatherEl.dataset.autoLocation === 'false') {
+            activeCoordinates = fallback;
+            applyCoordinates(weatherEl, fallback, 'fallback');
+            return fallback;
+        }
+
+        if (activeCoordinates && weatherEl.dataset.locationSource === 'browser') {
+            return activeCoordinates;
+        }
+
+        const cached = getCachedCoordinates();
+        if (cached) {
+            activeCoordinates = cached;
+            applyCoordinates(weatherEl, cached, 'browser');
+            return cached;
+        }
+
+        if (!locationPromise) {
+            locationPromise = requestBrowserCoordinates()
+                .then(coordinates => {
+                    activeCoordinates = coordinates;
+                    applyCoordinates(weatherEl, coordinates, 'browser');
+                    cacheCoordinates(coordinates);
+                    return coordinates;
+                })
+                .catch(() => {
+                    activeCoordinates = fallback;
+                    applyCoordinates(weatherEl, fallback, 'fallback');
+                    return fallback;
+                })
+                .finally(() => {
+                    locationPromise = null;
+                });
+        }
+
+        return locationPromise;
+    }
+
     // Weather function with dual-language API caching
     async function updateWeather() {
         const el = document.getElementById('nds-weatherInfo');
         if (!el) return;
 
-        const lat = +(el.dataset.latitude || 24.7136);
-        const lng = +(el.dataset.longitude || 46.6753);
+        const coordinates = await resolveCoordinates();
+        const lat = coordinates.lat;
+        const lng = coordinates.lng;
         const isArabic = NDS.isArabic;
         // v2 keys: cache shape changed from HTML string to { desc, temp, icon } primitives.
         const arabicKey = `weather_v2_ar_${lat}_${lng}`;
@@ -125,8 +238,9 @@
         const weatherEl = document.getElementById('nds-weatherInfo');
         if (!cityEl || !weatherEl) return;
 
-        const lat = +(weatherEl.dataset.latitude || 24.7136);
-        const lng = +(weatherEl.dataset.longitude || 46.6753);
+        const coordinates = await resolveCoordinates();
+        const lat = coordinates.lat;
+        const lng = coordinates.lng;
         const isArabic = NDS.isArabic;
         const lang = isArabic ? 'ar' : 'en';
         // v2 key: cache shape changed from HTML string to plain city name.
@@ -171,6 +285,9 @@
 
         // Only run if both weather and city elements exist (they depend on each other)
         if (weatherEl && cityEl) {
+            if (initialized) return;
+            initialized = true;
+
             // Defer the initial fetches to an idle slot — on cache miss
             // these hit open-meteo and nominatim, and we don't want them
             // racing critical resources during post-DCL hydration. The
@@ -182,7 +299,8 @@
             });
 
             // Update weather every 15 minutes
-            setInterval(updateWeather, 15 * 60 * 1000);
+            clearInterval(weatherTimer);
+            weatherTimer = setInterval(updateWeather, 15 * 60 * 1000);
 
             // City doesn't need interval - coordinates don't change, cached for 30 days
             NDS.onAttrChange('html', ['lang'], () => { updateWeather(); updateCity(); });
