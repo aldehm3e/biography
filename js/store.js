@@ -3,6 +3,7 @@
 
   var DATA_KEY = "websiteDemo:siteData";
   var PREVIEW_KEY = "websiteDemo:previewData";
+  var AUTH_USER_KEY = "websiteDemo:currentUser";
   var API = {
     getSite: "api/content/get-site.php",
     saveSite: "api/content/save-site.php",
@@ -26,7 +27,7 @@
   };
 
   var currentData = null;
-  var currentUser = null;
+  var currentUser = readCachedUser();
   var activeLoad = null;
   var legacyLocalData = null;
 
@@ -69,6 +70,26 @@
     } catch (error) {
       console.warn("Unable to cache site data.", error);
     }
+  }
+
+  function readCachedUser() {
+    try {
+      var raw = sessionStorage.getItem(AUTH_USER_KEY);
+      var user = raw ? JSON.parse(raw) : null;
+      return user && typeof user === "object" ? user : null;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  function writeCachedUser(user) {
+    try {
+      if (user) {
+        sessionStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+      } else {
+        sessionStorage.removeItem(AUTH_USER_KEY);
+      }
+    } catch (error) {}
   }
 
   function notify(data) {
@@ -339,10 +360,12 @@
       return requestJson(API.me)
         .then(function (payload) {
           currentUser = payload.authenticated ? (payload.user || null) : null;
+          writeCachedUser(currentUser);
           return currentUser ? clone(currentUser) : null;
         })
         .catch(function () {
           currentUser = null;
+          writeCachedUser(null);
           return null;
         });
     },
@@ -363,6 +386,7 @@
         body: JSON.stringify({ email: email, password: password, captchaAnswer: captchaAnswer })
       }).then(function (payload) {
         currentUser = payload.user || null;
+        writeCachedUser(currentUser);
         window.dispatchEvent(new CustomEvent("site:authchange", { detail: { user: currentUser } }));
         return currentUser ? clone(currentUser) : null;
       });
@@ -373,6 +397,7 @@
         return { success: true };
       }).then(function () {
         currentUser = null;
+        writeCachedUser(null);
         window.dispatchEvent(new CustomEvent("site:authchange", { detail: { user: null } }));
         return true;
       });
@@ -395,6 +420,7 @@
         body: JSON.stringify({ newEmail: newEmail, currentPassword: currentPassword })
       }).then(function (payload) {
         currentUser = payload.user || currentUser;
+        writeCachedUser(currentUser);
         window.dispatchEvent(new CustomEvent("site:authchange", { detail: { user: currentUser } }));
         return payload;
       });
@@ -406,6 +432,7 @@
         body: JSON.stringify({ phone: phone, currentPassword: currentPassword })
       }).then(function (payload) {
         currentUser = payload.user || currentUser;
+        writeCachedUser(currentUser);
         window.dispatchEvent(new CustomEvent("site:authchange", { detail: { user: currentUser } }));
         return payload;
       });
@@ -448,6 +475,7 @@
       }).then(function (payload) {
         if (payload.user) {
           currentUser = payload.user;
+          writeCachedUser(currentUser);
           window.dispatchEvent(new CustomEvent("site:authchange", { detail: { user: currentUser } }));
         }
         return payload.users || [];

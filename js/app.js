@@ -964,6 +964,7 @@
   function currentAuthConfig() {
     var user = window.SiteStore && window.SiteStore.currentUser ? window.SiteStore.currentUser() : null;
     return {
+      id: user && user.id ? String(user.id) : "",
       name: user && (user.displayName || user.display_name) ? (user.displayName || user.display_name) : "",
       role: user && user.role ? user.role : "",
       email: user && user.email ? user.email : "",
@@ -1022,6 +1023,26 @@
     ].join("");
   }
 
+  function accountMenuRenderSignature(data, config, isAuthenticated, name, role, portalLabel) {
+    return JSON.stringify([
+      isAuthenticated ? "auth" : "guest",
+      config.id || "",
+      config.name || "",
+      config.role || "",
+      config.email || "",
+      config.phone || "",
+      config.avatar || "",
+      name || "",
+      role || "",
+      portalLabel || "",
+      uiText(data, "loginLabel", "تسجيل الدخول"),
+      uiText(data, "changePasswordLabel", "تغيير كلمة المرور"),
+      uiText(data, "changeEmailLabel", "تغيير البريد الإلكتروني"),
+      uiText(data, "changePhoneLabel", "تغيير رقم الجوال"),
+      uiText(data, "logoutLabel", "تسجيل الخروج")
+    ]);
+  }
+
   function renderAccountMenu(data) {
     renderDesktopAccountMenu(data);
     renderMobileAccountMenu(data);
@@ -1050,10 +1071,14 @@
     var name = config.name || config.email || accountDisplayName(data);
     var role = accountRoleLabel(config.role);
     var portalLabel = uiText(data, "adminPortalLabel", "الإدارة");
+    var nextSignature = accountMenuRenderSignature(data, config, isAuthenticated, name, role, portalLabel);
+    if (item.dataset.accountMenuSignature === nextSignature) return;
+
     item.className = isAuthenticated
       ? "nds-nav-item nds-dropdown nds-login nds-icon-only nds-auth admin-persona-dropdown account-menu-item"
       : "nds-nav-item nds-icon-only nds-guest admin-persona-dropdown account-menu-item";
     item.dataset.accountMenu = "auth";
+    item.dataset.accountMenuSignature = nextSignature;
     resetAccountDropdownRoot(item);
 
     if (!isAuthenticated) {
@@ -4612,6 +4637,7 @@
     }
     if (url.origin !== window.location.origin || url.hash) return false;
     if (window.location.hash) return false;
+    if (url.search !== window.location.search) return false;
     return normalizedPagePath(url) === normalizedPagePath(window.location);
   }
 
