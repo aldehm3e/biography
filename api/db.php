@@ -126,6 +126,7 @@ function cms_admin_permission_keys(): array
         'pages',
         'navigation',
         'integrations',
+        'notifications',
         'page_feedback',
         'backup',
         'utilities',

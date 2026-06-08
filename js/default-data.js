@@ -38,6 +38,40 @@
         successMessage: "تم استلام ملاحظتك، شكرا لك.",
         errorMessage: "تعذر إرسال الملاحظة، حاول مرة أخرى.",
         statisticsText: ""
+      },
+      notificationSettings: {
+        enabled: true,
+        includeActor: true,
+        maxItems: 20,
+        roles: {
+          owner: true,
+          admin: true,
+          employee: true
+        },
+        events: {
+          home: true,
+          homeItems: true,
+          projects: true,
+          pages: true,
+          cards: false,
+          footer: false,
+          settings: false,
+          navigation: false,
+          integrations: false
+        },
+        pages: {
+          mode: "all",
+          slugs: []
+        },
+        popup: {
+          enabled: false,
+          audience: "public",
+          title: "إشعار",
+          subject: "عزيزي منسوب الجامعة الإسلامية،\n\nنود إحاطتكم باعتماد تطبيق (بيم) كمنصة رسمية للتراسل الفوري الداخلي بالجامعة، وذلك ضمن جهود الجامعة في تعزيز التواصل المؤسسي والتحول الرقمي.\nنأمل من الجميع سرعة تحميل التطبيق وتفعيله واستخدامه في المراسلات الداخلية الرسمية، مع استمرار استخدام البريد الإلكتروني الرسمي للطلبات والمعاملات الرسمية.\n\nلتحميل التطبيق والتسجيل:",
+          linkLabel: "منصة بيم",
+          linkUrl: "https://beem.sa",
+          dismissLabel: "إلغاء"
+        }
       }
     },
     navigation: {

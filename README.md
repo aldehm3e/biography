@@ -141,6 +141,7 @@ Use the admin panel for normal content:
 - `الصفحات`: pages, subpages, text/HTML content, page media, header/footer visibility.
 - `التذييل`: footer columns, icons, bottom links, logos, legal text.
 - `إدارة تقييم الصفحات`: public feedback form settings, yes/no dashboards, page ranking summaries, and feedback JSON export.
+- `الإشعارات`: notification rules, selected public pages, and optional public/employee announcement popup.
 - `النسخ الاحتياطي والاستعادة`: JSON export/import, localStorage migration, and reset.
 - `الصلاحيات`: admin users and permissions.
 

@@ -102,6 +102,44 @@ function cms_default_page_feedback_settings(): array
     ];
 }
 
+function cms_default_notification_settings(): array
+{
+    return [
+        'enabled' => true,
+        'includeActor' => true,
+        'maxItems' => 20,
+        'roles' => [
+            'owner' => true,
+            'admin' => true,
+            'employee' => true,
+        ],
+        'events' => [
+            'home' => true,
+            'homeItems' => true,
+            'projects' => true,
+            'pages' => true,
+            'cards' => false,
+            'footer' => false,
+            'settings' => false,
+            'navigation' => false,
+            'integrations' => false,
+        ],
+        'pages' => [
+            'mode' => 'all',
+            'slugs' => [],
+        ],
+        'popup' => [
+            'enabled' => false,
+            'audience' => 'public',
+            'title' => 'إشعار',
+            'subject' => "عزيزي منسوب الجامعة الإسلامية،\n\nنود إحاطتكم باعتماد تطبيق (بيم) كمنصة رسمية للتراسل الفوري الداخلي بالجامعة، وذلك ضمن جهود الجامعة في تعزيز التواصل المؤسسي والتحول الرقمي.\nنأمل من الجميع سرعة تحميل التطبيق وتفعيله واستخدامه في المراسلات الداخلية الرسمية، مع استمرار استخدام البريد الإلكتروني الرسمي للطلبات والمعاملات الرسمية.\n\nلتحميل التطبيق والتسجيل:",
+            'linkLabel' => 'منصة بيم',
+            'linkUrl' => 'https://beem.sa',
+            'dismissLabel' => 'إلغاء',
+        ],
+    ];
+}
+
 function cms_default_site_data(): array
 {
     return [
@@ -125,6 +163,7 @@ function cms_default_site_data(): array
             'shellSecurityDescription' => 'تأكد من ظهور القفل في المتصفح عند استخدام نسخة منشورة على الاستضافة.',
             'shellNoticeText' => 'هذا موقع شخصي مستقل وغير تابع لأي جهة حكومية.',
             'pageFeedback' => cms_default_page_feedback_settings(),
+            'notificationSettings' => cms_default_notification_settings(),
         ],
         'navigation' => [
             'homeLabel' => 'الرئيسية',
@@ -237,6 +276,10 @@ function cms_fetch_site_data(PDO $pdo): array
         $storedPageFeedback = json_decode((string) ($settings['page_feedback_json'] ?? ''), true);
         if (is_array($storedPageFeedback)) {
             $data['settings']['pageFeedback'] = cms_normalize_page_feedback_settings($storedPageFeedback, $data['settings']['pageFeedback']);
+        }
+        $storedNotificationSettings = json_decode((string) ($settings['notification_settings_json'] ?? ''), true);
+        if (is_array($storedNotificationSettings)) {
+            $data['settings']['notificationSettings'] = cms_normalize_notification_settings($storedNotificationSettings, $data['settings']['notificationSettings']);
         }
     }
 
@@ -582,6 +625,7 @@ function cms_ensure_site_settings_columns(PDO $pdo): void
         'interface_texts_json' => 'LONGTEXT',
         'footer_json' => 'LONGTEXT',
         'page_feedback_json' => 'LONGTEXT',
+        'notification_settings_json' => 'LONGTEXT',
     ];
 
     foreach ($columns as $column => $definition) {
@@ -693,7 +737,7 @@ function cms_save_site_data_for_admin(PDO $pdo, array $input, array $user): arra
     }
 
     $allowedSections = cms_content_permission_keys();
-    if (!cms_admin_has_any_permission($user, array_merge($allowedSections, ['page_feedback']))) {
+    if (!cms_admin_has_any_permission($user, array_merge($allowedSections, ['page_feedback', 'notifications']))) {
         cms_json_response(['success' => false, 'message' => 'Permission denied.'], 403);
     }
 
@@ -701,11 +745,18 @@ function cms_save_site_data_for_admin(PDO $pdo, array $input, array $user): arra
     $current = cms_fetch_site_data($pdo);
 
     if (cms_admin_has_permission($user, 'settings')) {
+        $notificationSettings = $current['settings']['notificationSettings'] ?? cms_default_notification_settings();
         $current['settings'] = $incoming['settings'];
         $current['texts'] = $incoming['texts'];
+        if (!cms_admin_has_permission($user, 'notifications')) {
+            $current['settings']['notificationSettings'] = $notificationSettings;
+        }
     }
     if (cms_admin_has_permission($user, 'page_feedback')) {
         $current['settings']['pageFeedback'] = $incoming['settings']['pageFeedback'];
+    }
+    if (cms_admin_has_permission($user, 'notifications')) {
+        $current['settings']['notificationSettings'] = $incoming['settings']['notificationSettings'];
     }
     if (cms_admin_has_permission($user, 'home')) {
         $current['home'] = $incoming['home'];
@@ -774,6 +825,7 @@ function cms_normalize_site_data(array $input): array
         'shellSecurityDescription' => cms_string($settings['shellSecurityDescription'] ?? $settings['shell_security_description'] ?? $default['settings']['shellSecurityDescription']),
         'shellNoticeText' => cms_string($settings['shellNoticeText'] ?? $settings['shell_notice_text'] ?? $default['settings']['shellNoticeText'], 255) ?: $default['settings']['shellNoticeText'],
         'pageFeedback' => cms_normalize_page_feedback_settings($settings['pageFeedback'] ?? $settings['page_feedback'] ?? [], $default['settings']['pageFeedback']),
+        'notificationSettings' => cms_normalize_notification_settings($settings['notificationSettings'] ?? $settings['notification_settings'] ?? [], $default['settings']['notificationSettings']),
     ];
 
     $data['navigation'] = [
@@ -1353,6 +1405,54 @@ function cms_normalize_page_feedback_settings(mixed $settings, array $defaults):
     return $output;
 }
 
+function cms_normalize_notification_settings(mixed $settings, array $defaults): array
+{
+    $output = $defaults ?: cms_default_notification_settings();
+    if (!is_array($settings)) {
+        return $output;
+    }
+
+    $output['enabled'] = cms_bool($settings['enabled'] ?? $output['enabled'] ?? true);
+    $output['includeActor'] = cms_bool($settings['includeActor'] ?? $settings['include_actor'] ?? $output['includeActor'] ?? true);
+    $maxItems = (int) ($settings['maxItems'] ?? $settings['max_items'] ?? $output['maxItems'] ?? 20);
+    $output['maxItems'] = max(5, min(20, $maxItems));
+
+    $roles = is_array($settings['roles'] ?? null) ? $settings['roles'] : [];
+    foreach (['owner', 'admin', 'employee'] as $role) {
+        $output['roles'][$role] = cms_bool($roles[$role] ?? $output['roles'][$role] ?? true);
+    }
+
+    $events = is_array($settings['events'] ?? null) ? $settings['events'] : [];
+    foreach (['home', 'homeItems', 'projects', 'pages', 'cards', 'footer', 'settings', 'navigation', 'integrations'] as $event) {
+        $output['events'][$event] = cms_bool($events[$event] ?? $output['events'][$event] ?? false);
+    }
+
+    $pages = is_array($settings['pages'] ?? null) ? $settings['pages'] : [];
+    $mode = (string) ($pages['mode'] ?? $output['pages']['mode'] ?? 'all');
+    $output['pages']['mode'] = in_array($mode, ['all', 'selected'], true) ? $mode : 'all';
+    $output['pages']['slugs'] = [];
+    if (is_array($pages['slugs'] ?? null)) {
+        foreach ($pages['slugs'] as $slug) {
+            $clean = cms_slug($slug);
+            if ($clean !== '' && !in_array($clean, $output['pages']['slugs'], true)) {
+                $output['pages']['slugs'][] = $clean;
+            }
+        }
+    }
+
+    $popup = is_array($settings['popup'] ?? null) ? $settings['popup'] : [];
+    $output['popup']['enabled'] = cms_bool($popup['enabled'] ?? $output['popup']['enabled'] ?? false, false);
+    $audience = (string) ($popup['audience'] ?? $output['popup']['audience'] ?? 'public');
+    $output['popup']['audience'] = in_array($audience, ['public', 'employees', 'all'], true) ? $audience : 'public';
+    $output['popup']['title'] = cms_string($popup['title'] ?? $output['popup']['title'] ?? 'إشعار', 255) ?: 'إشعار';
+    $output['popup']['subject'] = cms_string($popup['subject'] ?? $output['popup']['subject'] ?? '', 4000);
+    $output['popup']['linkLabel'] = cms_string($popup['linkLabel'] ?? $popup['link_label'] ?? $output['popup']['linkLabel'] ?? '', 255);
+    $output['popup']['linkUrl'] = cms_string($popup['linkUrl'] ?? $popup['link_url'] ?? $output['popup']['linkUrl'] ?? '', 500);
+    $output['popup']['dismissLabel'] = cms_string($popup['dismissLabel'] ?? $popup['dismiss_label'] ?? $output['popup']['dismissLabel'] ?? 'إلغاء', 100) ?: 'إلغاء';
+
+    return $output;
+}
+
 function cms_normalize_footer(mixed $footer, array $defaults): array
 {
     if (!is_array($footer)) {
@@ -1474,13 +1574,14 @@ function cms_save_settings(PDO $pdo, array $data): void
     $interfaceTextsJson = json_encode($data['texts'] ?? cms_default_interface_texts(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $footerJson = json_encode($data['footer'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $pageFeedbackJson = json_encode($data['settings']['pageFeedback'] ?? cms_default_page_feedback_settings(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $notificationSettingsJson = json_encode($data['settings']['notificationSettings'] ?? cms_default_notification_settings(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $stmt = $pdo->prepare(
         'INSERT INTO site_settings (id, site_name, brand_name, brand_slogan, brand_logo, site_icon, language, direction, theme, phone_number, email,
          shell_topbar_text, shell_topbar_short_text, shell_verify_label, shell_verify_title, shell_verify_description,
-         shell_security_title, shell_security_description, shell_notice_text, interface_texts_json, footer_json, page_feedback_json)
+         shell_security_title, shell_security_description, shell_notice_text, interface_texts_json, footer_json, page_feedback_json, notification_settings_json)
          VALUES (1, :site_name, :brand_name, :brand_slogan, :brand_logo, :site_icon, :language, :direction, :theme, :phone_number, :email,
          :shell_topbar_text, :shell_topbar_short_text, :shell_verify_label, :shell_verify_title, :shell_verify_description,
-         :shell_security_title, :shell_security_description, :shell_notice_text, :interface_texts_json, :footer_json, :page_feedback_json)
+         :shell_security_title, :shell_security_description, :shell_notice_text, :interface_texts_json, :footer_json, :page_feedback_json, :notification_settings_json)
          ON DUPLICATE KEY UPDATE site_name = VALUES(site_name), brand_name = VALUES(brand_name), brand_slogan = VALUES(brand_slogan),
          brand_logo = VALUES(brand_logo), site_icon = VALUES(site_icon), language = VALUES(language), direction = VALUES(direction), theme = VALUES(theme),
          phone_number = VALUES(phone_number), email = VALUES(email), shell_topbar_text = VALUES(shell_topbar_text),
@@ -1488,7 +1589,7 @@ function cms_save_settings(PDO $pdo, array $data): void
          shell_verify_title = VALUES(shell_verify_title), shell_verify_description = VALUES(shell_verify_description),
          shell_security_title = VALUES(shell_security_title), shell_security_description = VALUES(shell_security_description),
          shell_notice_text = VALUES(shell_notice_text), interface_texts_json = VALUES(interface_texts_json), footer_json = VALUES(footer_json),
-         page_feedback_json = VALUES(page_feedback_json)'
+         page_feedback_json = VALUES(page_feedback_json), notification_settings_json = VALUES(notification_settings_json)'
     );
     $stmt->execute([
         'site_name' => $data['settings']['siteName'],
@@ -1512,6 +1613,7 @@ function cms_save_settings(PDO $pdo, array $data): void
         'interface_texts_json' => $interfaceTextsJson === false ? '{}' : $interfaceTextsJson,
         'footer_json' => $footerJson === false ? '{}' : $footerJson,
         'page_feedback_json' => $pageFeedbackJson === false ? '{}' : $pageFeedbackJson,
+        'notification_settings_json' => $notificationSettingsJson === false ? '{}' : $notificationSettingsJson,
     ]);
 }
 

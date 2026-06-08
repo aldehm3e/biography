@@ -65,6 +65,7 @@
     navigation: "التنقل",
     integrations: "التكاملات",
     page_feedback: "إدارة تقييم الصفحات",
+    notifications: "إدارة الإشعارات",
     backup: "النسخ الاحتياطي والاستعادة",
     utilities: "أدوات النظام",
     uploads: "رفع الملفات",
@@ -75,6 +76,17 @@
     { value: "admin", label: "مدير محتوى" },
     { value: "owner", label: "مالك" }
   ];
+  var NOTIFICATION_EVENT_LABELS = {
+    home: "الرئيسية",
+    homeItems: "عناصر الرئيسية الجديدة",
+    projects: "المشاريع",
+    pages: "الصفحات العامة",
+    cards: "صفحات البطاقات",
+    footer: "التذييل",
+    settings: "الإعدادات",
+    navigation: "التنقل",
+    integrations: "التكاملات"
+  };
   var INTERFACE_TEXT_FIELDS = [
     ["searchLabel", "تسمية البحث"],
     ["searchPlaceholder", "نص حقل البحث", true],
@@ -617,15 +629,138 @@
     window.dispatchEvent(new CustomEvent("site:datachange"));
   }
 
-  function addAdminNotification(options) {
-    if (window.SiteApp && window.SiteApp.addNotification) {
-      return window.SiteApp.addNotification(options);
-    }
-    return null;
-  }
-
   function entityLabel(item, fallback) {
     return (item && (item.title || item.name || item.meta)) || fallback || "";
+  }
+
+  function defaultNotificationSettings() {
+    return cloneData(window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.settings && window.DEFAULT_SITE_DATA.settings.notificationSettings || {
+      enabled: true,
+      includeActor: true,
+      maxItems: 20,
+      roles: { owner: true, admin: true, employee: true },
+      events: {
+        home: true,
+        homeItems: true,
+        projects: true,
+        pages: true,
+        cards: false,
+        footer: false,
+        settings: false,
+        navigation: false,
+        integrations: false
+      },
+      pages: { mode: "all", slugs: [] },
+      popup: {
+        enabled: false,
+        audience: "public",
+        title: "إشعار",
+        subject: "عزيزي منسوب الجامعة الإسلامية،\n\nنود إحاطتكم باعتماد تطبيق (بيم) كمنصة رسمية للتراسل الفوري الداخلي بالجامعة، وذلك ضمن جهود الجامعة في تعزيز التواصل المؤسسي والتحول الرقمي.\nنأمل من الجميع سرعة تحميل التطبيق وتفعيله واستخدامه في المراسلات الداخلية الرسمية، مع استمرار استخدام البريد الإلكتروني الرسمي للطلبات والمعاملات الرسمية.\n\nلتحميل التطبيق والتسجيل:",
+        linkLabel: "منصة بيم",
+        linkUrl: "https://beem.sa",
+        dismissLabel: "إلغاء"
+      }
+    });
+  }
+
+  function notificationSettings() {
+    var defaults = defaultNotificationSettings();
+    var current = data && data.settings && data.settings.notificationSettings || {};
+    var output = Object.assign({}, defaults, current && typeof current === "object" ? current : {});
+    output.roles = Object.assign({}, defaults.roles || {}, output.roles && typeof output.roles === "object" ? output.roles : {});
+    output.events = Object.assign({}, defaults.events || {}, output.events && typeof output.events === "object" ? output.events : {});
+    output.pages = Object.assign({}, defaults.pages || {}, output.pages && typeof output.pages === "object" ? output.pages : {});
+    output.popup = Object.assign({}, defaults.popup || {}, output.popup && typeof output.popup === "object" ? output.popup : {});
+    output.enabled = output.enabled !== false;
+    output.includeActor = output.includeActor !== false;
+    output.maxItems = Math.max(5, Math.min(20, parseInt(output.maxItems, 10) || 20));
+    output.pages.mode = output.pages.mode === "selected" ? "selected" : "all";
+    output.pages.slugs = (Array.isArray(output.pages.slugs) ? output.pages.slugs : []).map(function (slug) {
+      return slugify(slug);
+    }).filter(Boolean).filter(function (slug, index, items) {
+      return items.indexOf(slug) === index;
+    });
+    output.popup.enabled = output.popup.enabled === true;
+    output.popup.audience = ["public", "employees", "all"].indexOf(output.popup.audience) !== -1 ? output.popup.audience : "public";
+    ["title", "subject", "linkLabel", "linkUrl", "dismissLabel"].forEach(function (key) {
+      output.popup[key] = String(output.popup[key] || "");
+    });
+    output.popup.title = output.popup.title || "إشعار";
+    output.popup.dismissLabel = output.popup.dismissLabel || "إلغاء";
+    data.settings = data.settings || {};
+    data.settings.notificationSettings = output;
+    return output;
+  }
+
+  function notificationActorLabel() {
+    var user = currentAdminUser() || {};
+    return user.displayName || user.display_name || user.email || roleLabel(user.role || "employee");
+  }
+
+  function notificationDescriptionWithActor(description, settings) {
+    var actor = notificationActorLabel();
+    var text = String(description || "").trim();
+    if (!settings.includeActor || !actor) return text;
+    text = text.replace(/[.!؟?]+$/g, "");
+    return text + " بواسطة " + actor + ".";
+  }
+
+  function notificationDedupeKey(item) {
+    if (!item) return "";
+    return item.key || [item.status || "", item.tag || "", item.title || "", item.description || "", item.href || ""].join("\u001f");
+  }
+
+  function mergeAdminNotifications(primary, secondary, limit) {
+    var output = [];
+    var seen = {};
+    var maxItems = Math.max(5, Math.min(20, parseInt(limit, 10) || notificationSettings().maxItems || 20));
+    function add(item) {
+      var key;
+      if (!item || typeof item !== "object") return;
+      key = notificationDedupeKey(item);
+      if (key && seen[key]) return;
+      if (key) seen[key] = true;
+      output.push(Object.assign({}, item));
+    }
+    (Array.isArray(primary) ? primary : []).forEach(add);
+    (Array.isArray(secondary) ? secondary : []).forEach(add);
+    return output.slice(0, maxItems);
+  }
+
+  function canCreateAdminNotification(eventKey, item) {
+    var settings = notificationSettings();
+    var user = currentAdminUser() || {};
+    var role = user.role || "employee";
+    var slug;
+    if (!settings.enabled) return false;
+    if (settings.roles && settings.roles[role] === false) return false;
+    if (!settings.events || settings.events[eventKey] === false) return false;
+    if (eventKey === "pages" && settings.pages && settings.pages.mode === "selected") {
+      slug = slugify(item && (item.slug || item.title));
+      return Boolean(slug && settings.pages.slugs.indexOf(slug) !== -1);
+    }
+    return true;
+  }
+
+  function queueAdminNotification(options, eventKey, item) {
+    var settings;
+    var now;
+    var notification;
+    if (!canCreateAdminNotification(eventKey, item)) return null;
+    settings = notificationSettings();
+    now = new Date().toISOString();
+    notification = {
+      id: "notification-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10),
+      status: options.status || "info",
+      key: String(options.key || "").slice(0, 255),
+      tag: options.tag || "تحديث",
+      title: options.title || "تم تحديث المحتوى",
+      description: notificationDescriptionWithActor(options.description || "", settings),
+      href: options.href || "notifications.html",
+      createdAt: now
+    };
+    data.notifications = mergeAdminNotifications([notification], data.notifications || [], settings.maxItems);
+    return notification;
   }
 
   function isPublicPage(page) {
@@ -643,8 +778,29 @@
     return Boolean(item.title || item.meta || item.description);
   }
 
+  function isPublicCardCollection(collection) {
+    return Boolean(collection && collection.visible !== false && collection.title && (
+      collection.description || (collection.cards || []).some(function (card) {
+        return card && card.visible !== false && (card.title || card.subtitle || card.linkValue);
+      })
+    ));
+  }
+
   function pagePublicSignature(page) {
     return [page.title || "", page.slug || "", page.contentMode || "text", page.image || "", page.video || "", page.content || ""].join("\u001f");
+  }
+
+  function cardCollectionPublicSignature(collection) {
+    return [
+      collection.title || "",
+      collection.slug || "",
+      collection.description || "",
+      collection.visible === false ? "0" : "1",
+      collection.showInNavigation === false ? "0" : "1",
+      (collection.cards || []).filter(function (card) {
+        return card && card.visible !== false;
+      }).map(cardItemEditorSignature).join("\u001e")
+    ].join("\u001f");
   }
 
   function currentPageTimestamp() {
@@ -724,26 +880,38 @@
 
   function notifyPageChange(page, previousPage) {
     var wasPublic = isPublicPage(previousPage);
-    return addAdminNotification({
+    return queueAdminNotification({
       status: "info",
       key: notificationEntityKey("page", page, "page"),
       tag: wasPublic ? "تحديث" : "جديد",
       title: wasPublic ? "تم تحديث صفحة" : "تمت إضافة صفحة جديدة",
       description: (wasPublic ? "تم تحديث صفحة: " : "تم نشر صفحة جديدة: ") + entityLabel(page, "صفحة جديدة") + ".",
       href: "pages.html"
-    });
+    }, "pages", page);
   }
 
   function notifyProjectChange(project, previousProject) {
     var wasPublic = isPublicProject(previousProject);
-    return addAdminNotification({
+    return queueAdminNotification({
       status: "success",
       key: notificationEntityKey("project", project, "project"),
       tag: wasPublic ? "تحديث" : "جديد",
       title: wasPublic ? "تم تحديث مشروع" : "تمت إضافة مشروع جديد",
       description: (wasPublic ? "تم تحديث مشروع: " : "تم نشر مشروع جديد: ") + entityLabel(project, "مشروع جديد") + ".",
       href: "projects.html"
-    });
+    }, "projects", project);
+  }
+
+  function notifyCardCollectionChange(collection, previousCollection) {
+    var wasPublic = isPublicCardCollection(previousCollection);
+    return queueAdminNotification({
+      status: "info",
+      key: notificationEntityKey("card-collection", collection, "cards"),
+      tag: wasPublic ? "تحديث" : "جديد",
+      title: wasPublic ? "تم تحديث صفحة بطاقات" : "تمت إضافة صفحة بطاقات جديدة",
+      description: (wasPublic ? "تم تحديث صفحة بطاقات: " : "تم نشر صفحة بطاقات جديدة: ") + entityLabel(collection, "صفحة بطاقات") + ".",
+      href: cardCollectionUrl(collection)
+    }, "cards", collection);
   }
 
   function notifyHomeItemAdded(type, item) {
@@ -754,25 +922,37 @@
       numbers: { title: "تمت إضافة بطاقة أرقام جديدة", fallback: "رقم جديد", status: "info" }
     };
     var config = labels[type] || labels.experience;
-    return addAdminNotification({
+    return queueAdminNotification({
       status: config.status,
       key: notificationEntityKey(type, item, config.fallback),
       tag: "جديد",
       title: config.title,
       description: config.title + ": " + entityLabel(item, config.fallback) + ".",
       href: "index.html"
-    });
+    }, "homeItems", item);
   }
 
   function notifyHomeUpdated() {
-    return addAdminNotification({
+    return queueAdminNotification({
       status: "success",
       key: "admin:home:update",
       tag: "تحديث",
       title: "تم تحديث الصفحة الرئيسية",
       description: "تم حفظ محتوى السيرة أو القسم الرئيسي أو التذييل أو الملف الشخصي من لوحة الإدارة.",
       href: "index.html"
-    });
+    }, "home", { slug: "home", title: "الرئيسية" });
+  }
+
+  function notifySectionUpdated(eventKey, config) {
+    config = config || {};
+    return queueAdminNotification({
+      status: config.status || "info",
+      key: config.key || "admin:" + eventKey + ":update",
+      tag: config.tag || "تحديث",
+      title: config.title || "تم تحديث " + (NOTIFICATION_EVENT_LABELS[eventKey] || "المحتوى"),
+      description: config.description || "تم حفظ تحديثات " + (NOTIFICATION_EVENT_LABELS[eventKey] || "المحتوى") + " من لوحة الإدارة.",
+      href: config.href || "index.html"
+    }, eventKey, { slug: eventKey, title: NOTIFICATION_EVENT_LABELS[eventKey] || eventKey });
   }
 
   function notifyAddedHomeItems(previousData) {
@@ -792,10 +972,11 @@
 
   function saveData() {
     var currentData = window.SiteStore && window.SiteStore.current ? window.SiteStore.current() : null;
+    var draftNotifications = Array.isArray(data.notifications) ? data.notifications.slice() : [];
     if (currentData && Array.isArray(currentData.notifications)) {
-      data.notifications = currentData.notifications;
-    } else if (!Array.isArray(data.notifications)) {
-      data.notifications = [];
+      data.notifications = mergeAdminNotifications(draftNotifications, currentData.notifications, notificationSettings().maxItems);
+    } else {
+      data.notifications = mergeAdminNotifications(draftNotifications, [], notificationSettings().maxItems);
     }
     return window.SiteStore.save(data).then(function (savedData) {
       data = savedData;
@@ -957,6 +1138,150 @@
       statisticsText: value("feedbackStatisticsText")
     };
     return data.settings.pageFeedback;
+  }
+
+  function notificationPageRuleItems() {
+    var seen = {};
+    return (data.pages || []).filter(function (page) {
+      var slug = slugify(page && (page.slug || page.title));
+      if (!slug || seen[slug] || page.visible === false) return false;
+      seen[slug] = true;
+      return true;
+    }).map(function (page) {
+      return {
+        slug: slugify(page.slug || page.title),
+        title: pageDisplayTitle(page)
+      };
+    });
+  }
+
+  function renderNotificationPageRules() {
+    var root = qs("[data-notification-page-rules]");
+    var settings;
+    var allPages;
+    var pages;
+    if (!root || !data) return;
+    settings = notificationSettings();
+    allPages = settings.pages.mode !== "selected";
+    pages = notificationPageRuleItems();
+    root.hidden = allPages;
+    if (allPages) {
+      root.innerHTML = "";
+      return;
+    }
+    if (!pages.length) {
+      root.innerHTML = [
+        '<div class="integration-status-card">',
+        '<span class="integration-status-dot" aria-hidden="true"></span>',
+        '<span class="nds-label">لا توجد صفحات عامة متاحة للاختيار.</span>',
+        '</div>'
+      ].join("");
+      return;
+    }
+    root.innerHTML = pages.map(function (page) {
+      var inputId = "notification-page-" + safeText(page.slug);
+      var checked = settings.pages.slugs.indexOf(page.slug) !== -1;
+      return [
+        '<label class="permission-check admin-check-control" for="' + inputId + '">',
+        '<span class="nds-form-control admin-check-box">',
+        '<input id="' + inputId + '" class="nds-check" type="checkbox" data-notification-page-slug="' + safeText(page.slug) + '"' + (checked ? " checked" : "") + '>',
+        '</span>',
+        '<span class="nds-label">' + safeText(page.title || page.slug) + '</span>',
+        '</label>'
+      ].join("");
+    }).join("");
+  }
+
+  function notificationPopupAudienceLabel(audience) {
+    var labels = {
+      public: "الزوار فقط",
+      employees: "الموظفون فقط",
+      all: "الزوار والموظفون"
+    };
+    return labels[audience] || labels.public;
+  }
+
+  function syncNotificationPopupAudienceDropmenu(audience) {
+    var allowed = ["public", "employees", "all"];
+    var value = allowed.indexOf(audience) !== -1 ? audience : "public";
+    var menu = qs("[data-notification-popup-audience-menu]");
+    var input = field("notificationPopupAudience");
+    var label;
+    if (input) input.value = value;
+    if (!menu) return;
+    label = qs("[data-notification-popup-audience-label]", menu);
+    if (label) label.textContent = notificationPopupAudienceLabel(value);
+    qsa("[data-select-value]", menu).forEach(function (option) {
+      option.dataset.state = option.dataset.selectValue === value ? "selected" : "";
+    });
+  }
+
+  function fillNotificationSettingsForm() {
+    var settings;
+    if (!data) return;
+    settings = notificationSettings();
+    renderNotificationPageRules();
+    setChecked("notificationEnabled", settings.enabled);
+    setChecked("notificationIncludeActor", settings.includeActor);
+    setValue("notificationMaxItems", settings.maxItems);
+    setChecked("notificationAllPages", settings.pages.mode !== "selected");
+    setChecked("notificationPopupEnabled", settings.popup.enabled);
+    syncNotificationPopupAudienceDropmenu(settings.popup.audience);
+    setValue("notificationPopupTitle", settings.popup.title);
+    setValue("notificationPopupSubject", settings.popup.subject);
+    setValue("notificationPopupLinkLabel", settings.popup.linkLabel);
+    setValue("notificationPopupLinkUrl", settings.popup.linkUrl);
+    setValue("notificationPopupDismissLabel", settings.popup.dismissLabel);
+    qsa("[data-notification-role]").forEach(function (input) {
+      input.checked = settings.roles[input.dataset.notificationRole] !== false;
+    });
+    qsa("[data-notification-event]").forEach(function (input) {
+      input.checked = settings.events[input.dataset.notificationEvent] !== false;
+    });
+    qsa("[data-notification-page-slug]").forEach(function (input) {
+      input.checked = settings.pages.slugs.indexOf(slugify(input.dataset.notificationPageSlug)) !== -1;
+    });
+  }
+
+  function collectNotificationSettings() {
+    var defaults = defaultNotificationSettings();
+    var allPagesInput = field("notificationAllPages");
+    var maxItems = parseInt(value("notificationMaxItems"), 10);
+    var roles = {};
+    var events = {};
+    var slugs = [];
+    data.settings = data.settings || {};
+    qsa("[data-notification-role]").forEach(function (input) {
+      roles[input.dataset.notificationRole] = input.checked;
+    });
+    qsa("[data-notification-event]").forEach(function (input) {
+      events[input.dataset.notificationEvent] = input.checked;
+    });
+    qsa("[data-notification-page-slug]:checked").forEach(function (input) {
+      var slug = slugify(input.dataset.notificationPageSlug);
+      if (slug && slugs.indexOf(slug) === -1) slugs.push(slug);
+    });
+    data.settings.notificationSettings = {
+      enabled: field("notificationEnabled") ? field("notificationEnabled").checked : defaults.enabled,
+      includeActor: field("notificationIncludeActor") ? field("notificationIncludeActor").checked : defaults.includeActor,
+      maxItems: Number.isFinite(maxItems) ? maxItems : defaults.maxItems,
+      roles: Object.assign({}, defaults.roles || {}, roles),
+      events: Object.assign({}, defaults.events || {}, events),
+      pages: {
+        mode: allPagesInput && !allPagesInput.checked ? "selected" : "all",
+        slugs: slugs
+      },
+      popup: {
+        enabled: field("notificationPopupEnabled") ? field("notificationPopupEnabled").checked : defaults.popup.enabled,
+        audience: value("notificationPopupAudience") || defaults.popup.audience,
+        title: value("notificationPopupTitle") || defaults.popup.title,
+        subject: value("notificationPopupSubject"),
+        linkLabel: value("notificationPopupLinkLabel"),
+        linkUrl: value("notificationPopupLinkUrl"),
+        dismissLabel: value("notificationPopupDismissLabel") || defaults.popup.dismissLabel
+      }
+    };
+    return notificationSettings();
   }
 
   function feedbackAnswerLabel(answer) {
@@ -1186,6 +1511,7 @@
     try { collectHomeDraft(); } catch (error) { /* Form not mounted yet. */ }
     try { collectFooterDraft(); } catch (error) { /* Form not mounted yet. */ }
     try { collectPageFeedbackSettings(); } catch (error) { /* Form not mounted yet. */ }
+    try { collectNotificationSettings(); } catch (error) { /* Form not mounted yet. */ }
     try { collectProjects({ keepDrafts: true }); } catch (error) { /* Form not mounted yet. */ }
     try { collectCardCollections({ keepDrafts: true }); } catch (error) { /* Form not mounted yet. */ }
     try { collectPages(); } catch (error) { /* Form not mounted yet. */ }
@@ -1247,6 +1573,10 @@
         title: "إدارة تقييم الصفحات",
         description: "إعداد نموذج تقييم الصفحة ومتابعة ملاحظات الزوار."
       },
+      notifications: {
+        title: "إدارة الإشعارات",
+        description: "تحديد الأدوار والأقسام والصفحات التي تنشئ إشعارات المحتوى."
+      },
       backup: {
         title: "النسخ الاحتياطي والاستعادة",
         description: "تصدير واستيراد نسخة JSON كاملة من محتوى الموقع وتقييمات الصفحات."
@@ -1267,6 +1597,8 @@
     } else if (activeSystemView === "pageFeedback") {
       renderPageFeedbackStats(pageFeedbackStats || { summary: {}, recent: [] });
       loadPageFeedbackStats();
+    } else if (activeSystemView === "notifications") {
+      fillNotificationSettingsForm();
     }
   }
 
@@ -1344,6 +1676,11 @@
     var previewRaw;
     var cookies;
     var feedbackSettings;
+    var notificationConfig;
+    var notificationEvents;
+    var notificationPagesMeta;
+    var notificationPopupMeta;
+    var notificationPopupAudienceLabels;
     var user;
     var activityCount;
     if (!root || !data) return;
@@ -1357,6 +1694,17 @@
     previewRaw = localStorage.getItem(previewKey);
     cookies = data.footer && data.footer.cookies || {};
     feedbackSettings = pageFeedbackSettings();
+    notificationConfig = notificationSettings();
+    notificationEvents = Object.keys(notificationConfig.events || {}).filter(function (eventKey) {
+      return notificationConfig.events[eventKey] !== false;
+    }).length;
+    notificationPagesMeta = notificationConfig.pages && notificationConfig.pages.mode === "selected"
+      ? notificationConfig.pages.slugs.length + " صفحة محددة"
+      : "كل الصفحات العامة";
+    notificationPopupAudienceLabels = { public: "الزوار", employees: "الموظفون", all: "الجميع" };
+    notificationPopupMeta = notificationConfig.popup && notificationConfig.popup.enabled
+      ? "نافذة: " + (notificationPopupAudienceLabels[notificationConfig.popup.audience] || "الزوار")
+      : "النافذة المنبثقة متوقفة";
     user = currentAdminUser() || {};
     activityCount = readAdminActivityLog().length;
     root.innerHTML = [
@@ -1368,6 +1716,7 @@
       systemStatusItemHtml("التكاملات", enabledIntegrationCount() + " / " + integrations.length, "تكاملات مفعلة من إجمالي التكاملات", enabledIntegrationCount() ? "success" : "info", enabledIntegrationCount() ? "مفعل" : "غير مفعل"),
       systemStatusItemHtml("إشعار الكوكيز", cookies.enabled === false ? "متوقف" : "مفعل", cookieConsentLabel(), cookies.enabled === false ? "error" : "success", cookies.enabled === false ? "متوقف" : "مفعل"),
       systemStatusItemHtml("تقييم الصفحات", feedbackSettings.enabled === false ? "متوقف" : "مفعل", ((pageFeedbackStats && pageFeedbackStats.summary && pageFeedbackStats.summary.total) || 0) + " تقييم", feedbackSettings.enabled === false ? "info" : "success", feedbackSettings.enabled === false ? "متوقف" : "مفعل"),
+      systemStatusItemHtml("الإشعارات", notificationConfig.enabled === false ? "متوقفة" : "مفعلة", notificationEvents + " أقسام - " + notificationPagesMeta + " - " + notificationPopupMeta, notificationConfig.enabled === false ? "info" : "success", notificationConfig.enabled === false ? "متوقفة" : "مفعلة"),
       systemStatusItemHtml("المعاينة", previewRaw ? formatBytes(jsonByteSize(previewRaw)) : "لا توجد", "بيانات المعاينة المؤقتة في هذا المتصفح", previewRaw ? "info" : "success", previewRaw ? "مؤقت" : "نظيف"),
       systemStatusItemHtml("المستخدم", user.displayName || user.email || "جلسة الإدارة", roleLabel(user.role), user ? "success" : "info", user.role || "admin"),
       systemStatusItemHtml("سجل النشاط", String(activityCount), "آخر إجراءات هذا المتصفح", activityCount ? "info" : "success", activityCount ? "نشط" : "نظيف")
@@ -1770,6 +2119,7 @@
     setValue("footerLegalText", data.footer && Object.prototype.hasOwnProperty.call(data.footer, "legalText") ? data.footer.legalText : data.texts.footerDisclaimer);
     fillFooterCookieFields();
     fillPageFeedbackForm();
+    fillNotificationSettingsForm();
 
     renderHeroSlidesEditor();
     renderHomeNumbersEditor();
@@ -1792,6 +2142,7 @@
     collectHomeDraft();
     collectFooterDraft();
     collectPageFeedbackSettings();
+    collectNotificationSettings();
     collectProjects();
     collectCardCollections();
     collectPages();
@@ -1838,8 +2189,10 @@
   }
 
   function saveSettings(event) {
+    var previousData;
     event.preventDefault();
     if (!ensurePermission("settings")) return;
+    previousData = cloneData(lastSavedSnapshot || data);
     data.settings.siteName = value("siteName");
     data.navigation.pagesLabel = value("pagesLabel") || data.navigation.pagesLabel || "الصفحات";
     data.settings.brandName = value("brandName");
@@ -1860,6 +2213,14 @@
     data.settings.shellSecurityDescription = value("shellSecurityDescription");
     data.settings.shellNoticeText = value("shellNoticeText");
     collectInterfaceTextFields();
+    if (dataSignature(data) !== dataSignature(previousData)) {
+      notifySectionUpdated("settings", {
+        status: "info",
+        title: "تم تحديث إعدادات الموقع",
+        description: "تم حفظ إعدادات الهوية والواجهة من لوحة الإدارة.",
+        href: "index.html"
+      });
+    }
     saveData().then(function () {
       addAdminActivity("حفظ الإعدادات", "تم تحديث إعدادات الهوية والواجهة.", "success");
       toast("تم حفظ إعدادات الموقع");
@@ -1867,13 +2228,23 @@
   }
 
   function saveNavigation(event) {
+    var previousData;
     event.preventDefault();
     if (!ensurePermission("navigation")) return;
+    previousData = cloneData(lastSavedSnapshot || data);
     data.settings.siteName = value("siteNameNav") || value("siteName");
     data.navigation.pagesLabel = value("pagesLabel") || data.navigation.pagesLabel || "الصفحات";
     data.navigation.homeLabel = value("homeLabel") || "الرئيسية";
     data.navigation.projectsLabel = value("projectsLabel") || "المشاريع";
     data.navigation.adminLabel = value("adminLabel") || "الإدارة";
+    if (dataSignature(data) !== dataSignature(previousData)) {
+      notifySectionUpdated("navigation", {
+        status: "info",
+        title: "تم تحديث التنقل",
+        description: "تم حفظ تسميات ومسارات التنقل من لوحة الإدارة.",
+        href: "index.html"
+      });
+    }
     saveData().then(function () {
       addAdminActivity("حفظ التنقل", "تم تحديث تسميات ومسارات التنقل.", "success");
       toast("تم حفظ إعدادات التنقل");
@@ -1932,9 +2303,19 @@
   }
 
   function saveFooter(event) {
+    var previousData;
     event.preventDefault();
     if (!ensurePermission("footer")) return;
+    previousData = cloneData(lastSavedSnapshot || data);
     collectFooterDraft();
+    if (dataSignature(data) !== dataSignature(previousData)) {
+      notifySectionUpdated("footer", {
+        status: "info",
+        title: "تم تحديث التذييل",
+        description: "تم حفظ روابط التذييل وإعدادات الكوكيز من لوحة الإدارة.",
+        href: "index.html"
+      });
+    }
     saveData().then(function () {
       refreshPublicShell();
       addAdminActivity("حفظ التذييل", "تم تحديث روابط التذييل وإعدادات الكوكيز.", "success");
@@ -1947,10 +2328,11 @@
     if (!ensurePermission("home")) return;
     var previousData = cloneData(lastSavedSnapshot || data);
     collectHomeDraft();
+    if (dataSignature(data) === dataSignature(previousData)) return;
+    if (!notifyAddedHomeItems(previousData)) notifyHomeUpdated();
     var savePromise = saveDataIfChanged();
     if (!savePromise) return;
     savePromise.then(function () {
-      if (!notifyAddedHomeItems(previousData)) notifyHomeUpdated();
       addAdminActivity("حفظ الرئيسية", "تم تحديث محتوى الصفحة الرئيسية.", "success");
       toast("تم حفظ محتوى الصفحة الرئيسية");
     });
@@ -4870,13 +5252,12 @@
       var previousProject = findPreviousItem(previousData.projects, project);
       return isPublicProject(project) && (!isPublicProject(previousProject) || publicTextChanged(previousProject, project, projectPublicSignature));
     });
+    changedProjects.forEach(function (project) {
+      notifyProjectChange(project, findPreviousItem(previousData.projects, project));
+    });
     var savePromise = saveDataIfChanged();
     if (!savePromise) return;
     savePromise.then(function () {
-      return Promise.all(changedProjects.map(function (project) {
-        return notifyProjectChange(project, findPreviousItem(previousData.projects, project));
-      }));
-    }).then(function () {
       addAdminActivity("حفظ المشاريع", "تم تحديث قائمة المشاريع.", "success");
       toast("تم حفظ المشاريع");
     });
@@ -4885,7 +5266,15 @@
 
   function saveCardCollections() {
     if (!ensurePermission("cards")) return;
+    var previousData = cloneData(lastSavedSnapshot || data);
     collectCardCollections();
+    var changedCollections = (data.cardCollections || []).filter(function (collection) {
+      var previousCollection = findPreviousItem(previousData.cardCollections, collection);
+      return isPublicCardCollection(collection) && (!isPublicCardCollection(previousCollection) || publicTextChanged(previousCollection, collection, cardCollectionPublicSignature));
+    });
+    changedCollections.forEach(function (collection) {
+      notifyCardCollectionChange(collection, findPreviousItem(previousData.cardCollections, collection));
+    });
     var savePromise = saveDataIfChanged();
     if (!savePromise) return;
     savePromise.then(function () {
@@ -4904,13 +5293,12 @@
       var previousPage = findPreviousItem(previousData.pages, page);
       return isPublicPage(page) && (!isPublicPage(previousPage) || publicTextChanged(previousPage, page, pagePublicSignature));
     });
+    changedPages.forEach(function (page) {
+      notifyPageChange(page, findPreviousItem(previousData.pages, page));
+    });
     var savePromise = saveDataIfChanged();
     if (!savePromise) return;
     savePromise.then(function () {
-      return Promise.all(changedPages.map(function (page) {
-        return notifyPageChange(page, findPreviousItem(previousData.pages, page));
-      }));
-    }).then(function () {
       toast("تم حفظ الصفحات");
       refreshPublicShell();
       addAdminActivity("حفظ الصفحات", "تم تحديث الصفحات العامة والفرعية.", "success");
@@ -4920,7 +5308,16 @@
 
   function saveIntegrations() {
     if (!ensurePermission("integrations")) return;
+    var previousData = cloneData(lastSavedSnapshot || data);
     collectIntegrations();
+    if (dataSignature(data) !== dataSignature(previousData)) {
+      notifySectionUpdated("integrations", {
+        status: "info",
+        title: "تم تحديث التكاملات",
+        description: "تم حفظ إعدادات التكاملات والتحليلات من لوحة الإدارة.",
+        href: "index.html"
+      });
+    }
     var savePromise = saveDataIfChanged();
     if (!savePromise) return;
     savePromise.then(function () {
@@ -5599,6 +5996,15 @@
         toast("تم حفظ إعدادات تقييم الصفحات");
       });
     });
+    if (qs("[data-save-notification-settings]")) qs("[data-save-notification-settings]").addEventListener("click", function () {
+      if (!ensurePermission("notifications")) return;
+      collectNotificationSettings();
+      saveData().then(function () {
+        renderSystemConsole();
+        addAdminActivity("حفظ إعدادات الإشعارات", "تم تحديث قواعد إشعارات المحتوى.", "success");
+        toast("تم حفظ إعدادات الإشعارات");
+      });
+    });
     if (qs("[data-refresh-page-feedback]")) qs("[data-refresh-page-feedback]").addEventListener("click", function () {
       loadPageFeedbackStats().then(function () {
         renderSystemStatus();
@@ -6067,6 +6473,15 @@
     });
 
     document.addEventListener("change", function (event) {
+      if (event.target.matches("#notificationAllPages")) {
+        collectNotificationSettings();
+        renderNotificationPageRules();
+        return;
+      }
+      if (event.target.matches("[data-notification-role], [data-notification-event], [data-notification-page-slug], #notificationEnabled, #notificationIncludeActor, #notificationMaxItems, #notificationPopupEnabled, #notificationPopupAudience, #notificationPopupTitle, #notificationPopupSubject, #notificationPopupLinkLabel, #notificationPopupLinkUrl, #notificationPopupDismissLabel")) {
+        collectNotificationSettings();
+        return;
+      }
       if (event.target.matches("[data-page-format-font]")) {
         applyPageEditorFont(event.target);
         return;

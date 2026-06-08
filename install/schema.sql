@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS site_settings (
   interface_texts_json LONGTEXT,
   footer_json LONGTEXT,
   page_feedback_json LONGTEXT,
+  notification_settings_json LONGTEXT,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

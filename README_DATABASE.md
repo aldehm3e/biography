@@ -71,7 +71,7 @@ The schema creates tables for:
 - notifications
 - backups or supporting CMS data
 
-Footer structure, page feedback settings, and interface text overrides are stored as JSON fields in `site_settings`.
+Footer structure, page feedback settings, notification rules, announcement popup settings, and interface text overrides are stored as JSON fields in `site_settings`.
 
 ## Page Data Rules
 

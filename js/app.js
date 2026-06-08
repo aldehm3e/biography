@@ -10,6 +10,7 @@
   var LEGACY_NOTIFICATIONS_KEY = "websiteDemo:notifications";
   var NOTIFICATION_STATE_KEY = "websiteDemo:notificationState";
   var NOTIFICATIONS_KEEP_OPEN_KEY = "websiteDemo:notificationsKeepOpen";
+  var ANNOUNCEMENT_POPUP_STATE_KEY = "websiteDemo:announcementPopupState";
   var NOTIFICATION_READ_RETENTION_MS = 10 * 24 * 60 * 60 * 1000;
   var AUTH_LOADING_MIN_MS = 1200;
   var CARD_COLLECTION_PAGE_SIZE = 15;
@@ -3833,6 +3834,196 @@
     return translations[value] || value || "";
   }
 
+  function announcementPopupSettings(data) {
+    var defaults = window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.settings && window.DEFAULT_SITE_DATA.settings.notificationSettings && window.DEFAULT_SITE_DATA.settings.notificationSettings.popup || {};
+    var settings = data && data.settings && data.settings.notificationSettings && data.settings.notificationSettings.popup || {};
+    var popup = Object.assign({}, defaults, settings && typeof settings === "object" ? settings : {});
+    popup.enabled = popup.enabled === true;
+    popup.audience = ["public", "employees", "all"].indexOf(popup.audience) !== -1 ? popup.audience : "public";
+    ["title", "subject", "linkLabel", "linkUrl", "dismissLabel"].forEach(function (key) {
+      popup[key] = String(popup[key] || "");
+    });
+    popup.title = popup.title || "إشعار";
+    popup.dismissLabel = popup.dismissLabel || "إلغاء";
+    return popup;
+  }
+
+  function announcementPopupHasContent(popup) {
+    return Boolean(popup && popup.enabled && (popup.subject || popup.linkUrl));
+  }
+
+  function announcementAudienceMatches(popup) {
+    var user = window.SiteStore && window.SiteStore.currentUser ? window.SiteStore.currentUser() : null;
+    var page = document.body ? document.body.dataset.page : "";
+    if (!popup || !popup.enabled) return false;
+    if (page === "admin" && !user) return false;
+    if (popup.audience === "employees") return Boolean(user);
+    if (popup.audience === "public") return !user && page !== "admin";
+    return true;
+  }
+
+  function announcementPopupVersion(popup) {
+    return notificationHash([
+      popup.audience || "",
+      popup.title || "",
+      popup.subject || "",
+      popup.linkLabel || "",
+      popup.linkUrl || "",
+      popup.dismissLabel || ""
+    ].join("\u001f"));
+  }
+
+  function announcementPopupStateKey(popup) {
+    var user = window.SiteStore && window.SiteStore.currentUser ? window.SiteStore.currentUser() : null;
+    var audienceKey = user && (user.id || user.email) ? "user:" + (user.id || user.email) : "public";
+    return announcementPopupVersion(popup) + ":" + audienceKey;
+  }
+
+  function readAnnouncementPopupState() {
+    try {
+      var state = JSON.parse(localStorage.getItem(ANNOUNCEMENT_POPUP_STATE_KEY) || "{}");
+      return state && typeof state === "object" && !Array.isArray(state) ? state : {};
+    } catch (error) {
+      return {};
+    }
+  }
+
+  function writeAnnouncementPopupState(state) {
+    try {
+      localStorage.setItem(ANNOUNCEMENT_POPUP_STATE_KEY, JSON.stringify(state || {}));
+    } catch (error) {}
+  }
+
+  function announcementPopupDismissed(popup) {
+    var key = announcementPopupStateKey(popup);
+    var state = readAnnouncementPopupState();
+    return Boolean(key && state[key]);
+  }
+
+  function markAnnouncementPopupDismissed(popup) {
+    var key = announcementPopupStateKey(popup);
+    var state;
+    if (!key) return;
+    state = readAnnouncementPopupState();
+    state[key] = { dismissedAt: new Date().toISOString() };
+    writeAnnouncementPopupState(state);
+  }
+
+  function announcementLinkIsSafe(url) {
+    var value = String(url || "").trim();
+    if (!value) return false;
+    if (/^javascript:/i.test(value)) return false;
+    try {
+      new URL(value, window.location.href);
+      return true;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function announcementSubjectMarkup(subject) {
+    return String(subject || "")
+      .split(/\n{2,}/)
+      .map(function (paragraph) {
+        var lines = paragraph.split(/\n/).map(function (line) {
+          return escapeHtml(line.trim());
+        }).filter(Boolean);
+        return lines.length ? "<p>" + lines.join("<br>") + "</p>" : "";
+      })
+      .filter(Boolean)
+      .join("");
+  }
+
+  function ensureAnnouncementPopupModal() {
+    var modal = qs("#site-announcement-modal");
+    if (modal) return modal;
+    modal = document.createElement("div");
+    modal.className = "nds-modal nds-card nds-lg site-announcement-modal";
+    modal.id = "site-announcement-modal";
+    modal.lang = "ar";
+    modal.dir = "rtl";
+    modal.setAttribute("role", "dialog");
+    modal.setAttribute("aria-labelledby", "site-announcement-modal-title");
+    modal.setAttribute("aria-hidden", "true");
+    modal.hidden = true;
+    modal.innerHTML = [
+      '<div class="nds-card-header">',
+      '<h2 class="nds-card-title" id="site-announcement-modal-title" data-announcement-title></h2>',
+      '<button type="button" class="nds-btn nds-subtle nds-icon-only nds-md nds-close nds-modal-close" data-modal-close data-announcement-close aria-label="إغلاق">',
+      '<i class="nds-icon nds-hgi-cancel-01" aria-hidden="true"></i>',
+      '</button>',
+      '</div>',
+      '<div class="nds-card-body">',
+      '<div class="nds-card-description site-announcement-subject" data-announcement-subject></div>',
+      '<p class="site-announcement-link-row" data-announcement-link-row hidden>',
+      '<a class="site-announcement-link" target="_blank" rel="noopener noreferrer" data-announcement-link>',
+      '<span class="nds-label" data-announcement-link-label></span>',
+      '<span class="site-announcement-link-icon" aria-hidden="true"><i class="nds-icon nds-hgi-link-square-02"></i></span>',
+      '</a>',
+      '</p>',
+      '</div>',
+      '<div class="nds-card-actions nds-end">',
+      '<button type="button" class="nds-btn nds-secondary-outline nds-md" data-modal-close data-announcement-close>',
+      '<span class="nds-label" data-announcement-dismiss-label></span>',
+      '</button>',
+      '</div>'
+    ].join("");
+    modal.addEventListener("click", function (event) {
+      if (!event.target.closest("[data-announcement-close], .nds-modal-close")) return;
+      var popup = announcementPopupSettings(appState.data);
+      markAnnouncementPopupDismissed(popup);
+      if (!(window.NDS && window.NDS.Modal && window.NDS.Modal.close)) {
+        modal.hidden = true;
+        modal.setAttribute("aria-hidden", "true");
+        modal.dataset.state = "closed";
+        if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.hide) window.NDS.Backdrop.hide("modal");
+      }
+    });
+    modal.addEventListener("nds-modal-closed", function () {
+      var popup = announcementPopupSettings(appState.data);
+      markAnnouncementPopupDismissed(popup);
+    });
+    document.body.append(modal);
+    return modal;
+  }
+
+  function fillAnnouncementPopupModal(modal, popup) {
+    var linkIsSafe = announcementLinkIsSafe(popup.linkUrl);
+    setText("[data-announcement-title]", popup.title || "إشعار");
+    var subject = qs("[data-announcement-subject]", modal);
+    var linkRow = qs("[data-announcement-link-row]", modal);
+    var link = qs("[data-announcement-link]", modal);
+    var label = qs("[data-announcement-link-label]", modal);
+    var dismiss = qs("[data-announcement-dismiss-label]", modal);
+    if (subject) subject.innerHTML = announcementSubjectMarkup(popup.subject);
+    if (linkRow) linkRow.hidden = !linkIsSafe;
+    if (link) link.href = linkIsSafe ? popup.linkUrl : "#";
+    if (label) label.textContent = popup.linkLabel || popup.linkUrl || "";
+    if (dismiss) dismiss.textContent = popup.dismissLabel || "إلغاء";
+  }
+
+  function renderAnnouncementPopup(data) {
+    var popup = announcementPopupSettings(data);
+    var modal;
+    if (!announcementPopupHasContent(popup) || !announcementAudienceMatches(popup) || announcementPopupDismissed(popup)) return;
+    modal = ensureAnnouncementPopupModal();
+    if (modal.hidden === false || modal.getAttribute("aria-hidden") === "false" || /\b(open|opened)\b/.test(modal.dataset.state || "")) return;
+    fillAnnouncementPopupModal(modal, popup);
+    window.setTimeout(function () {
+      if (announcementPopupDismissed(popup)) return;
+      if (window.NDS && window.NDS.Modal && window.NDS.Modal.open) {
+        window.NDS.Modal.open(modal.id);
+      } else {
+        modal.hidden = false;
+        modal.setAttribute("aria-hidden", "false");
+        modal.dataset.state = "open";
+        if (window.NDS && window.NDS.Backdrop && window.NDS.Backdrop.show) {
+          window.NDS.Backdrop.show({ owner: "modal", zIndex: 1900, surface: modal });
+        }
+      }
+    }, 250);
+  }
+
   function notificationItemInnerMarkup(item) {
     var status = notificationStatus(item.status);
     return [
@@ -7474,11 +7665,13 @@
     return window.SiteStore.load().then(function (loadedData) {
       paintSite(loadedData);
       document.documentElement.dataset.siteLoading = "false";
+      renderAnnouncementPopup(appState.data);
     }).catch(function (error) {
       appState.data = window.SiteStore.current();
       paintSite(appState.data);
       showToast(error.message || "تعذر تحميل بيانات الموقع", "error");
       document.documentElement.dataset.siteLoading = "false";
+      renderAnnouncementPopup(appState.data);
     });
   }
 
@@ -7527,6 +7720,9 @@
   window.addEventListener("popstate", render);
   window.addEventListener("site:datachange", function () {
     render();
+  });
+  window.addEventListener("site:authchange", function () {
+    renderAnnouncementPopup(appState.data);
   });
   window.addEventListener("site:authchange", function () {
     renderAccountMenu(appState.data || window.SiteStore.current());

@@ -187,6 +187,7 @@ Keep new features inside one of these roots unless a schema/data-model change is
 | `navigation` | Core navigation labels. |
 | `integrations` | Google Analytics and other integration settings. |
 | `page_feedback` | Page feedback settings, dashboard summaries, page rankings, and feedback export. |
+| `notifications` | Notification rules for roles, admin sections, selected public pages, and optional announcement popup targeting. |
 | `backup` | JSON backup/restore, feedback export/import, reset, and localStorage migration. Treat as highly trusted. |
 | `utilities` | General system status and maintenance tools. |
 | `uploads` | Direct upload permission. Content permissions also allow uploads for editor workflows. |
@@ -303,6 +304,8 @@ Admin saves can add notifications for:
 - Home updates
 - New/updated projects
 - New/updated pages
+- Optional card, footer, settings, navigation, and integration updates when enabled in `النظام > الإشعارات`
+- Optional center-screen announcement popup for public visitors, employees, or both
 
 Read/dismiss state is local browser state so public users do not mutate the database.
 

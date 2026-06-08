@@ -100,6 +100,7 @@
     var cleanData = mergeObject(window.DEFAULT_SITE_DATA || {}, data || {});
     cleanData.settings = cleanData.settings || {};
     cleanData.settings.pageFeedback = normalizePageFeedback(cleanData.settings.pageFeedback);
+    cleanData.settings.notificationSettings = normalizeNotificationSettings(cleanData.settings.notificationSettings);
     cleanData.navigation = cleanData.navigation || {};
     cleanData.home = cleanData.home || {};
     cleanData.home.heroSlides = normalizeArray(cleanData.home.heroSlides);
@@ -152,6 +153,28 @@
       output[key] = String(output[key] || "");
     });
     output.enabled = output.enabled !== false;
+    return output;
+  }
+
+  function normalizeNotificationSettings(value) {
+    var defaults = window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.settings && window.DEFAULT_SITE_DATA.settings.notificationSettings || {};
+    var output = mergeObject(defaults, value && typeof value === "object" ? value : {});
+    output.roles = mergeObject(defaults.roles || {}, output.roles && typeof output.roles === "object" ? output.roles : {});
+    output.events = mergeObject(defaults.events || {}, output.events && typeof output.events === "object" ? output.events : {});
+    output.pages = mergeObject(defaults.pages || {}, output.pages && typeof output.pages === "object" ? output.pages : {});
+    output.popup = mergeObject(defaults.popup || {}, output.popup && typeof output.popup === "object" ? output.popup : {});
+    output.enabled = output.enabled !== false;
+    output.includeActor = output.includeActor !== false;
+    output.maxItems = Math.max(5, Math.min(20, Number(output.maxItems) || 20));
+    output.pages.mode = output.pages.mode === "selected" ? "selected" : "all";
+    output.pages.slugs = normalizeArray(output.pages.slugs).map(function (slug) {
+      return String(slug || "").trim();
+    }).filter(Boolean);
+    output.popup.enabled = output.popup.enabled === true;
+    output.popup.audience = ["public", "employees", "all"].indexOf(output.popup.audience) !== -1 ? output.popup.audience : "public";
+    ["title", "subject", "linkLabel", "linkUrl", "dismissLabel"].forEach(function (key) {
+      output.popup[key] = String(output.popup[key] || "");
+    });
     return output;
   }
 

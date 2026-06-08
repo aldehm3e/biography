@@ -374,6 +374,12 @@
                   <span class="nds-label">إدارة تقييم الصفحات</span>
                 </button>
               </li>
+              <li data-permission="notifications">
+                <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="utilities" data-system-view-target="notifications">
+                  <i class="nds-icon nds-hgi-notification-02" aria-hidden="true"></i>
+                  <span class="nds-label">الإشعارات</span>
+                </button>
+              </li>
               <li data-permission="backup">
                 <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="utilities" data-system-view-target="backup">
                   <i class="hgi-stroke hgi-database" aria-hidden="true"></i>
@@ -1060,6 +1066,176 @@
                       <div class="page-feedback-admin-results">
                         <div class="page-feedback-summary-grid" data-page-feedback-summary></div>
                         <div class="page-feedback-dashboard-list" data-page-feedback-list></div>
+                      </div>
+                    </div>
+                  </section>
+
+                  <section class="system-console-block" aria-labelledby="notificationSettingsTitle" data-system-view-block="notifications" data-permission="notifications" hidden>
+                    <div class="system-console-heading">
+                      <div>
+                        <h3 class="nds-card-title" id="notificationSettingsTitle">إدارة الإشعارات</h3>
+                        <p class="nds-card-description">حدد متى تظهر إشعارات تحديث المحتوى ومن أي أدوار وأقسام.</p>
+                      </div>
+                      <div class="nds-section-action">
+                        <button class="nds-btn nds-primary" type="button" data-save-notification-settings><span class="nds-label">حفظ إعدادات الإشعارات</span></button>
+                      </div>
+                    </div>
+
+                    <div class="page-feedback-admin-layout">
+                      <div class="page-feedback-admin-settings">
+                        <label class="check-line page-feedback-toggle admin-check-control" for="notificationEnabled">
+                          <input class="nds-check" type="checkbox" id="notificationEnabled" name="notificationEnabled">
+                          <span class="page-feedback-toggle-text">
+                            <span class="nds-label">تفعيل إشعارات تحديث المحتوى</span>
+                            <span class="nds-form-helper">تطبق على الإشعارات الجديدة فقط.</span>
+                          </span>
+                        </label>
+
+                        <label class="check-line page-feedback-toggle admin-check-control" for="notificationIncludeActor">
+                          <input class="nds-check" type="checkbox" id="notificationIncludeActor" name="notificationIncludeActor">
+                          <span class="page-feedback-toggle-text">
+                            <span class="nds-label">إظهار اسم الموظف داخل وصف الإشعار</span>
+                            <span class="nds-form-helper">يساعد في معرفة من نفذ التحديث.</span>
+                          </span>
+                        </label>
+
+                        <div class="page-feedback-admin-grid">
+                          <div class="nds-form-container">
+                            <div class="nds-form-header"><label for="notificationMaxItems"><span class="nds-label">أقصى عدد محفوظ</span></label></div>
+                            <div class="nds-form-control"><input class="nds-input" id="notificationMaxItems" name="notificationMaxItems" type="number" min="5" max="20" step="1"></div>
+                          </div>
+                        </div>
+
+                        <fieldset class="permission-fieldset nds-check-container nds-md">
+                          <legend class="nds-label">الأدوار التي تنشئ إشعارات</legend>
+                          <div class="permission-grid" role="group" aria-label="الأدوار التي تنشئ إشعارات">
+                            <label class="permission-check admin-check-control" for="notificationRoleOwner">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationRoleOwner" data-notification-role="owner"></span>
+                              <span class="nds-label">مالك</span>
+                            </label>
+                            <label class="permission-check admin-check-control" for="notificationRoleAdmin">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationRoleAdmin" data-notification-role="admin"></span>
+                              <span class="nds-label">مدير محتوى</span>
+                            </label>
+                            <label class="permission-check admin-check-control" for="notificationRoleEmployee">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationRoleEmployee" data-notification-role="employee"></span>
+                              <span class="nds-label">موظف</span>
+                            </label>
+                          </div>
+                        </fieldset>
+
+                        <fieldset class="permission-fieldset nds-check-container nds-md">
+                          <legend class="nds-label">الأقسام التي تنشئ إشعارات</legend>
+                          <div class="permission-grid" role="group" aria-label="الأقسام التي تنشئ إشعارات">
+                            <label class="permission-check admin-check-control" for="notificationEventHome">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationEventHome" data-notification-event="home"></span>
+                              <span class="nds-label">الرئيسية</span>
+                            </label>
+                            <label class="permission-check admin-check-control" for="notificationEventHomeItems">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationEventHomeItems" data-notification-event="homeItems"></span>
+                              <span class="nds-label">عناصر الرئيسية الجديدة</span>
+                            </label>
+                            <label class="permission-check admin-check-control" for="notificationEventProjects">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationEventProjects" data-notification-event="projects"></span>
+                              <span class="nds-label">المشاريع</span>
+                            </label>
+                            <label class="permission-check admin-check-control" for="notificationEventPages">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationEventPages" data-notification-event="pages"></span>
+                              <span class="nds-label">الصفحات العامة</span>
+                            </label>
+                            <label class="permission-check admin-check-control" for="notificationEventCards">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationEventCards" data-notification-event="cards"></span>
+                              <span class="nds-label">صفحات البطاقات</span>
+                            </label>
+                            <label class="permission-check admin-check-control" for="notificationEventFooter">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationEventFooter" data-notification-event="footer"></span>
+                              <span class="nds-label">التذييل</span>
+                            </label>
+                            <label class="permission-check admin-check-control" for="notificationEventSettings">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationEventSettings" data-notification-event="settings"></span>
+                              <span class="nds-label">الإعدادات</span>
+                            </label>
+                            <label class="permission-check admin-check-control" for="notificationEventNavigation">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationEventNavigation" data-notification-event="navigation"></span>
+                              <span class="nds-label">التنقل</span>
+                            </label>
+                            <label class="permission-check admin-check-control" for="notificationEventIntegrations">
+                              <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationEventIntegrations" data-notification-event="integrations"></span>
+                              <span class="nds-label">التكاملات</span>
+                            </label>
+                          </div>
+                        </fieldset>
+
+                        <fieldset class="permission-fieldset nds-check-container nds-md">
+                          <legend class="nds-label">قواعد الصفحات العامة</legend>
+                          <label class="permission-check admin-check-control" for="notificationAllPages">
+                            <span class="nds-form-control admin-check-box"><input class="nds-check" type="checkbox" id="notificationAllPages" name="notificationAllPages"></span>
+                            <span class="nds-label">كل الصفحات العامة</span>
+                          </label>
+                          <div class="permission-grid" role="group" aria-label="الصفحات العامة المحددة" data-notification-page-rules></div>
+                        </fieldset>
+
+                        <fieldset class="permission-fieldset notification-popup-fieldset">
+                          <legend class="nds-label">النافذة المنبثقة</legend>
+                          <label class="check-line page-feedback-toggle admin-check-control" for="notificationPopupEnabled">
+                            <input class="nds-check" type="checkbox" id="notificationPopupEnabled" name="notificationPopupEnabled">
+                            <span class="page-feedback-toggle-text">
+                              <span class="nds-label">إظهار نافذة إشعار في منتصف الشاشة</span>
+                              <span class="nds-form-helper">تظهر مرة واحدة لكل نسخة من الرسالة بعد إغلاقها.</span>
+                            </span>
+                          </label>
+
+                          <div class="page-feedback-admin-grid">
+                            <div class="nds-form-container">
+                              <div class="nds-form-header"><label><span class="nds-label">الجمهور</span></label></div>
+                              <div class="nds-dropmenu icon-type-menu admin-select-menu" data-select-menu data-notification-popup-audience-menu data-dropmenu-no-click>
+                                <button class="nds-btn nds-secondary-outline nds-dropmenu-trigger icon-type-trigger admin-select-trigger" type="button" data-select-trigger aria-expanded="false">
+                                  <span class="nds-label" data-select-label data-notification-popup-audience-label>الزوار فقط</span>
+                                  <i class="nds-icon nds-hgi-arrow-down-01 icon-type-arrow" aria-hidden="true"></i>
+                                </button>
+                                <input type="hidden" id="notificationPopupAudience" name="notificationPopupAudience" data-field="notificationPopupAudience" value="public">
+                                <div class="nds-dropmenu-menu icon-type-options admin-select-options" hidden aria-hidden="true">
+                                  <div class="nds-dropmenu-scroll">
+                                    <button class="nds-btn nds-subtle nds-dropmenu-item icon-type-option admin-select-option" type="button" data-select-value="public" data-state="selected">
+                                      <span class="nds-label">الزوار فقط</span>
+                                    </button>
+                                    <button class="nds-btn nds-subtle nds-dropmenu-item icon-type-option admin-select-option" type="button" data-select-value="employees" data-state="">
+                                      <span class="nds-label">الموظفون فقط</span>
+                                    </button>
+                                    <button class="nds-btn nds-subtle nds-dropmenu-item icon-type-option admin-select-option" type="button" data-select-value="all" data-state="">
+                                      <span class="nds-label">الزوار والموظفون</span>
+                                    </button>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <div class="nds-form-container">
+                              <div class="nds-form-header"><label for="notificationPopupTitle"><span class="nds-label">عنوان النافذة</span></label></div>
+                              <div class="nds-form-control"><input class="nds-input" id="notificationPopupTitle" name="notificationPopupTitle" type="text"></div>
+                            </div>
+                            <div class="nds-form-container">
+                              <div class="nds-form-header"><label for="notificationPopupDismissLabel"><span class="nds-label">زر الإغلاق</span></label></div>
+                              <div class="nds-form-control"><input class="nds-input" id="notificationPopupDismissLabel" name="notificationPopupDismissLabel" type="text"></div>
+                            </div>
+                          </div>
+
+                          <div class="page-feedback-admin-grid page-feedback-admin-grid-wide notification-popup-grid">
+                            <div class="nds-form-container">
+                              <div class="nds-form-header"><label for="notificationPopupSubject"><span class="nds-label">الموضوع</span></label></div>
+                              <div class="nds-form-control textarea-control"><textarea class="nds-input" id="notificationPopupSubject" name="notificationPopupSubject" rows="6"></textarea></div>
+                            </div>
+                            <div class="notification-popup-link-fields">
+                              <div class="nds-form-container">
+                                <div class="nds-form-header"><label for="notificationPopupLinkLabel"><span class="nds-label">نص الرابط</span></label></div>
+                                <div class="nds-form-control"><input class="nds-input" id="notificationPopupLinkLabel" name="notificationPopupLinkLabel" type="text"></div>
+                              </div>
+                              <div class="nds-form-container">
+                                <div class="nds-form-header"><label for="notificationPopupLinkUrl"><span class="nds-label">رابط النافذة</span></label></div>
+                                <div class="nds-form-control"><input class="nds-input" id="notificationPopupLinkUrl" name="notificationPopupLinkUrl" type="url"></div>
+                              </div>
+                            </div>
+                          </div>
+                        </fieldset>
                       </div>
                     </div>
                   </section>
