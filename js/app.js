@@ -39,6 +39,7 @@
     homeNumbersTimer: null,
     homeNumbersResumeTimer: null,
     homeNumbersSettleTimer: null,
+    homeNumbersCleanup: null,
     clockTimer: null,
     topbarScrollLastY: 0,
     topbarScrollFrame: null,
@@ -963,9 +964,19 @@
   function currentAuthConfig() {
     var user = window.SiteStore && window.SiteStore.currentUser ? window.SiteStore.currentUser() : null;
     return {
+      name: user && (user.displayName || user.display_name) ? (user.displayName || user.display_name) : "",
+      role: user && user.role ? user.role : "",
       email: user && user.email ? user.email : "",
-      phone: user && user.phone ? user.phone : ""
+      phone: user && user.phone ? user.phone : "",
+      avatar: user && (user.avatar || user.avatarPath || user.avatar_path) ? (user.avatar || user.avatarPath || user.avatar_path) : ""
     };
+  }
+
+  function accountRoleLabel(role) {
+    if (role === "owner") return "مالك";
+    if (role === "admin") return "مدير محتوى";
+    if (role === "employee") return "موظف";
+    return "Administrator";
   }
 
   function accountDisplayName(data) {
@@ -977,7 +988,8 @@
   }
 
   function personaAvatarMarkup(data, name, compact) {
-    var avatarSrc = ownerAvatarSrc(data);
+    var config = currentAuthConfig();
+    var avatarSrc = config.avatar || "";
     if (hasText(avatarSrc)) {
       return '<span class="nds-avatar ' + (compact ? "nds-sm" : "nds-md") + ' admin-trigger-avatar" aria-hidden="true"><img src="' + escapeHtml(avatarSrc) + '" alt=""></span>';
     }
@@ -1035,8 +1047,8 @@
     if (!item) return;
     var config = currentAuthConfig();
     var isAuthenticated = isAdminAuthenticated();
-    var name = accountDisplayName(data);
-    var role = data.home.title || "Administrator";
+    var name = config.name || config.email || accountDisplayName(data);
+    var role = accountRoleLabel(config.role);
     var portalLabel = uiText(data, "adminPortalLabel", "الإدارة");
     item.className = isAuthenticated
       ? "nds-nav-item nds-dropdown nds-login nds-icon-only nds-auth admin-persona-dropdown account-menu-item"
@@ -5963,9 +5975,7 @@
   }
 
   function refreshHomeNumbersComponents(swiper) {
-    if (swiper && window.NDS && window.NDS.Swiper && window.NDS.Swiper.create) {
-      window.NDS.Swiper.create(swiper);
-    }
+    if (swiper) applyHomeNumbersLayout(swiper);
     if (window.NDS && window.NDS.Numbers && window.NDS.Numbers.reinit) {
       window.NDS.Numbers.reinit();
     }
@@ -5975,9 +5985,11 @@
     clearInterval(appState.homeNumbersTimer);
     clearTimeout(appState.homeNumbersResumeTimer);
     clearTimeout(appState.homeNumbersSettleTimer);
+    if (appState.homeNumbersCleanup) appState.homeNumbersCleanup();
     appState.homeNumbersTimer = null;
     appState.homeNumbersResumeTimer = null;
     appState.homeNumbersSettleTimer = null;
+    appState.homeNumbersCleanup = null;
   }
 
   function getHomeNumbersSlides(swiper) {
@@ -5985,18 +5997,35 @@
   }
 
   function getHomeNumbersSlidesPerView(swiper) {
-    var cssValue = parseInt(getComputedStyle(swiper).getPropertyValue("--slides"), 10) ||
-      parseInt(getComputedStyle(swiper).getPropertyValue("--swiper-slides"), 10);
+    var current = parseInt(swiper && swiper.dataset.homeNumbersSlidesPerView || "", 10);
+    if (current > 0) return current;
+    return applyHomeNumbersLayout(swiper);
+  }
+
+  function calculateHomeNumbersSlidesPerView(swiper) {
     var min;
     var mid;
     var max;
-    if (cssValue > 0) return cssValue;
     min = parseInt(swiper.getAttribute("slides-min") || "1", 10);
     mid = parseInt(swiper.getAttribute("slides-mid") || String(min), 10);
     max = parseInt(swiper.getAttribute("slides-max") || String(mid), 10);
     if (window.matchMedia("(min-width: 1024px)").matches) return Math.max(1, max);
     if (window.matchMedia("(min-width: 768px)").matches) return Math.max(1, mid);
     return Math.max(1, min);
+  }
+
+  function applyHomeNumbersLayout(swiper) {
+    var slides;
+    var slidesPerView;
+    if (!swiper) return 1;
+    slides = getHomeNumbersSlides(swiper);
+    slidesPerView = Math.min(calculateHomeNumbersSlidesPerView(swiper), Math.max(1, slides.length || 1));
+    swiper.dataset.homeNumbersSlidesPerView = String(slidesPerView);
+    swiper.style.setProperty("--total", String(slides.length || 1));
+    swiper.style.setProperty("--swiper-total", String(slides.length || 1));
+    swiper.style.setProperty("--slides", String(slidesPerView));
+    swiper.style.setProperty("--swiper-slides", String(slidesPerView));
+    return slidesPerView;
   }
 
   function homeNumbersMaxIndex(slides, slidesPerView) {
@@ -6028,15 +6057,43 @@
     offset = Math.abs(target.offsetLeft - slides[0].offsetLeft);
     left = homeNumbersIsRtl(swiper) ? -offset : offset;
     clearTimeout(appState.homeNumbersSettleTimer);
+    swiper.dataset.homeNumbersScrollIndex = String(index);
+    syncHomeNumbersSwiperState(swiper, index);
     wrapper.scrollTo({
       left: left,
       behavior: "smooth"
     });
     appState.homeNumbersSettleTimer = setTimeout(function () {
       if (!wrapper.isConnected || !swiper.isConnected) return;
-      if (swiper.dataset.homeNumbersAutoplayIndex !== String(index)) return;
+      if (swiper.dataset.homeNumbersScrollIndex !== String(index)) return;
       wrapper.scrollTo({ left: left, behavior: "auto" });
+      syncHomeNumbersSwiperState(swiper, index);
     }, 650);
+  }
+
+  function syncHomeNumbersSwiperState(swiper, index) {
+    var instance = swiper && swiper._ndsSwiper;
+    updateHomeNumbersControls(swiper, index);
+    if (instance) {
+      instance.currentIndex = index;
+      instance.lastIndex = -1;
+      if (typeof instance.updateState === "function") instance.updateState();
+    }
+  }
+
+  function moveHomeNumbersBy(swiper, direction) {
+    var slides = getHomeNumbersSlides(swiper);
+    var slidesPerView = getHomeNumbersSlidesPerView(swiper);
+    var limit = homeNumbersMaxIndex(slides, slidesPerView);
+    var currentIndex;
+    var nextIndex;
+    if (limit <= 0) return;
+    currentIndex = getHomeNumbersCurrentIndex(swiper, slides, slidesPerView);
+    nextIndex = direction > 0
+      ? Math.min(currentIndex + 1, limit)
+      : Math.max(currentIndex - 1, 0);
+    if (nextIndex === currentIndex) return;
+    scrollHomeNumbersToIndex(swiper, slides, nextIndex);
   }
 
   function canAutoSlideHomeNumbers(swiper) {
@@ -6047,26 +6104,132 @@
     return slides.length > getHomeNumbersSlidesPerView(swiper);
   }
 
+  function ensureHomeNumbersDots(swiper, limit) {
+    var pagination = qs(".nds-swiper-pagination", swiper);
+    var dots;
+    var index;
+    if (!pagination) return;
+    dots = qsa("[data-home-numbers-dot]", pagination);
+    if (dots.length === limit + 1) return;
+    pagination.innerHTML = "";
+    pagination.dir = swiper.dir || document.documentElement.dir || "rtl";
+    for (index = 0; index <= limit; index += 1) {
+      var dot = el("button", "nds-swiper-dot");
+      dot.type = "button";
+      dot.dataset.homeNumbersDot = String(index);
+      dot.setAttribute("aria-label", "عرض مجموعة الأرقام " + (index + 1));
+      pagination.append(dot);
+    }
+  }
+
+  function updateHomeNumbersControls(swiper, index) {
+    var wrapper = qs(".nds-swiper-wrapper", swiper);
+    var navigation = qs(".nds-swiper-navigation", swiper);
+    var previous = qs(".nds-prev", swiper);
+    var next = qs(".nds-next", swiper);
+    var pagination = qs(".nds-swiper-pagination", swiper);
+    var slides = getHomeNumbersSlides(swiper);
+    var slidesPerView = applyHomeNumbersLayout(swiper);
+    var limit = homeNumbersMaxIndex(slides, slidesPerView);
+    var activeIndex = Math.min(Math.max(0, index || 0), limit);
+    if (!swiper || !wrapper) return;
+
+    if (navigation) navigation.hidden = limit <= 0;
+    if (pagination) {
+      pagination.hidden = limit <= 0;
+      ensureHomeNumbersDots(swiper, limit);
+      qsa("[data-home-numbers-dot]", pagination).forEach(function (dot) {
+        var isActive = Number(dot.dataset.homeNumbersDot) === activeIndex;
+        dot.dataset.state = isActive ? "active" : "";
+        dot.setAttribute("aria-current", String(isActive));
+      });
+    }
+    if (previous) {
+      previous.hidden = limit <= 0;
+      previous.disabled = activeIndex <= 0;
+    }
+    if (next) {
+      next.hidden = limit <= 0;
+      next.disabled = activeIndex >= limit;
+    }
+    wrapper.style.overflowX = limit <= 0 ? "hidden" : "";
+    swiper.dataset.homeNumbersScrollIndex = String(activeIndex);
+    swiper.dataset.state = [
+      activeIndex <= 0 ? "at-start" : "",
+      activeIndex >= limit ? "at-end" : ""
+    ].filter(Boolean).join(" ");
+  }
+
   function setupHomeNumbersAutoplay(swiper) {
-    var paused = false;
+    var hoverPaused = false;
+    var focusPaused = false;
+    var manualPaused = false;
+    var wrapper = qs(".nds-swiper-wrapper", swiper);
+    var resizeTimer = null;
+    var syncFrame = null;
 
     clearHomeNumbersAutoplay();
-    if (!canAutoSlideHomeNumbers(swiper)) return;
+    if (!swiper || !wrapper) return;
 
-    function pauseAutoplay() {
-      paused = true;
+    updateHomeNumbersControls(swiper, getHomeNumbersCurrentIndex(swiper, getHomeNumbersSlides(swiper), getHomeNumbersSlidesPerView(swiper)));
+
+    function isAutoplayPaused() {
+      return hoverPaused || focusPaused || manualPaused;
     }
 
-    function resumeAutoplay() {
-      paused = false;
+    function pauseHoverAutoplay() {
+      hoverPaused = true;
+    }
+
+    function resumeHoverAutoplay() {
+      hoverPaused = false;
+    }
+
+    function pauseFocusAutoplay() {
+      focusPaused = true;
+    }
+
+    function resumeFocusAutoplay() {
+      focusPaused = false;
+    }
+
+    function resumeManualAutoplay() {
+      manualPaused = false;
       clearTimeout(appState.homeNumbersResumeTimer);
       appState.homeNumbersResumeTimer = null;
     }
 
-    function pauseTemporarily() {
-      pauseAutoplay();
+    function releasePointerFocusPause(event) {
+      if (!event) return;
+      if (event.type === "click" && event.detail > 0) {
+        focusPaused = false;
+        hoverPaused = false;
+      }
+      if (event.type === "pointerdown" || event.type === "touchstart" || event.type === "wheel") {
+        focusPaused = false;
+        hoverPaused = false;
+      }
+    }
+
+    function pauseTemporarily(event) {
+      releasePointerFocusPause(event);
+      manualPaused = true;
       clearTimeout(appState.homeNumbersResumeTimer);
-      appState.homeNumbersResumeTimer = setTimeout(resumeAutoplay, HOME_NUMBERS_AUTOPLAY_RESUME_MS);
+      appState.homeNumbersResumeTimer = setTimeout(resumeManualAutoplay, HOME_NUMBERS_AUTOPLAY_RESUME_MS);
+    }
+
+    function syncFromScroll() {
+      var slides = getHomeNumbersSlides(swiper);
+      var slidesPerView = getHomeNumbersSlidesPerView(swiper);
+      syncHomeNumbersSwiperState(swiper, getHomeNumbersCurrentIndex(swiper, slides, slidesPerView));
+    }
+
+    function queueScrollSync() {
+      if (syncFrame) return;
+      syncFrame = window.requestAnimationFrame(function () {
+        syncFrame = null;
+        syncFromScroll();
+      });
     }
 
     function advance() {
@@ -6079,30 +6242,108 @@
         clearHomeNumbersAutoplay();
         return;
       }
-      if (document.hidden || paused || swiper.closest("[hidden]") || swiper.contains(document.activeElement)) return;
+      if (document.hidden || isAutoplayPaused() || swiper.closest("[hidden]") || !canAutoSlideHomeNumbers(swiper)) return;
       slides = getHomeNumbersSlides(swiper);
       slidesPerView = getHomeNumbersSlidesPerView(swiper);
       limit = homeNumbersMaxIndex(slides, slidesPerView);
       if (limit <= 0) return;
       currentIndex = getHomeNumbersCurrentIndex(swiper, slides, slidesPerView);
-      nextIndex = currentIndex >= limit ? 0 : Math.min(currentIndex + slidesPerView, limit);
-      swiper.dataset.homeNumbersAutoplayIndex = String(nextIndex);
+      nextIndex = currentIndex >= limit ? 0 : Math.min(currentIndex + 1, limit);
       scrollHomeNumbersToIndex(swiper, slides, nextIndex);
     }
 
-    swiper.dataset.homeNumbersAutoplay = "ready";
-    swiper.addEventListener("mouseenter", pauseAutoplay);
-    swiper.addEventListener("mouseleave", resumeAutoplay);
-    swiper.addEventListener("focusin", pauseAutoplay);
-    swiper.addEventListener("focusout", function () {
+    function handleManualControl(direction, event) {
+      if (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (event.stopImmediatePropagation) event.stopImmediatePropagation();
+      }
+      pauseTemporarily(event);
+      moveHomeNumbersBy(swiper, direction);
+    }
+
+    function handleCarouselClick(event) {
+      var dot = event.target.closest("[data-home-numbers-dot]");
+      if (event.target.closest(".nds-prev")) {
+        handleManualControl(-1, event);
+        return;
+      }
+      if (event.target.closest(".nds-next")) {
+        handleManualControl(1, event);
+        return;
+      }
+      if (dot && swiper.contains(dot)) {
+        event.preventDefault();
+        pauseTemporarily(event);
+        scrollHomeNumbersToIndex(swiper, getHomeNumbersSlides(swiper), Number(dot.dataset.homeNumbersDot) || 0);
+      }
+    }
+
+    function handleCarouselKeydown(event) {
+      var dot = event.target.closest("[data-home-numbers-dot]");
+      if (dot && (event.key === "Enter" || event.key === " ")) {
+        event.preventDefault();
+        pauseTemporarily(event);
+        scrollHomeNumbersToIndex(swiper, getHomeNumbersSlides(swiper), Number(dot.dataset.homeNumbersDot) || 0);
+        return;
+      }
+      if (event.key === "ArrowLeft") {
+        handleManualControl(homeNumbersIsRtl(swiper) ? 1 : -1, event);
+        return;
+      }
+      if (event.key === "ArrowRight") {
+        handleManualControl(homeNumbersIsRtl(swiper) ? -1 : 1, event);
+      }
+    }
+
+    function handleResize() {
+      clearTimeout(resizeTimer);
+      resizeTimer = setTimeout(function () {
+        var slides = getHomeNumbersSlides(swiper);
+        var slidesPerView;
+        var index;
+        delete swiper.dataset.homeNumbersSlidesPerView;
+        slidesPerView = getHomeNumbersSlidesPerView(swiper);
+        index = getHomeNumbersCurrentIndex(swiper, slides, slidesPerView);
+        scrollHomeNumbersToIndex(swiper, slides, Math.min(index, homeNumbersMaxIndex(slides, slidesPerView)));
+        syncFromScroll();
+      }, 120);
+    }
+
+    function handleFocusOut() {
       setTimeout(function () {
-        if (!swiper.contains(document.activeElement)) resumeAutoplay();
+        if (!swiper.contains(document.activeElement)) resumeFocusAutoplay();
       }, 0);
-    });
+    }
+
+    swiper.dataset.homeNumbersAutoplay = "ready";
+    swiper.addEventListener("mouseenter", pauseHoverAutoplay);
+    swiper.addEventListener("mouseleave", resumeHoverAutoplay);
+    swiper.addEventListener("focusin", pauseFocusAutoplay);
+    swiper.addEventListener("focusout", handleFocusOut);
+    wrapper.addEventListener("scroll", queueScrollSync, { passive: true });
+    swiper.addEventListener("click", handleCarouselClick);
+    swiper.addEventListener("keydown", handleCarouselKeydown);
     swiper.addEventListener("pointerdown", pauseTemporarily, { passive: true });
     swiper.addEventListener("touchstart", pauseTemporarily, { passive: true });
     swiper.addEventListener("wheel", pauseTemporarily, { passive: true });
+    window.addEventListener("resize", handleResize, { passive: true });
     appState.homeNumbersTimer = setInterval(advance, HOME_NUMBERS_SLIDE_DURATION);
+    appState.homeNumbersCleanup = function () {
+      clearTimeout(resizeTimer);
+      if (syncFrame) window.cancelAnimationFrame(syncFrame);
+      swiper.removeEventListener("mouseenter", pauseHoverAutoplay);
+      swiper.removeEventListener("mouseleave", resumeHoverAutoplay);
+      swiper.removeEventListener("focusin", pauseFocusAutoplay);
+      swiper.removeEventListener("focusout", handleFocusOut);
+      wrapper.removeEventListener("scroll", queueScrollSync);
+      swiper.removeEventListener("click", handleCarouselClick);
+      swiper.removeEventListener("keydown", handleCarouselKeydown);
+      swiper.removeEventListener("pointerdown", pauseTemporarily);
+      swiper.removeEventListener("touchstart", pauseTemporarily);
+      swiper.removeEventListener("wheel", pauseTemporarily);
+      window.removeEventListener("resize", handleResize);
+    };
   }
 
   function renderHomeNumbers(home, items) {
@@ -6139,6 +6380,8 @@
     swiper.setAttribute("slides-mid", "3");
     swiper.setAttribute("slides-min", "1");
     swiper.setAttribute("peek", "0");
+    swiper.setAttribute("data-swiper-initialized", "true");
+    swiper.dataset.ndsLocalSwiper = "ready";
     swiper.tabIndex = 0;
 
     items.forEach(function (item) {

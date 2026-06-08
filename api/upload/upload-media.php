@@ -71,7 +71,13 @@ function cms_svg_is_safe(string $tmpName): bool
 try {
     $pdo = cms_pdo();
     $user = cms_require_admin($pdo);
-    if (!cms_admin_has_permission($user, 'uploads') && !cms_admin_has_any_permission($user, cms_content_permission_keys())) {
+    $type = cms_string($_POST['type'] ?? 'image', 50);
+    $isAdminUserImage = str_contains(strtolower($type), 'admin-user') && str_contains(strtolower($type), 'image');
+    if (
+        !cms_admin_has_permission($user, 'uploads')
+        && !cms_admin_has_any_permission($user, cms_content_permission_keys())
+        && !($isAdminUserImage && cms_admin_has_permission($user, 'users'))
+    ) {
         cms_json_response(['success' => false, 'message' => 'Permission denied.'], 403);
     }
     $config = cms_config();
@@ -150,7 +156,6 @@ try {
         cms_json_response(['success' => false, 'message' => 'File MIME type is not allowed.'], 422);
     }
 
-    $type = cms_string($_POST['type'] ?? 'image', 50);
     $folder = cms_upload_folder($type, $extension);
     $absoluteFolder = cms_public_path($folder);
     if (!is_dir($absoluteFolder) && !mkdir($absoluteFolder, 0755, true)) {

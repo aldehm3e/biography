@@ -182,6 +182,7 @@ function cms_ensure_admin_user_columns(PDO $pdo): void
         'role' => "VARCHAR(50) NOT NULL DEFAULT 'employee'",
         'permissions_json' => 'LONGTEXT',
         'active' => 'TINYINT(1) NOT NULL DEFAULT 1',
+        'avatar_path' => 'VARCHAR(500)',
     ];
 
     foreach ($columns as $column => $definition) {
@@ -216,12 +217,15 @@ function cms_admin_payload(array $user): array
     $permissions = $role === 'owner'
         ? ['*']
         : cms_normalize_admin_permissions($user['permissions_json'] ?? $user['permissions'] ?? []);
+    $avatarPath = (string) ($user['avatar_path'] ?? $user['avatar'] ?? '');
 
     return [
         'id' => (int) ($user['id'] ?? 0),
         'email' => (string) ($user['email'] ?? ''),
         'display_name' => (string) ($user['display_name'] ?? ''),
         'phone' => (string) ($user['phone'] ?? ''),
+        'avatar' => $avatarPath,
+        'avatar_path' => $avatarPath,
         'role' => $role,
         'permissions' => $permissions,
         'active' => cms_bool($user['active'] ?? true, true),
@@ -283,7 +287,7 @@ function cms_ensure_media_uploads_table(PDO $pdo): void
 function cms_fetch_admin_users(PDO $pdo): array
 {
     cms_ensure_admin_user_columns($pdo);
-    $rows = $pdo->query('SELECT id, email, display_name, phone, role, permissions_json, active, created_at, updated_at FROM admin_users ORDER BY id ASC')->fetchAll();
+    $rows = $pdo->query('SELECT id, email, display_name, phone, avatar_path, role, permissions_json, active, created_at, updated_at FROM admin_users ORDER BY id ASC')->fetchAll();
     if (!is_array($rows)) {
         return [];
     }
@@ -301,7 +305,7 @@ function cms_current_admin(PDO $pdo = null): ?array
 
     $pdo = $pdo ?: cms_pdo();
     cms_ensure_admin_user_columns($pdo);
-    $stmt = $pdo->prepare('SELECT id, email, display_name, phone, role, permissions_json, active, created_at, updated_at FROM admin_users WHERE id = :id LIMIT 1');
+    $stmt = $pdo->prepare('SELECT id, email, display_name, phone, avatar_path, role, permissions_json, active, created_at, updated_at FROM admin_users WHERE id = :id LIMIT 1');
     $stmt->execute(['id' => (int) $adminId]);
     $user = $stmt->fetch();
 

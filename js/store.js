@@ -446,6 +446,10 @@
         method: "POST",
         body: JSON.stringify(user || {})
       }).then(function (payload) {
+        if (payload.user) {
+          currentUser = payload.user;
+          window.dispatchEvent(new CustomEvent("site:authchange", { detail: { user: currentUser } }));
+        }
         return payload.users || [];
       });
     },

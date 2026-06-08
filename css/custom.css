@@ -1452,6 +1452,7 @@ html[dir="ltr"] .nds-breadcrumb > li:not(:last-child)::after {
   max-width: 100%;
   overflow: hidden;
   -webkit-box-orient: vertical;
+  line-clamp: 2;
   -webkit-line-clamp: 2;
 }
 
@@ -1801,6 +1802,7 @@ body[data-page="home"] [data-extra-page-content-view] {
   font-size: 14px;
   line-height: 1.75;
   -webkit-box-orient: vertical;
+  line-clamp: 3;
   -webkit-line-clamp: 3;
 }
 

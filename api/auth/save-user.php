@@ -9,6 +9,15 @@ function cms_admin_user_role(mixed $role): string
     return in_array($clean, ['owner', 'admin', 'employee'], true) ? $clean : 'employee';
 }
 
+function cms_admin_user_avatar_path(mixed $value): string
+{
+    $path = cms_string($value, 500);
+    if ($path === '' || preg_match('/(^|\/)\.\.(\/|$)/', str_replace('\\', '/', $path))) {
+        return '';
+    }
+    return ltrim(str_replace('\\', '/', $path), '/');
+}
+
 try {
     $pdo = cms_pdo();
     $currentUser = cms_require_permission($pdo, 'users');
@@ -18,6 +27,7 @@ try {
     $email = strtolower(trim((string) ($body['email'] ?? '')));
     $displayName = cms_string($body['displayName'] ?? $body['display_name'] ?? '', 255);
     $phone = cms_string($body['phone'] ?? '', 50);
+    $avatarPath = cms_admin_user_avatar_path($body['avatar'] ?? $body['avatarPath'] ?? $body['avatar_path'] ?? '');
     $role = cms_admin_user_role($body['role'] ?? 'employee');
     $active = cms_bool($body['active'] ?? true, true);
     $password = (string) ($body['password'] ?? '');
@@ -63,7 +73,7 @@ try {
         if ($password !== '') {
             $update = $pdo->prepare(
                 'UPDATE admin_users
-                 SET email = :email, display_name = :display_name, phone = :phone, role = :role,
+                 SET email = :email, display_name = :display_name, phone = :phone, avatar_path = :avatar_path, role = :role,
                      permissions_json = :permissions_json, active = :active, password_hash = :password_hash
                  WHERE id = :id'
             );
@@ -71,6 +81,7 @@ try {
                 'email' => $email,
                 'display_name' => $displayName,
                 'phone' => $phone,
+                'avatar_path' => $avatarPath,
                 'role' => $role,
                 'permissions_json' => $permissionsJson,
                 'active' => $active ? 1 : 0,
@@ -80,7 +91,7 @@ try {
         } else {
             $update = $pdo->prepare(
                 'UPDATE admin_users
-                 SET email = :email, display_name = :display_name, phone = :phone, role = :role,
+                 SET email = :email, display_name = :display_name, phone = :phone, avatar_path = :avatar_path, role = :role,
                      permissions_json = :permissions_json, active = :active
                  WHERE id = :id'
             );
@@ -88,6 +99,7 @@ try {
                 'email' => $email,
                 'display_name' => $displayName,
                 'phone' => $phone,
+                'avatar_path' => $avatarPath,
                 'role' => $role,
                 'permissions_json' => $permissionsJson,
                 'active' => $active ? 1 : 0,
@@ -100,14 +112,15 @@ try {
         }
 
         $insert = $pdo->prepare(
-            'INSERT INTO admin_users (email, password_hash, display_name, phone, role, permissions_json, active)
-             VALUES (:email, :password_hash, :display_name, :phone, :role, :permissions_json, :active)'
+            'INSERT INTO admin_users (email, password_hash, display_name, phone, avatar_path, role, permissions_json, active)
+             VALUES (:email, :password_hash, :display_name, :phone, :avatar_path, :role, :permissions_json, :active)'
         );
         $insert->execute([
             'email' => $email,
             'password_hash' => password_hash($password, PASSWORD_DEFAULT),
             'display_name' => $displayName,
             'phone' => $phone,
+            'avatar_path' => $avatarPath,
             'role' => $role,
             'permissions_json' => $permissionsJson,
             'active' => $active ? 1 : 0,
@@ -116,6 +129,7 @@ try {
 
     cms_json_response([
         'success' => true,
+        'user' => cms_current_admin($pdo),
         'users' => cms_fetch_admin_users($pdo),
     ]);
 } catch (PDOException $error) {

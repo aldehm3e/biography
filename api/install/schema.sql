@@ -4,6 +4,7 @@ CREATE TABLE IF NOT EXISTS admin_users (
   password_hash VARCHAR(255) NOT NULL,
   display_name VARCHAR(255),
   phone VARCHAR(50),
+  avatar_path VARCHAR(500),
   role VARCHAR(50) NOT NULL DEFAULT 'owner',
   permissions_json LONGTEXT,
   active TINYINT(1) NOT NULL DEFAULT 1,

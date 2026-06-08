@@ -4689,7 +4689,7 @@
   }
 
   function userTitle(user) {
-    return user.displayName || user.email || "موظف جديد";
+    return user.displayName || user.display_name || user.email || "موظف جديد";
   }
 
   function userPermissionsHtml(user, index) {
@@ -4740,6 +4740,7 @@
       inputHtml("adminUserDisplayName", "الاسم", user.displayName || user.display_name || ""),
       inputHtml("adminUserEmail", "البريد الإلكتروني", user.email || ""),
       inputHtml("adminUserPhone", "رقم الجوال", user.phone || ""),
+      uploadableInputHtml("adminUserAvatar", "صورة المستخدم", user.avatar || user.avatarPath || user.avatar_path || "", "admin-user-image", "اختياري"),
       selectHtml("adminUserRole", "الدور", user.role || "employee", ADMIN_ROLES),
       passwordHtml("adminUserPassword", user.id ? "كلمة مرور جديدة" : "كلمة المرور", user.id ? "اتركه فارغا إذا لا تريد تغييره" : "8 أحرف على الأقل"),
       '</div>',
@@ -4801,6 +4802,7 @@
       displayName: qs('[data-field="adminUserDisplayName"]', item).value.trim(),
       email: qs('[data-field="adminUserEmail"]', item).value.trim(),
       phone: qs('[data-field="adminUserPhone"]', item).value.trim(),
+      avatar: qs('[data-field="adminUserAvatar"]', item).value.trim(),
       role: role,
       password: qs('[data-field="adminUserPassword"]', item).value,
       active: qs("[data-user-active]", item).checked,
@@ -4815,6 +4817,7 @@
       displayName: "",
       email: "",
       phone: "",
+      avatar: "",
       role: "employee",
       permissions: ["home", "footer", "projects", "cards", "pages", "uploads"],
       active: true
