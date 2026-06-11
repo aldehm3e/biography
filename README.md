@@ -67,7 +67,6 @@ http://localhost/Biography/install/
 - `README_INSTALL_BEGINNER.md`: simple installation guide for beginners.
 - `README_DATABASE.md`: database, schema, deployment, backup, restore, and QA details.
 - `APP_STRUCTURE.md`: runtime architecture, data model, backend endpoints, and extension notes.
-- `AGENTS.md`: coding-agent handoff rules and local sanity commands.
 - `LICENSE`: GNU GPL v2.0 license text.
 - `THIRD_PARTY_NOTICES.md`: attribution and change notes for third-party data/assets.
 
