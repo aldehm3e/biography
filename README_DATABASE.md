@@ -54,7 +54,7 @@ The schema creates tables for:
 - admin users
 - site settings
 - navigation items
-- main page content
+- main page content and Saudi map JSON config
 - hero slides
 - home number/statistic cards
 - experiences
@@ -92,7 +92,7 @@ Only root pages may appear as main header items. Subpages must stay under their 
 
 The repository also normalizes malformed page data so nested/cyclic subpages do not break navigation.
 
-## Local Laragon Database
+## Local Database
 
 Normal database name:
 
@@ -106,7 +106,7 @@ Create it:
 mysql -u root -e "CREATE DATABASE biography_cms CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 ```
 
-Installer values for a default Laragon setup:
+Installer values for a default local XAMPP or Laragon setup:
 
 ```text
 DB host: localhost
@@ -233,7 +233,7 @@ When changing schema:
 PHP syntax:
 
 ```powershell
-$php = "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe"
+$php = "C:\xampp\php\php.exe"
 Get-ChildItem -Recurse -Filter *.php |
   Where-Object { $_.FullName -notmatch '\\(vendor|node_modules|backup|backups)\\' } |
   ForEach-Object { & $php -l $_.FullName }

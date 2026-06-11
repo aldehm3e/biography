@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS main_page (
   hero_video VARCHAR(500),
   numbers_title VARCHAR(255),
   numbers_subtitle VARCHAR(255),
+  region_map_json LONGTEXT,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

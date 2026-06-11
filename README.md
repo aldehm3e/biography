@@ -23,7 +23,7 @@ The database is the source of truth after installation. `localStorage` is only a
 
 ## Local URLs
 
-With Laragon and the project copied to `C:\laragon\www\Biography`:
+With XAMPP and the project copied to `C:\xampp\htdocs\Biography`:
 
 ```text
 http://localhost/Biography/index.html
@@ -45,6 +45,7 @@ http://localhost/Biography/install/
 - Pages and projects can have image/video media.
 - Hero slides support desktop and mobile media.
 - Home number/statistic cards support editable titles, values, icons, visibility, and slider display.
+- Optional Saudi region heat map under the home numbers section, with editable title, subtitle, metric label, metric icon, visibility, and per-region values.
 - NDS-inspired header, menus, modals, buttons, cards, breadcrumbs, and share controls.
 - Uploads for images, video, logos, and icons.
 
@@ -65,6 +66,18 @@ http://localhost/Biography/install/
 - `README.md`: project overview and future handoff rules.
 - `README_INSTALL_BEGINNER.md`: simple installation guide for beginners.
 - `README_DATABASE.md`: database, schema, deployment, backup, restore, and QA details.
+- `APP_STRUCTURE.md`: runtime architecture, data model, backend endpoints, and extension notes.
+- `AGENTS.md`: coding-agent handoff rules and local sanity commands.
+- `LICENSE`: GNU GPL v2.0 license text.
+- `THIRD_PARTY_NOTICES.md`: attribution and change notes for third-party data/assets.
+
+## License
+
+Biography CMS is open source under the GNU General Public License version 2.0 only. See `LICENSE`.
+
+Copyright (C) 2026 Eng. Abdulrahman alsaedi. SPDX license identifier: `GPL-2.0-only`.
+
+The Saudi map geometry and region metadata include derived data from `homaily/Saudi-Arabia-Regions-Cities-and-Districts`, licensed under GPL-2.0. See `THIRD_PARTY_NOTICES.md`.
 
 ## Developer Workflow
 
@@ -78,10 +91,10 @@ git status --short
 3. Make focused changes only.
 4. For code edits, keep existing vanilla PHP/JS/CSS patterns.
 5. Run syntax checks before handoff.
-6. If testing against Laragon, sync tested files to:
+6. If testing locally in this workspace, sync tested files to the active XAMPP copy:
 
 ```text
-C:\laragon\www\Biography
+C:\xampp\htdocs\Biography
 ```
 
 ## QA Checklist
@@ -96,10 +109,10 @@ Get-ChildItem -Recurse -Filter *.js |
   ForEach-Object { node --check $_.FullName }
 ```
 
-PHP syntax with Laragon PHP:
+PHP syntax with XAMPP PHP:
 
 ```powershell
-$php = "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe"
+$php = "C:\xampp\php\php.exe"
 Get-ChildItem -Recurse -Filter *.php |
   Where-Object { $_.FullName -notmatch '\\(vendor|node_modules|backup|backups)\\' } |
   ForEach-Object { & $php -l $_.FullName }
@@ -135,7 +148,7 @@ Browser QA:
 Use the admin panel for normal content:
 
 - `الإعدادات`: brand, logo, language, labels, verification text, interface text.
-- `الرئيسية`: owner content, biography, hero slides, `في أرقام`, skills, experience, achievements.
+- `الرئيسية`: owner content, biography, hero slides, `في أرقام`, Saudi map, skills, experience, achievements.
 - `المشاريع`: project cards and project media.
 - `البطاقات`: card collection pages, card titles/subtitles, optional detail links, and header visibility.
 - `الصفحات`: pages, subpages, text/HTML content, page media, header/footer visibility.

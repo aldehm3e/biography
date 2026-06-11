@@ -11,7 +11,7 @@ This guide is for installing Biography CMS without touching code.
 - Apache or another PHP-capable web server
 - A browser
 
-For local testing, Laragon is recommended on Windows.
+For local testing on this machine, XAMPP is the active setup. Laragon also works if the project is copied to Laragon's web root.
 
 ## Important Idea
 
@@ -24,6 +24,7 @@ After installation, open `admin.html` and manage content from the admin panel:
 - home page content
 - hero slides
 - home numbers/statistics
+- Saudi region map
 - biography
 - projects
 - card pages
@@ -233,7 +234,7 @@ install/install.lock
 3. Drop the old database or create a new empty database.
 4. Open the installer again.
 
-Local Laragon installer:
+Local installer:
 
 ```text
 http://localhost/Biography/install/

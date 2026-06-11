@@ -2108,6 +2108,11 @@
     setValue("heroVideo", data.home.heroVideo);
     setValue("homeNumbersTitle", data.home.numbers.title);
     setValue("homeNumbersSubtitle", data.home.numbers.subtitle);
+    ensureSaudiRegionMapData();
+    setValue("saudiMapTitle", data.home.regionMap.title);
+    setValue("saudiMapSubtitle", data.home.regionMap.subtitle);
+    setValue("saudiMapMetricLabel", data.home.regionMap.metricLabel);
+    setChecked("saudiMapVisible", data.home.regionMap.visible === true);
     setValue("skills", (data.home.skills || []).map(function (item) { return typeof item === "string" ? item : item.name; }).join("\n"));
     setValue("experience", formatItems(data.home.experience || []));
     setValue("achievements", formatItems(data.home.achievements || []));
@@ -2123,6 +2128,8 @@
 
     renderHeroSlidesEditor();
     renderHomeNumbersEditor();
+    renderSaudiMapMetricIconEditor();
+    renderSaudiMapRegionsEditor();
     renderContentRowsEditor("experience");
     renderContentRowsEditor("achievements");
     renderSkillsEditor();
@@ -2186,6 +2193,40 @@
     data.home.numbers.subtitle = data.home.numbers.subtitle || "";
     data.home.numbers.cards = Array.isArray(data.home.numbers.cards) ? data.home.numbers.cards : [];
     return data.home.numbers;
+  }
+
+  function saudiMapRegions() {
+    return Array.isArray(window.SAUDI_MAP_REGIONS) ? window.SAUDI_MAP_REGIONS : [];
+  }
+
+  function cleanSaudiMapNumber(value) {
+    return String(value == null ? "" : value).replace(/[^\d]/g, "");
+  }
+
+  function ensureSaudiRegionMapData() {
+    var map;
+    var values = {};
+    data.home = data.home || {};
+    map = data.home.regionMap && typeof data.home.regionMap === "object" ? data.home.regionMap : {};
+    (Array.isArray(map.regions) ? map.regions : []).forEach(function (item) {
+      var regionId = Number(item && (item.regionId || item.id));
+      if (regionId) values[regionId] = cleanSaudiMapNumber(item.value);
+    });
+    data.home.regionMap = {
+      visible: map.visible === true,
+      title: String(map.title || ""),
+      subtitle: String(map.subtitle || ""),
+      metricLabel: String(map.metricLabel || map.valueLabel || ""),
+      metricIcon: normalizeHomeNumberIcon(map.metricIcon || map.valueIcon || map.icon || ""),
+      regions: saudiMapRegions().map(function (region) {
+        var regionId = Number(region.id);
+        return {
+          regionId: regionId,
+          value: values[regionId] != null ? values[regionId] : ""
+        };
+      })
+    };
+    return data.home.regionMap;
   }
 
   function saveSettings(event) {
@@ -2264,6 +2305,7 @@
     data.home.heroVideo = "";
     data.home.heroSlides = collectHeroSlides();
     data.home.numbers = collectHomeNumbers();
+    data.home.regionMap = collectSaudiRegionMap();
     data.home.experience = collectContentRows("experience");
     data.home.achievements = collectContentRows("achievements");
     data.home.skills = collectSkills();
@@ -3121,7 +3163,7 @@
       '<span class="nds-label sr-only" data-home-number-icon-label>' + safeText(selected.label) + '</span>',
       '<i class="nds-icon nds-hgi-arrow-down-01 icon-type-arrow" aria-hidden="true"></i>',
       '</button>',
-      '<input type="hidden" data-field="' + safeText(key) + '" value="' + safeText(selected.value) + '">',
+      '<input type="hidden" data-home-number-icon-input data-field="' + safeText(key) + '" value="' + safeText(selected.value) + '">',
       '<div class="nds-dropmenu-menu icon-type-options home-number-icon-options" hidden aria-hidden="true">',
       '<div class="nds-dropmenu-scroll" data-home-number-icon-list></div>',
       '</div>',
@@ -3181,6 +3223,78 @@
         };
       }).filter(function (card) {
         return keepDrafts || card.title || card.number;
+      })
+    };
+  }
+
+  function saudiMapRegionValue(regionId, map) {
+    var match = (map.regions || []).find(function (item) {
+      return Number(item.regionId || item.id) === Number(regionId);
+    });
+    return match ? cleanSaudiMapNumber(match.value) : "";
+  }
+
+  function saudiMapRegionTemplate(region, map) {
+    var value = saudiMapRegionValue(region.id, map);
+    return [
+      '<article class="editor-item compact-editor-item admin-template-item nds-card nds-stroke" data-saudi-map-region-id="' + safeText(region.id) + '">',
+      '<div class="nds-card-content compact-card-content">',
+      '<div class="saudi-map-region-row">',
+      '<div class="saudi-map-region-name">',
+      '<span class="nds-card-title">' + safeText(region.nameAr || region.nameEn || "") + '</span>',
+      '<span class="nds-card-description">' + safeText(region.nameEn || "") + '</span>',
+      '</div>',
+      '<div class="nds-form-container">',
+      '<div class="nds-form-header"><label><span class="nds-label">الرقم</span></label></div>',
+      '<div class="nds-form-control"><input class="nds-input saudi-map-region-value-input" type="text" inputmode="numeric" pattern="[0-9]*" autocomplete="off" data-saudi-map-region-value value="' + safeText(value) + '"></div>',
+      '</div>',
+      '</div>',
+      '</div>',
+      '</article>'
+    ].join("");
+  }
+
+  function renderSaudiMapRegionsEditor() {
+    var root = qs("[data-saudi-map-regions-editor]");
+    var map = ensureSaudiRegionMapData();
+    var regions = saudiMapRegions();
+    if (!root) return;
+    root.innerHTML = regions.map(function (region) {
+      return saudiMapRegionTemplate(region, map);
+    }).join("");
+    if (!regions.length) {
+      root.append(window.SiteApp.emptyState("لا توجد بيانات مناطق", "تعذر تحميل بيانات خريطة المملكة."));
+    }
+  }
+
+  function renderSaudiMapMetricIconEditor() {
+    var root = qs("[data-saudi-map-metric-icon-editor]");
+    var map = ensureSaudiRegionMapData();
+    if (!root) return;
+    root.innerHTML = homeNumberIconDropmenuHtml("saudiMapMetricIcon", "أيقونة الأرقام", map.metricIcon || "hgi-chart-up");
+  }
+
+  function collectSaudiRegionMap() {
+    var values = {};
+    var metricIconInput = qs('[data-field="saudiMapMetricIcon"]');
+    ensureSaudiRegionMapData();
+    qsa("[data-saudi-map-region-id]").forEach(function (item) {
+      var regionId = Number(item.dataset.saudiMapRegionId);
+      var input = qs("[data-saudi-map-region-value]", item);
+      if (regionId && input) values[regionId] = cleanSaudiMapNumber(input.value);
+    });
+    return {
+      visible: !field("saudiMapVisible") || field("saudiMapVisible").checked,
+      title: value("saudiMapTitle"),
+      subtitle: value("saudiMapSubtitle"),
+      metricLabel: value("saudiMapMetricLabel"),
+      metricIcon: normalizeHomeNumberIcon(metricIconInput ? metricIconInput.value : data.home.regionMap.metricIcon),
+      regions: saudiMapRegions().map(function (region) {
+        var regionId = Number(region.id);
+        return {
+          regionId: regionId,
+          value: values[regionId] != null ? values[regionId] : ""
+        };
       })
     };
   }
@@ -6046,6 +6160,9 @@
       if (event.target.matches("[data-ga-measurement-input]")) {
         syncGaMeasurementStatus(event.target);
       }
+      if (event.target.matches("[data-saudi-map-region-value]")) {
+        event.target.value = cleanSaudiMapNumber(event.target.value);
+      }
     });
 
     document.addEventListener("focusout", function (event) {
@@ -6773,7 +6890,7 @@
     var menu = optionButton.closest("[data-home-number-icon-menu]");
     if (!menu) return;
     var selected = getHomeNumberIconOption(optionButton.dataset.homeNumberIconOption);
-    var input = qs('[data-field="homeNumberIcon"]', menu);
+    var input = homeNumberIconInput(menu);
     var label = qs("[data-home-number-icon-label]", menu);
     var trigger = qs("[data-home-number-icon-trigger]", menu);
     var existingIcon = trigger ? qs(".home-number-icon-preview", trigger) : null;
@@ -6801,13 +6918,17 @@
 
   function ensureHomeNumberIconOptions(menu) {
     var list = menu ? qs("[data-home-number-icon-list]", menu) : null;
-    var input = menu ? qs('[data-field="homeNumberIcon"]', menu) : null;
+    var input = homeNumberIconInput(menu);
     var selectedValue = input ? normalizeHomeNumberIcon(input.value) : "hgi-chart-up";
     if (!list || list.dataset.iconsReady === "true") return;
     list.innerHTML = homeNumberIconOptions().map(function (option) {
       return homeNumberIconOptionHtml(option, selectedValue);
     }).join("");
     list.dataset.iconsReady = "true";
+  }
+
+  function homeNumberIconInput(menu) {
+    return menu ? qs("[data-home-number-icon-input]", menu) : null;
   }
 
   function closeOptionMenus(exceptMenu) {

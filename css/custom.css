@@ -1358,6 +1358,301 @@ html[dir="ltr"] .nds-breadcrumb > li:not(:last-child)::after {
   line-height: 1;
 }
 
+.saudi-map-section {
+  --saudi-map-bg: #07543b;
+  --saudi-map-bg-deep: #05452f;
+  --saudi-map-hover: var(--colors-secondary-gold-600, #dba102);
+  --saudi-map-heat-0: rgba(255, 255, 255, 0.1);
+  --saudi-map-heat-1: rgba(216, 242, 229, 0.24);
+  --saudi-map-heat-2: rgba(196, 230, 214, 0.34);
+  --saudi-map-heat-3: rgba(168, 214, 194, 0.46);
+  --saudi-map-heat-4: rgba(139, 196, 171, 0.58);
+  --saudi-map-heat-5: rgba(109, 178, 147, 0.7);
+  --saudi-map-heat-6: rgba(226, 244, 236, 0.86);
+  background:
+    radial-gradient(circle at 18% 20%, rgba(255, 255, 255, 0.08), transparent 28%),
+    linear-gradient(135deg, var(--saudi-map-bg-deep), var(--saudi-map-bg));
+  color: var(--text-oncolor-primary);
+  display: flex;
+  align-items: center;
+  min-height: 850px;
+  overflow: hidden;
+}
+
+.saudi-map-section > .site-container {
+  width: 100%;
+}
+
+.saudi-map-section .nds-section-wrapper {
+  gap: 24px;
+}
+
+.saudi-map-layout {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) minmax(420px, 720px) minmax(220px, 1fr);
+  gap: clamp(24px, 4vw, 56px);
+  align-items: center;
+  width: 100%;
+  direction: ltr;
+}
+
+.saudi-map-copy {
+  display: grid;
+  grid-column: 3;
+  grid-row: 1;
+  gap: 10px;
+  justify-items: center;
+  justify-self: start;
+  max-width: 320px;
+  text-align: center;
+  direction: rtl;
+}
+
+.saudi-map-visual {
+  display: grid;
+  grid-column: 2;
+  grid-row: 1;
+  justify-items: center;
+  justify-self: center;
+  width: 100%;
+  max-width: 720px;
+  direction: rtl;
+  min-width: 0;
+}
+
+.saudi-map-section :is(.nds-section-title, .nds-section-description) {
+  color: var(--text-oncolor-primary);
+}
+
+.saudi-map-section .nds-section-description {
+  opacity: 0.9;
+}
+
+.saudi-map-host {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  min-height: 600px;
+  isolation: isolate;
+}
+
+.saudi-map-host svg {
+  display: block;
+  width: min(100%, 712px);
+  height: auto;
+  max-height: 600px;
+  border: 0;
+  outline: 0 !important;
+  box-shadow: none;
+}
+
+.saudi-map-host :is(svg, svg:focus, svg:focus-visible, .saudi-region, .saudi-region:focus, .saudi-region:focus-visible) {
+  outline: 0 !important;
+  box-shadow: none !important;
+}
+
+.saudi-map-host .saudi-region {
+  fill: var(--saudi-map-heat-2);
+  stroke: rgba(5, 69, 47, 0.78);
+  stroke-width: 0.8;
+  vector-effect: non-scaling-stroke;
+  cursor: pointer;
+  outline: none;
+  transition: fill var(--nds-transition), opacity var(--nds-transition);
+}
+
+.saudi-map-host .saudi-region.heat-0,
+.saudi-map-legend-box.heat-0 {
+  background: var(--saudi-map-heat-0);
+  fill: var(--saudi-map-heat-0);
+}
+
+.saudi-map-host .saudi-region.heat-1,
+.saudi-map-legend-box.heat-1 {
+  background: var(--saudi-map-heat-1);
+  fill: var(--saudi-map-heat-1);
+}
+
+.saudi-map-host .saudi-region.heat-2,
+.saudi-map-legend-box.heat-2 {
+  background: var(--saudi-map-heat-2);
+  fill: var(--saudi-map-heat-2);
+}
+
+.saudi-map-host .saudi-region.heat-3,
+.saudi-map-legend-box.heat-3 {
+  background: var(--saudi-map-heat-3);
+  fill: var(--saudi-map-heat-3);
+}
+
+.saudi-map-host .saudi-region.heat-4,
+.saudi-map-legend-box.heat-4 {
+  background: var(--saudi-map-heat-4);
+  fill: var(--saudi-map-heat-4);
+}
+
+.saudi-map-host .saudi-region.heat-5,
+.saudi-map-legend-box.heat-5 {
+  background: var(--saudi-map-heat-5);
+  fill: var(--saudi-map-heat-5);
+}
+
+.saudi-map-host .saudi-region.heat-6,
+.saudi-map-legend-box.heat-6 {
+  background: var(--saudi-map-heat-6);
+  fill: var(--saudi-map-heat-6);
+}
+
+.saudi-map-host .saudi-region:is(:hover, :focus-visible, .is-hover) {
+  fill: var(--saudi-map-hover);
+  opacity: 1;
+}
+
+.saudi-map-tip {
+  position: absolute;
+  inset: 0 auto auto 0;
+  z-index: 2;
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  max-width: min(220px, calc(100% - 16px));
+  padding: 8px 10px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.96);
+  color: var(--text-default);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.16);
+  pointer-events: none;
+  opacity: 0;
+  transform: translate(10px, 10px);
+  transition: opacity 0.12s ease;
+}
+
+.saudi-map-tip.is-show {
+  opacity: 1;
+}
+
+.saudi-map-tip .nds-text-icon {
+  align-items: center;
+  gap: 5px;
+  justify-content: flex-start;
+  white-space: nowrap;
+}
+
+.saudi-map-tip .nds-text-icon .hgi {
+  font-weight: 400;
+}
+
+.saudi-map-tip .nds-text-icon:first-child strong {
+  font-weight: 700;
+}
+
+.saudi-map-tip-row {
+  font-size: 0.84rem;
+  color: var(--text-secondary-paragraph);
+}
+
+.saudi-map-legend {
+  display: grid;
+  gap: 8px;
+  justify-content: center;
+  margin-top: 16px;
+  max-width: 100%;
+  color: rgba(255, 255, 255, 0.86);
+  text-align: center;
+}
+
+.saudi-map-legend-title {
+  font-weight: 700;
+  opacity: 0.92;
+}
+
+.saudi-map-legend-scale {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  align-items: center;
+  justify-content: center;
+  max-width: 100%;
+}
+
+.saudi-map-legend-box {
+  display: inline-flex;
+  width: 28px;
+  height: 18px;
+  border-radius: 4px;
+  opacity: 0.88;
+}
+
+.saudi-map-legend-label {
+  font-size: 0.86rem;
+  opacity: 0.86;
+}
+
+.saudi-map-fallback {
+  margin: 0;
+  padding: 48px 16px;
+  text-align: center;
+  color: var(--text-oncolor-primary);
+}
+
+@media (max-width: 900px) {
+  .saudi-map-section {
+    min-height: 660px;
+  }
+
+  .saudi-map-layout {
+    grid-template-columns: 1fr;
+  }
+
+  .saudi-map-copy {
+    grid-column: auto;
+    grid-row: auto;
+    order: -1;
+    justify-items: center;
+    justify-self: center;
+    text-align: center;
+  }
+
+  .saudi-map-visual {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .saudi-map-host {
+    min-height: 260px;
+  }
+
+  .saudi-map-host svg {
+    width: min(100%, 620px);
+    max-height: 420px;
+  }
+
+  .saudi-map-legend {
+    width: 100%;
+  }
+
+  .saudi-map-legend-scale {
+    display: grid;
+    grid-template-columns: minmax(max-content, 1fr) repeat(7, minmax(20px, 28px)) minmax(max-content, 1fr);
+    gap: 6px;
+    width: min(100%, 360px);
+    margin-inline: auto;
+    padding-inline: 10px;
+    box-sizing: border-box;
+  }
+
+  .saudi-map-legend-box {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .saudi-map-legend-label {
+    white-space: nowrap;
+  }
+}
+
 .home-number-card {
   box-sizing: border-box;
   height: 190px;
@@ -9676,6 +9971,137 @@ body[data-page="admin"] [data-home-numbers-editor] .home-number-icon-trigger .ho
   flex-basis: 28px;
   font-size: 28px;
   line-height: 28px;
+}
+
+body[data-page="admin"] [data-saudi-map-metric-icon-editor] {
+  display: contents;
+}
+
+body[data-page="admin"] [data-home-section-panel="map"] .home-number-icon-options {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  width: min(520px, calc(100vw - 48px));
+  min-width: min(100%, 520px);
+}
+
+body[data-page="admin"] [data-home-section-panel="map"] .home-number-icon-options .nds-dropmenu-scroll {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(44px, 1fr));
+  gap: var(--spacing-xs);
+  max-height: min(320px, 52dvh);
+  padding: var(--spacing-sm);
+}
+
+body[data-page="admin"] [data-home-section-panel="map"] .home-number-icon-option {
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  justify-self: center;
+  justify-content: center;
+  padding: 0;
+}
+
+body[data-page="admin"] [data-home-section-panel="map"] .home-number-icon-trigger {
+  min-height: 40px;
+  justify-content: center;
+  padding-inline: var(--spacing-md);
+}
+
+body[data-page="admin"] [data-home-section-panel="map"] .home-number-icon-trigger .icon-type-arrow {
+  margin-inline-start: auto;
+}
+
+body[data-page="admin"] [data-home-section-panel="map"] .home-number-icon-option .home-number-icon-preview,
+body[data-page="admin"] [data-home-section-panel="map"] .home-number-icon-trigger .home-number-icon-preview {
+  width: 28px;
+  height: 28px;
+  flex-basis: 28px;
+  font-size: 28px;
+  line-height: 28px;
+}
+
+body[data-page="admin"] .saudi-map-region-editor {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 10px;
+  padding: var(--spacing-md);
+}
+
+body[data-page="admin"] [data-home-section-panel="map"] .hero-editor-block {
+  gap: var(--spacing-lg);
+}
+
+body[data-page="admin"] [data-home-section-panel="map"] > .hero-editor-block > .form-grid {
+  row-gap: var(--spacing-lg);
+  margin-block-end: var(--spacing-xs);
+}
+
+body[data-page="admin"] [data-home-section-panel="map"] > .hero-editor-block > .form-grid > .nds-form-container {
+  gap: var(--spacing-md);
+}
+
+body[data-page="admin"] .saudi-map-region-editor .editor-item {
+  min-width: 0;
+}
+
+body[data-page="admin"] .saudi-map-region-editor .compact-card-content {
+  padding: 10px 12px;
+}
+
+body[data-page="admin"] .saudi-map-region-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(112px, 128px);
+  gap: 8px;
+  align-items: center;
+}
+
+body[data-page="admin"] .saudi-map-region-name {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+  text-align: start;
+}
+
+body[data-page="admin"] .saudi-map-region-name .nds-card-title,
+body[data-page="admin"] .saudi-map-region-name .nds-card-description {
+  overflow-wrap: anywhere;
+}
+
+body[data-page="admin"] .saudi-map-region-name .nds-card-title {
+  font-size: 1rem;
+  line-height: 1.45;
+}
+
+body[data-page="admin"] .saudi-map-region-name .nds-card-description {
+  font-size: 0.86rem;
+  text-align: right;
+}
+
+body[data-page="admin"] .saudi-map-region-row .nds-form-container {
+  gap: 4px;
+}
+
+body[data-page="admin"] .saudi-map-region-row [data-saudi-map-region-value] {
+  text-align: center;
+}
+
+body[data-page="admin"] .saudi-map-region-value-input::-webkit-outer-spin-button,
+body[data-page="admin"] .saudi-map-region-value-input::-webkit-inner-spin-button {
+  margin: 0;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+body[data-page="admin"] .saudi-map-region-value-input {
+  appearance: textfield;
+  -moz-appearance: textfield;
+}
+
+@media (max-width: 560px) {
+  body[data-page="admin"] .saudi-map-region-row {
+    grid-template-columns: 1fr;
+  }
 }
 
 body[data-page="admin"] .contact-editor-block:last-of-type {

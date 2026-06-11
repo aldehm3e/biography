@@ -1,6 +1,26 @@
 (function () {
   "use strict";
 
+  function defaultSaudiMapRegions() {
+    return (window.SAUDI_MAP_REGIONS || []).map(function (region) {
+      return {
+        regionId: region.id,
+        value: ""
+      };
+    });
+  }
+
+  function defaultSaudiRegionMap() {
+    return {
+      visible: false,
+      title: "",
+      subtitle: "",
+      metricLabel: "",
+      metricIcon: "hgi-chart-up",
+      regions: defaultSaudiMapRegions()
+    };
+  }
+
   window.DEFAULT_SITE_DATA = {
     settings: {
       siteName: "",
@@ -169,6 +189,7 @@
         subtitle: "",
         cards: []
       },
+      regionMap: defaultSaudiRegionMap(),
       experience: [],
       achievements: [],
       skills: [],

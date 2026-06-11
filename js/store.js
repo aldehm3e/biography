@@ -108,6 +108,7 @@
     cleanData.home.numbers.title = cleanData.home.numbers.title || "في أرقام";
     cleanData.home.numbers.subtitle = cleanData.home.numbers.subtitle || "";
     cleanData.home.numbers.cards = normalizeArray(cleanData.home.numbers.cards);
+    cleanData.home.regionMap = normalizeSaudiRegionMap(cleanData.home.regionMap);
     cleanData.home.experience = normalizeArray(cleanData.home.experience);
     cleanData.home.achievements = normalizeArray(cleanData.home.achievements);
     cleanData.home.skills = normalizeArray(cleanData.home.skills);
@@ -128,6 +129,61 @@
 
   function normalizeArray(value) {
     return Array.isArray(value) ? value : [];
+  }
+
+  function saudiMapRegions() {
+    return normalizeArray(window.SAUDI_MAP_REGIONS);
+  }
+
+  function cleanMapNumber(value) {
+    var text = String(value == null ? "" : value).replace(/[^\d.]/g, "");
+    if (!text) return "";
+    var firstDot = text.indexOf(".");
+    if (firstDot !== -1) {
+      text = text.slice(0, firstDot + 1) + text.slice(firstDot + 1).replace(/\./g, "");
+    }
+    return text || "";
+  }
+
+  function normalizeHgiIcon(value) {
+    var text = String(value || "").trim();
+    var match = text.match(/\bhgi-[a-z0-9-]+\b/i);
+    return match ? match[0] : "hgi-chart-up";
+  }
+
+  function normalizeSaudiRegionMap(input) {
+    var map = input && typeof input === "object" ? input : {};
+    var regions = saudiMapRegions();
+    var sourceItems = normalizeArray(map.regions);
+    var regionDefs = regions.length ? regions : sourceItems.map(function (item) {
+      return {
+        id: Number(item && (item.regionId || item.id)),
+        population: item && item.value
+      };
+    }).filter(function (item) {
+      return item.id;
+    });
+    var values = {};
+    sourceItems.forEach(function (item) {
+      if (!item || typeof item !== "object") return;
+      var id = Number(item.regionId || item.id);
+      if (!id) return;
+      values[id] = cleanMapNumber(item.value);
+    });
+    return {
+      visible: map.visible === true,
+      title: String(map.title || ""),
+      subtitle: String(map.subtitle || ""),
+      metricLabel: String(map.metricLabel || map.valueLabel || ""),
+      metricIcon: normalizeHgiIcon(map.metricIcon || map.valueIcon || map.icon || ""),
+      regions: regionDefs.map(function (region) {
+        var id = Number(region.id);
+        return {
+          regionId: id,
+          value: values[id] != null ? values[id] : ""
+        };
+      })
+    };
   }
 
   function normalizePageFeedback(value) {

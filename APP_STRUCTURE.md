@@ -1,7 +1,7 @@
 # App Structure
 
 Author: Eng. Abdulrahman alsaedi  
-Last QA pass: 2026-06-01
+Last QA pass: 2026-06-11
 
 ## Purpose
 
@@ -45,12 +45,14 @@ The database is the source of truth after install. Browser `localStorage` is onl
 
 | File | Responsibilities |
 | --- | --- |
-| `js/default-data.js` | Defines `window.DEFAULT_SITE_DATA`, contact icon options, page content modes, integration types, and admin auth defaults. |
+| `js/default-data.js` | Defines `window.DEFAULT_SITE_DATA`, contact icon options, page content modes, integration types, Saudi map defaults, and admin auth defaults. |
 | `js/store.js` | Data access layer. Normalizes data, loads/saves site JSON, manages auth calls, uploads, admin users, preview data, and local cache fallback. |
 | `js/app.js` | Public shell rendering. Handles header, footer, pages, projects, project detail, search, login/account modals, notifications, cookie consent, Google Analytics, sharing, and NDS header/dropdown behavior. |
 | `js/admin.js` | Admin panel. Handles permissions, editors, drag/reorder, uploads, preview, save flows, users, integrations, footer cookie links, system tools, and admin side menu. |
+| `js/saudi-map-data.js` | Fixed Saudi region metadata used by the public map, defaults, and admin editor. |
 | `js/nds-local-components.js` | Local helpers that complement the NDS vendor components. |
 | `css/custom.css` | Main app theme and layout layer on top of local NDS assets. |
+| `assets/data/saudi-map.svg` | Saudi Arabia regions and associated islands rendered as heat-map SVG paths. |
 
 ## Backend API
 
@@ -126,7 +128,7 @@ Fresh install creates these tables in both `install/schema.sql` and `api/install
 | `site_settings` | Brand/settings/shell/interface/footer JSON. |
 | `navigation_items` | Core navigation labels. |
 | `hero_slides` | Home hero carousel media/content. |
-| `main_page` | Main profile fields, intro, biography, avatar. |
+| `main_page` | Main profile fields, intro, biography, avatar, home numbers headings, and `region_map_json`. |
 | `home_numbers` | Home "في أرقام" statistic cards. |
 | `experiences` | Home experience rows. |
 | `achievements` | Home achievement rows. |
@@ -154,6 +156,7 @@ home
   heroSlides
   numbers
     cards
+  regionMap
   experience
   achievements
   skills
@@ -330,7 +333,7 @@ Get-ChildItem -Recurse -Filter *.js |
 PHP syntax:
 
 ```powershell
-$php = "C:\laragon\bin\php\php-8.3.30-Win32-vs16-x64\php.exe"
+$php = "C:\xampp\php\php.exe"
 Get-ChildItem -Recurse -Filter *.php |
   Where-Object { $_.FullName -notmatch '\\(vendor|node_modules|backup|backups)\\' } |
   ForEach-Object { & $php -l $_.FullName }
@@ -339,7 +342,7 @@ Get-ChildItem -Recurse -Filter *.php |
 Fresh schema import:
 
 ```powershell
-$mysql = "C:\laragon\bin\mysql\mysql-8.4.3-winx64\bin\mysql.exe"
+$mysql = "C:\xampp\mysql\bin\mysql.exe"
 & $mysql -u root -e "CREATE DATABASE biography_qa CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 Get-Content -Raw -Encoding UTF8 install\schema.sql | & $mysql -u root biography_qa
 & $mysql -u root -e "DROP DATABASE biography_qa;"
@@ -394,6 +397,6 @@ When adding a new API endpoint:
 - `install/schema.sql` and `api/install/schema.sql` are identical and import successfully.
 - Repository save/fetch smoke passed with default data, a root page, and a subpage.
 - HTML and CSS local asset references were checked.
-- Live `get-site.php`, `me.php`, and `install/` smoke checks passed on Laragon.
+- Live `get-site.php`, `me.php`, and `install/` smoke checks are run against the active XAMPP copy at `C:\xampp\htdocs\Biography`.
 - Runtime script/cache keys were refreshed so installed users receive the current JS/CSS.
 - `save-site.php` now rejects empty or invalid site-data payloads to prevent accidental content resets.

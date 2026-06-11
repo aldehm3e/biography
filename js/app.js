@@ -41,6 +41,7 @@
     homeNumbersResumeTimer: null,
     homeNumbersSettleTimer: null,
     homeNumbersCleanup: null,
+    saudiMapPromise: null,
     clockTimer: null,
     topbarScrollLastY: 0,
     topbarScrollFrame: null,
@@ -756,9 +757,52 @@
     });
   }
 
+  function saudiMapRegions() {
+    return Array.isArray(window.SAUDI_MAP_REGIONS) ? window.SAUDI_MAP_REGIONS : [];
+  }
+
+  function cleanSaudiMapNumber(value) {
+    var text = String(value == null ? "" : value).replace(/[^\d.]/g, "");
+    var firstDot = text.indexOf(".");
+    if (firstDot !== -1) {
+      text = text.slice(0, firstDot + 1) + text.slice(firstDot + 1).replace(/\./g, "");
+    }
+    return text || "";
+  }
+
+  function normalizedSaudiRegionMap(home) {
+    var map = home && home.regionMap && typeof home.regionMap === "object" ? home.regionMap : {};
+    var values = {};
+    visibleItems(map.regions || []).forEach(function (item) {
+      if (!item || typeof item !== "object") return;
+      var regionId = Number(item.regionId || item.id);
+      if (regionId) values[regionId] = cleanSaudiMapNumber(item.value);
+    });
+    return {
+      visible: map.visible === true,
+      title: String(map.title || ""),
+      subtitle: String(map.subtitle || ""),
+      metricLabel: String(map.metricLabel || map.valueLabel || ""),
+      metricIcon: normalizeHomeNumberIcon(map.metricIcon || map.valueIcon || map.icon || ""),
+      regions: saudiMapRegions().map(function (region) {
+        var regionId = Number(region.id);
+        return {
+          regionId: regionId,
+          value: values[regionId] != null ? values[regionId] : ""
+        };
+      })
+    };
+  }
+
+  function visibleSaudiRegionMap(home) {
+    var map = normalizedSaudiRegionMap(home);
+    return map.visible === true && saudiMapRegions().length > 0;
+  }
+
   function hasHomeBodyContent(home) {
     return [home.ownerName, home.title, home.intro, home.avatar, home.biography].some(hasText)
       || visibleHomeNumberCards(home).length
+      || visibleSaudiRegionMap(home)
       || visibleItems(home.experience || []).length
       || visibleItems(home.achievements || []).length
       || visibleItems(home.skills || []).length;
@@ -6084,9 +6128,11 @@
     var hero = qs("[data-home-hero]");
     var bioSection = qs(".biography-section");
     var numbersSection = qs("[data-home-numbers-section]");
+    var saudiMapSection = qs("[data-saudi-map-section]");
     var professionalSection = qs(".professional-section");
     var skillsSection = qs("[data-skills-section]");
     var visibleNumbers = visibleHomeNumberCards(home);
+    var isSaudiMapVisible = visibleSaudiRegionMap(home);
     var visibleExperience = visibleItems(home.experience || []);
     var visibleAchievements = visibleItems(home.achievements || []);
     var visibleSkills = visibleItems(home.skills || []).filter(function (item) {
@@ -6099,6 +6145,7 @@
     var avatarSrc = ownerAvatarSrc(data);
     if (bioSection) bioSection.hidden = ![home.ownerName, home.title, home.intro, home.biography, avatarSrc].some(hasText);
     if (numbersSection) numbersSection.hidden = !visibleNumbers.length;
+    if (saudiMapSection) saudiMapSection.hidden = !isSaudiMapVisible;
     if (professionalSection) professionalSection.hidden = !(visibleExperience.length || visibleAchievements.length);
     if (skillsSection) skillsSection.hidden = !visibleSkills.length;
 
@@ -6119,6 +6166,7 @@
 
     renderHeroSlides(home);
     renderHomeNumbers(home, visibleNumbers);
+    renderSaudiRegionMap(home);
     renderListCards("[data-experience-list]", visibleExperience, "الخبرات");
     renderListCards("[data-achievements-list]", visibleAchievements, "الإنجازات");
     renderChips("[data-skills-list]", visibleSkills);
@@ -6622,6 +6670,237 @@
     body.append(swiper);
     refreshHomeNumbersComponents(swiper);
     setupHomeNumbersAutoplay(swiper);
+  }
+
+  function saudiMapValueMap(config) {
+    var values = {};
+    (config.regions || []).forEach(function (item) {
+      var regionId = Number(item.regionId || item.id);
+      if (regionId) values[regionId] = Number(cleanSaudiMapNumber(item.value));
+    });
+    return values;
+  }
+
+  function saudiMapHeatLevel(value, maxValue) {
+    value = Number(value) || 0;
+    maxValue = Number(maxValue) || 0;
+    if (value <= 0 || maxValue <= 0) return 0;
+    if (value < maxValue * 0.1) return 1;
+    if (value < maxValue * 0.25) return 2;
+    if (value < maxValue * 0.5) return 3;
+    if (value < maxValue * 0.75) return 4;
+    if (value < maxValue) return 5;
+    return 6;
+  }
+
+  function formatSaudiMapNumber(value) {
+    var number = Number(value);
+    var language = document.documentElement.lang || "ar";
+    if (!Number.isFinite(number)) return "0";
+    try {
+      return new Intl.NumberFormat(language).format(number);
+    } catch (error) {
+      return String(number);
+    }
+  }
+
+  function resetSaudiMapHeatClass(node) {
+    if (!node || !node.classList) return;
+    for (var index = 0; index <= 6; index += 1) {
+      node.classList.remove("heat-" + index);
+    }
+  }
+
+  function setSaudiMapTipText(tip, selector, value) {
+    var node = qs(selector, tip);
+    if (node) node.textContent = value || "";
+  }
+
+  function setSaudiMapTipRow(tip, name, value) {
+    var row = qs('[data-saudi-tip-row="' + name + '"]', tip);
+    if (!row) return;
+    row.hidden = !hasText(value);
+    if (name !== "value") row.textContent = value || "";
+  }
+
+  function setSaudiMapTipIcon(tip, selector, icon) {
+    var node = qs(selector, tip);
+    if (!node) return;
+    node.className = "hgi hgi-stroke " + normalizeHomeNumberIcon(icon);
+  }
+
+  function fillSaudiMapTooltip(host, node) {
+    var tip = qs("[data-saudi-map-tip]", host);
+    var config = host._saudiMapConfig || {};
+    var values = host._saudiMapValues || {};
+    var isArabic = document.documentElement.dir !== "ltr";
+    var regionId = Number(node && node.dataset && node.dataset.regionId);
+    var value = values[regionId] || 0;
+    var name = "";
+    if (!tip || !node) return;
+
+    name = isArabic ? (node.dataset.nameAr || node.dataset.nameEn) : (node.dataset.nameEn || node.dataset.nameAr);
+
+    setSaudiMapTipIcon(tip, '[data-saudi-tip-icon="metric"]', config.metricIcon);
+    setSaudiMapTipText(tip, '[data-saudi-tip="name"]', name);
+    setSaudiMapTipText(tip, '[data-saudi-tip="metric"]', hasText(config.metricLabel) ? config.metricLabel + ":" : "");
+    setSaudiMapTipText(tip, '[data-saudi-tip="value"]', formatSaudiMapNumber(value));
+    setSaudiMapTipRow(tip, "value", String(value));
+  }
+
+  function moveSaudiMapTooltip(host, event) {
+    var tip = qs("[data-saudi-map-tip]", host);
+    var rect;
+    var x;
+    var y;
+    var maxX;
+    var maxY;
+    if (!tip || !event) return;
+    rect = host.getBoundingClientRect();
+    x = event.clientX - rect.left + 12;
+    y = event.clientY - rect.top + 12;
+    maxX = rect.width - (tip.offsetWidth || 0) - 8;
+    maxY = rect.height - (tip.offsetHeight || 0) - 8;
+    x = Math.max(8, Math.min(x, Math.max(8, maxX)));
+    y = Math.max(8, Math.min(y, Math.max(8, maxY)));
+    tip.style.transform = "translate(" + x + "px, " + y + "px)";
+  }
+
+  function showSaudiMapTooltip(host, node, event) {
+    var tip = qs("[data-saudi-map-tip]", host);
+    if (!tip || !node) return;
+    fillSaudiMapTooltip(host, node);
+    tip.hidden = false;
+    tip.classList.add("is-show");
+    moveSaudiMapTooltip(host, event);
+  }
+
+  function hideSaudiMapTooltip(host) {
+    var tip = qs("[data-saudi-map-tip]", host);
+    if (!tip) return;
+    tip.classList.remove("is-show");
+    tip.hidden = true;
+  }
+
+  function setupSaudiMapInteractions(host) {
+    var svg = qs("[data-saudi-map-svg]", host);
+    var hoverNode = null;
+    if (!svg || host.dataset.saudiMapInteractions === "ready") return;
+    host.dataset.saudiMapInteractions = "ready";
+
+    function interactiveNode(target) {
+      return target && target.closest ? target.closest(".saudi-region") : null;
+    }
+
+    function clearHover() {
+      if (hoverNode) hoverNode.classList.remove("is-hover");
+      hoverNode = null;
+      hideSaudiMapTooltip(host);
+    }
+
+    function activateNode(node, event) {
+      if (!node) {
+        clearHover();
+        return;
+      }
+      if (hoverNode && hoverNode !== node) hoverNode.classList.remove("is-hover");
+      hoverNode = node;
+      hoverNode.classList.add("is-hover");
+      showSaudiMapTooltip(host, hoverNode, event);
+    }
+
+    svg.addEventListener("mouseover", function (event) {
+      var node = interactiveNode(event.target);
+      if (node === hoverNode) return;
+      activateNode(node, event);
+    });
+    svg.addEventListener("mousemove", function (event) {
+      if (hoverNode) moveSaudiMapTooltip(host, event);
+    });
+    svg.addEventListener("mouseleave", clearHover);
+    svg.addEventListener("pointerdown", function (event) {
+      var node = interactiveNode(event.target);
+      if (node) {
+        event.preventDefault();
+        activateNode(node, event);
+      }
+    });
+    svg.addEventListener("focusin", function (event) {
+      var node = interactiveNode(event.target);
+      if (node) activateNode(node, event);
+    });
+    svg.addEventListener("focusout", clearHover);
+  }
+
+  function applySaudiMapData(host, config) {
+    var svg = qs("[data-saudi-map-svg]", host);
+    var values = saudiMapValueMap(config);
+    var maxValue = Math.max.apply(null, Object.keys(values).map(function (key) { return values[key]; }).concat([0]));
+    if (!svg) return;
+    svg.setAttribute("focusable", "false");
+    svg.removeAttribute("tabindex");
+    host._saudiMapConfig = config;
+    host._saudiMapValues = values;
+
+    qsa(".saudi-region", svg).forEach(function (region) {
+      var regionId = Number(region.dataset.regionId);
+      var value = values[regionId] || 0;
+      var heat = saudiMapHeatLevel(value, maxValue);
+      resetSaudiMapHeatClass(region);
+      region.classList.add("heat-" + heat);
+      region.removeAttribute("tabindex");
+      region.removeAttribute("role");
+      region.setAttribute("aria-label", (region.dataset.nameAr || region.dataset.nameEn || "") + (hasText(config.metricLabel) ? "، " + config.metricLabel + " " + formatSaudiMapNumber(value) : ""));
+    });
+
+    setupSaudiMapInteractions(host);
+  }
+
+  function loadSaudiMapSvg(host) {
+    var src = host && host.dataset.mapSrc;
+    if (!host || !src) return Promise.resolve();
+    if (qs("[data-saudi-map-svg]", host)) return Promise.resolve();
+    if (appState.saudiMapPromise) return appState.saudiMapPromise;
+    appState.saudiMapPromise = fetch(src, { cache: "force-cache" }).then(function (response) {
+      if (!response.ok) throw new Error("Map unavailable");
+      return response.text();
+    }).then(function (svgText) {
+      host.insertAdjacentHTML("afterbegin", svgText);
+    }).catch(function () {
+      host.insertAdjacentHTML("afterbegin", '<p class="saudi-map-fallback">الخريطة غير متاحة حالياً.</p>');
+    });
+    return appState.saudiMapPromise;
+  }
+
+  function renderSaudiRegionMap(home) {
+    var section = qs("[data-saudi-map-section]");
+    var title = qs("[data-saudi-map-title]");
+    var subtitle = qs("[data-saudi-map-subtitle]");
+    var legendTitle = qs("[data-saudi-map-legend-title]");
+    var host = qs("[data-saudi-map-host]");
+    var config = normalizedSaudiRegionMap(home);
+    var isVisible = visibleSaudiRegionMap(home);
+    if (!section) return;
+    section.hidden = !isVisible;
+    if (!isVisible) return;
+
+    if (title) {
+      title.textContent = config.title || "";
+      title.hidden = !hasText(config.title);
+    }
+    if (subtitle) {
+      subtitle.textContent = config.subtitle || "";
+      subtitle.hidden = !hasText(config.subtitle);
+    }
+    if (legendTitle) {
+      legendTitle.textContent = hasText(config.metricLabel) ? "كثافة " + config.metricLabel + ":" : "";
+      legendTitle.hidden = !hasText(config.metricLabel);
+    }
+    if (!host) return;
+    loadSaudiMapSvg(host).then(function () {
+      if (!host.isConnected) return;
+      applySaudiMapData(host, config);
+    });
   }
 
   function heroSlidesSignature(slides) {

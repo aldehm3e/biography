@@ -44,7 +44,7 @@
   <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css?v=hgi-font-block-20260608">
   <link rel="stylesheet" href="css/nds-local-components.css?v=notification-refit-20260530">
-  <link rel="stylesheet" href="css/custom.css?v=iu-mobile-nav-arrow-20260607">
+  <link rel="stylesheet" href="css/custom.css?v=saudi-map-metric-icon-20260611">
 </head>
 <body data-page="home">
   <header class="site-header">
@@ -290,6 +290,43 @@
           </div>
         </section>
 
+        <section class="nds-content-section saudi-map-section" data-saudi-map-section hidden>
+          <div class="site-container nds-section-wrapper">
+            <div class="saudi-map-layout">
+              <div class="saudi-map-visual">
+                <div class="saudi-map-host" data-saudi-map-host data-map-src="assets/data/saudi-map.svg?v=all-islands-heatmap-20260611">
+                  <div class="saudi-map-tip" data-saudi-map-tip role="status" aria-live="polite" hidden>
+                    <span class="nds-text-icon"><i class="hgi hgi-stroke hgi-location-03" aria-hidden="true"></i><strong data-saudi-tip="name"></strong></span>
+                    <span class="nds-text-icon saudi-map-tip-row" data-saudi-tip-row="value">
+                      <i class="hgi hgi-stroke hgi-chart-up" data-saudi-tip-icon="metric" aria-hidden="true"></i>
+                      <strong data-saudi-tip="metric"></strong>
+                      <span data-saudi-tip="value"></span>
+                    </span>
+                  </div>
+                </div>
+                <div class="saudi-map-legend" data-saudi-map-legend>
+                  <span class="saudi-map-legend-title" data-saudi-map-legend-title></span>
+                  <div class="saudi-map-legend-scale" aria-hidden="true">
+                    <span class="saudi-map-legend-label">لا يوجد</span>
+                    <span class="saudi-map-legend-box heat-0"></span>
+                    <span class="saudi-map-legend-box heat-1"></span>
+                    <span class="saudi-map-legend-box heat-2"></span>
+                    <span class="saudi-map-legend-box heat-3"></span>
+                    <span class="saudi-map-legend-box heat-4"></span>
+                    <span class="saudi-map-legend-box heat-5"></span>
+                    <span class="saudi-map-legend-box heat-6"></span>
+                    <span class="saudi-map-legend-label">الأعلى</span>
+                  </div>
+                </div>
+              </div>
+              <div class="saudi-map-copy">
+                <h2 class="nds-section-title" data-saudi-map-title></h2>
+                <p class="nds-section-description" data-saudi-map-subtitle></p>
+              </div>
+            </div>
+          </div>
+        </section>
+
         <section class="nds-content-section nds-brand professional-section">
           <div class="site-container compact-content-container nds-section-wrapper">
             <div class="nds-section-head">
@@ -372,8 +409,9 @@
     </div>
   </footer>
 
-  <script src="js/default-data.js?v=separate-system-items-20260605"></script>
-  <script src="js/store.js?v=separate-system-items-20260605"></script>
+  <script src="js/saudi-map-data.js?v=saudi-map-20260611"></script>
+  <script src="js/default-data.js?v=saudi-map-metric-icon-20260611"></script>
+  <script src="js/store.js?v=saudi-map-metric-icon-20260611"></script>
   <script src="assets/vendor/nds/components/js/nds-core.js"></script>
   <script src="assets/vendor/nds/components/js/nds-cityWeather.js?v=auto-location-20260607"></script>
   <script src="assets/vendor/nds/components/js/nds-backdrop.js?v=nds-source-20260604"></script>
@@ -393,6 +431,6 @@
   <script src="assets/vendor/nds/components/js/nds-copy.js"></script>
   <script src="assets/vendor/nds/components/js/nds-share.js"></script>
   <script src="js/nds-local-components.js"></script>
-  <script src="js/app.js?v=iu-mobile-nav-arrow-scope-20260607"></script>
+  <script src="js/app.js?v=saudi-map-metric-icon-20260611"></script>
 </body>
 </html>

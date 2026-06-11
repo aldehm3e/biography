@@ -20,7 +20,7 @@
   <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css?v=hgi-font-block-20260608">
   <link rel="stylesheet" href="css/nds-local-components.css?v=notification-refit-20260530">
-  <link rel="stylesheet" href="css/custom.css?v=iu-mobile-nav-arrow-20260607">
+  <link rel="stylesheet" href="css/custom.css?v=saudi-map-metric-icon-20260611">
 </head>
 <body data-page="admin">
   <header class="site-header">
@@ -274,6 +274,11 @@
                   <li>
                     <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="home" data-home-section="numbers">
                       <span class="nds-label">في أرقام</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="home" data-home-section="map">
+                      <span class="nds-label">خريطة المملكة</span>
                     </button>
                   </li>
                 </ul>
@@ -629,6 +634,35 @@
                     </div>
                   </div>
                   <div class="editor-list compact-editor-list" data-home-numbers-editor></div>
+                </div>
+                </section>
+                <section class="admin-panel-section" data-home-section-panel="map" hidden>
+                <div class="hero-editor-block">
+                  <div class="panel-heading compact-heading">
+                    <div>
+                      <h3 class="section-minor-title">خريطة المملكة</h3>
+                      <p class="nds-card-description">تظهر الخريطة أسفل قسم في أرقام. المناطق ثابتة، ويمكن تعديل الأرقام والنصوص فقط.</p>
+                    </div>
+                  </div>
+                  <div class="form-grid">
+                    <div class="nds-form-container">
+                      <div class="nds-form-header"><label for="saudiMapTitle"><span class="nds-label">عنوان الخريطة</span></label></div>
+                      <div class="nds-form-control"><input class="nds-input" id="saudiMapTitle" name="saudiMapTitle" type="text"></div>
+                    </div>
+                    <div class="nds-form-container">
+                      <div class="nds-form-header"><label for="saudiMapSubtitle"><span class="nds-label">العنوان الفرعي</span></label></div>
+                      <div class="nds-form-control"><input class="nds-input" id="saudiMapSubtitle" name="saudiMapSubtitle" type="text"></div>
+                    </div>
+                    <div class="nds-form-container">
+                      <div class="nds-form-header"><label for="saudiMapMetricLabel"><span class="nds-label">ماذا تمثل الأرقام؟</span></label></div>
+                      <div class="nds-form-control"><input class="nds-input" id="saudiMapMetricLabel" name="saudiMapMetricLabel" type="text"></div>
+                    </div>
+                    <div data-saudi-map-metric-icon-editor></div>
+                    <div class="nds-form-container">
+                      <label class="check-line"><input class="nds-check" id="saudiMapVisible" name="saudiMapVisible" type="checkbox"> <span>إظهار الخريطة في الصفحة الرئيسية</span></label>
+                    </div>
+                  </div>
+                  <div class="editor-list compact-editor-list saudi-map-region-editor" data-saudi-map-regions-editor></div>
                 </div>
                 </section>
 
@@ -1361,8 +1395,9 @@
     </div>
   </footer>
 
-  <script src="js/default-data.js?v=separate-system-items-20260605"></script>
-  <script src="js/store.js?v=separate-system-items-20260605"></script>
+  <script src="js/saudi-map-data.js?v=saudi-map-20260611"></script>
+  <script src="js/default-data.js?v=saudi-map-metric-icon-20260611"></script>
+  <script src="js/store.js?v=saudi-map-metric-icon-20260611"></script>
   <script src="js/home-number-icons.js?v=home-numbers-bg-size-20260604"></script>
   <script src="assets/vendor/nds/components/js/nds-core.js"></script>
   <script src="assets/vendor/nds/components/js/nds-cityWeather.js?v=auto-location-20260607"></script>
@@ -1381,7 +1416,7 @@
   <script src="assets/vendor/nds/components/js/nds-user-feedback.js?v=separate-system-items-20260605"></script>
   <script src="assets/vendor/nds/components/js/nds-breadcrumb.js"></script>
   <script src="js/nds-local-components.js"></script>
-  <script src="js/app.js?v=iu-mobile-nav-arrow-scope-20260607"></script>
-  <script src="js/admin.js?v=delete-confirm-fix-20260605"></script>
+  <script src="js/app.js?v=saudi-map-metric-icon-20260611"></script>
+  <script src="js/admin.js?v=saudi-map-metric-icon-20260611"></script>
 </body>
 </html>

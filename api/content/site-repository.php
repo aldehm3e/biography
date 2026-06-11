@@ -140,6 +140,40 @@ function cms_default_notification_settings(): array
     ];
 }
 
+function cms_default_saudi_region_rows(): array
+{
+    return [
+        ['id' => 1, 'nameAr' => 'منطقة الرياض', 'nameEn' => 'Riyadh'],
+        ['id' => 2, 'nameAr' => 'منطقة مكة المكرمة', 'nameEn' => 'Makkah'],
+        ['id' => 3, 'nameAr' => 'منطقة المدينة المنورة', 'nameEn' => 'Madinah'],
+        ['id' => 4, 'nameAr' => 'منطقة القصيم', 'nameEn' => 'Qassim'],
+        ['id' => 5, 'nameAr' => 'المنطقة الشرقية', 'nameEn' => 'Eastern Province'],
+        ['id' => 6, 'nameAr' => 'منطقة عسير', 'nameEn' => 'Asir'],
+        ['id' => 7, 'nameAr' => 'منطقة تبوك', 'nameEn' => 'Tabuk'],
+        ['id' => 8, 'nameAr' => 'منطقة حائل', 'nameEn' => 'Hail'],
+        ['id' => 9, 'nameAr' => 'منطقة الحدود الشمالية', 'nameEn' => 'Northern Borders'],
+        ['id' => 10, 'nameAr' => 'منطقة جازان', 'nameEn' => 'Jazan'],
+        ['id' => 11, 'nameAr' => 'منطقة نجران', 'nameEn' => 'Najran'],
+        ['id' => 12, 'nameAr' => 'منطقة الباحة', 'nameEn' => 'Bahah'],
+        ['id' => 13, 'nameAr' => 'منطقة الجوف', 'nameEn' => 'Jawf'],
+    ];
+}
+
+function cms_default_saudi_region_map(): array
+{
+    return [
+        'visible' => false,
+        'title' => '',
+        'subtitle' => '',
+        'metricLabel' => '',
+        'metricIcon' => 'hgi-chart-up',
+        'regions' => array_map(static fn(array $region): array => [
+            'regionId' => $region['id'],
+            'value' => '',
+        ], cms_default_saudi_region_rows()),
+    ];
+}
+
 function cms_default_site_data(): array
 {
     return [
@@ -188,6 +222,7 @@ function cms_default_site_data(): array
                 'subtitle' => '',
                 'cards' => [],
             ],
+            'regionMap' => cms_default_saudi_region_map(),
             'experience' => [],
             'achievements' => [],
             'skills' => [],
@@ -320,6 +355,10 @@ function cms_fetch_site_data(PDO $pdo): array
         ]);
         $data['home']['numbers']['title'] = (string) ($main['numbers_title'] ?? $data['home']['numbers']['title']);
         $data['home']['numbers']['subtitle'] = (string) ($main['numbers_subtitle'] ?? $data['home']['numbers']['subtitle']);
+        $storedRegionMap = json_decode((string) ($main['region_map_json'] ?? ''), true);
+        if (is_array($storedRegionMap)) {
+            $data['home']['regionMap'] = cms_normalize_saudi_region_map($storedRegionMap);
+        }
     }
 
     $slides = $pdo->query('SELECT * FROM hero_slides ORDER BY sort_order, id')->fetchAll();
@@ -558,6 +597,9 @@ function cms_ensure_home_numbers_table(PDO $pdo): void
             visible TINYINT(1) DEFAULT 1
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     );
+    cms_ensure_columns($pdo, 'home_numbers', [
+        'icon_class' => 'VARCHAR(120)',
+    ]);
 }
 
 function cms_ensure_card_collections_tables(PDO $pdo): void
@@ -597,17 +639,31 @@ function cms_ensure_card_collections_tables(PDO $pdo): void
     );
 }
 
-function cms_column_exists(PDO $pdo, string $table, string $column): bool
+function cms_existing_columns(PDO $pdo, string $table): array
 {
     $stmt = $pdo->prepare(
-        'SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS
-         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name AND COLUMN_NAME = :column_name'
+        'SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = :table_name'
     );
-    $stmt->execute([
-        'table_name' => $table,
-        'column_name' => $column,
-    ]);
-    return (int) $stmt->fetchColumn() > 0;
+    $stmt->execute(['table_name' => $table]);
+    $columns = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $column) {
+        $columns[strtolower((string) $column)] = true;
+    }
+    return $columns;
+}
+
+function cms_ensure_columns(PDO $pdo, string $table, array $columns): void
+{
+    $existing = cms_existing_columns($pdo, $table);
+    foreach ($columns as $column => $definition) {
+        $key = strtolower((string) $column);
+        if (isset($existing[$key])) {
+            continue;
+        }
+        $pdo->exec('ALTER TABLE ' . $table . ' ADD COLUMN ' . $column . ' ' . $definition);
+        $existing[$key] = true;
+    }
 }
 
 function cms_ensure_site_settings_columns(PDO $pdo): void
@@ -628,11 +684,7 @@ function cms_ensure_site_settings_columns(PDO $pdo): void
         'notification_settings_json' => 'LONGTEXT',
     ];
 
-    foreach ($columns as $column => $definition) {
-        if (!cms_column_exists($pdo, 'site_settings', $column)) {
-            $pdo->exec('ALTER TABLE site_settings ADD COLUMN ' . $column . ' ' . $definition);
-        }
-    }
+    cms_ensure_columns($pdo, 'site_settings', $columns);
 }
 
 function cms_ensure_main_page_columns(PDO $pdo): void
@@ -640,13 +692,10 @@ function cms_ensure_main_page_columns(PDO $pdo): void
     $columns = [
         'numbers_title' => 'VARCHAR(255)',
         'numbers_subtitle' => 'VARCHAR(255)',
+        'region_map_json' => 'LONGTEXT',
     ];
 
-    foreach ($columns as $column => $definition) {
-        if (!cms_column_exists($pdo, 'main_page', $column)) {
-            $pdo->exec('ALTER TABLE main_page ADD COLUMN ' . $column . ' ' . $definition);
-        }
-    }
+    cms_ensure_columns($pdo, 'main_page', $columns);
 }
 
 function cms_ensure_pages_columns(PDO $pdo): void
@@ -661,11 +710,7 @@ function cms_ensure_pages_columns(PDO $pdo): void
         'updated_at' => 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP',
     ];
 
-    foreach ($columns as $column => $definition) {
-        if (!cms_column_exists($pdo, 'pages', $column)) {
-            $pdo->exec('ALTER TABLE pages ADD COLUMN ' . $column . ' ' . $definition);
-        }
-    }
+    cms_ensure_columns($pdo, 'pages', $columns);
 }
 
 function cms_ensure_content_schema(PDO $pdo): void
@@ -851,6 +896,7 @@ function cms_normalize_site_data(array $input): array
         'heroVideo' => cms_safe_path($home['heroVideo'] ?? ''),
         'heroSlides' => cms_normalize_hero_slides($home['heroSlides'] ?? []),
         'numbers' => cms_normalize_home_numbers($home['numbers'] ?? []),
+        'regionMap' => cms_normalize_saudi_region_map($home['regionMap'] ?? []),
         'experience' => cms_normalize_content_rows($home['experience'] ?? []),
         'achievements' => cms_normalize_content_rows($home['achievements'] ?? []),
         'skills' => cms_normalize_skills($home['skills'] ?? []),
@@ -998,6 +1044,51 @@ function cms_normalize_home_numbers(mixed $input): array
         'title' => cms_string($input['title'] ?? 'في أرقام', 255) ?: 'في أرقام',
         'subtitle' => cms_string($input['subtitle'] ?? $input['description'] ?? '', 255),
         'cards' => $cards,
+    ];
+}
+
+function cms_normalize_region_map_number(mixed $value): string
+{
+    $text = preg_replace('/\D+/', '', cms_string($value, 80));
+    return $text === '' ? '' : $text;
+}
+
+function cms_normalize_saudi_region_map(mixed $input): array
+{
+    if (!is_array($input)) {
+        $input = [];
+    }
+
+    $values = [];
+    $items = $input['regions'] ?? [];
+    if (is_array($items)) {
+        foreach ($items as $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $regionId = (int) ($item['regionId'] ?? $item['id'] ?? 0);
+            if ($regionId > 0) {
+                $values[$regionId] = cms_normalize_region_map_number($item['value'] ?? 0);
+            }
+        }
+    }
+
+    $regions = [];
+    foreach (cms_default_saudi_region_rows() as $region) {
+        $regionId = (int) $region['id'];
+        $regions[] = [
+            'regionId' => $regionId,
+            'value' => $values[$regionId] ?? '',
+        ];
+    }
+
+    return [
+        'visible' => cms_bool($input['visible'] ?? false),
+        'title' => cms_string($input['title'] ?? '', 255),
+        'subtitle' => cms_string($input['subtitle'] ?? '', 255),
+        'metricLabel' => cms_string($input['metricLabel'] ?? $input['valueLabel'] ?? '', 120),
+        'metricIcon' => cms_normalize_hgi_icon($input['metricIcon'] ?? $input['valueIcon'] ?? $input['icon'] ?? ''),
+        'regions' => $regions,
     ];
 }
 
@@ -1635,13 +1726,14 @@ function cms_save_navigation(PDO $pdo, array $data): void
 
 function cms_save_main_page(PDO $pdo, array $data): void
 {
+    $regionMapJson = json_encode($data['home']['regionMap'] ?? cms_default_saudi_region_map(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $stmt = $pdo->prepare(
-        'INSERT INTO main_page (id, owner_name, professional_title, intro, avatar_path, biography, hero_title, hero_subtitle, hero_intro, hero_image, hero_video, numbers_title, numbers_subtitle)
-         VALUES (1, :owner_name, :professional_title, :intro, :avatar_path, :biography, :hero_title, :hero_subtitle, :hero_intro, :hero_image, :hero_video, :numbers_title, :numbers_subtitle)
+        'INSERT INTO main_page (id, owner_name, professional_title, intro, avatar_path, biography, hero_title, hero_subtitle, hero_intro, hero_image, hero_video, numbers_title, numbers_subtitle, region_map_json)
+         VALUES (1, :owner_name, :professional_title, :intro, :avatar_path, :biography, :hero_title, :hero_subtitle, :hero_intro, :hero_image, :hero_video, :numbers_title, :numbers_subtitle, :region_map_json)
          ON DUPLICATE KEY UPDATE owner_name = VALUES(owner_name), professional_title = VALUES(professional_title), intro = VALUES(intro),
          avatar_path = VALUES(avatar_path), biography = VALUES(biography), hero_title = VALUES(hero_title), hero_subtitle = VALUES(hero_subtitle),
          hero_intro = VALUES(hero_intro), hero_image = VALUES(hero_image), hero_video = VALUES(hero_video),
-         numbers_title = VALUES(numbers_title), numbers_subtitle = VALUES(numbers_subtitle)'
+         numbers_title = VALUES(numbers_title), numbers_subtitle = VALUES(numbers_subtitle), region_map_json = VALUES(region_map_json)'
     );
     $stmt->execute([
         'owner_name' => $data['home']['ownerName'],
@@ -1656,6 +1748,7 @@ function cms_save_main_page(PDO $pdo, array $data): void
         'hero_video' => $data['home']['heroVideo'],
         'numbers_title' => $data['home']['numbers']['title'],
         'numbers_subtitle' => $data['home']['numbers']['subtitle'],
+        'region_map_json' => $regionMapJson === false ? '{}' : $regionMapJson,
     ]);
 }
 
