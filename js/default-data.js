@@ -1,6 +1,32 @@
 (function () {
   "use strict";
 
+  var SAUDI_TECH_LOGO_PATH = "assets/images/saudi-tech.svg";
+
+  function defaultComingSoonSettings() {
+    return {
+      enabled: false,
+      entityName: "",
+      title: "قريباً",
+      message: "نعمل على تجهيز الموقع ليظهر بصورة تليق بكم.",
+      heroImage: "assets/images/hero1.jpg",
+      logo: SAUDI_TECH_LOGO_PATH
+    };
+  }
+
+  function defaultFooterLogos() {
+    return [
+      {
+        id: "footer-logo-saudi-tech",
+        label: "تقنية سعودية",
+        alt: "تقنية سعودية",
+        url: "",
+        src: SAUDI_TECH_LOGO_PATH,
+        visible: true
+      }
+    ];
+  }
+
   function defaultSaudiMapRegions() {
     return (window.SAUDI_MAP_REGIONS || []).map(function (region) {
       return {
@@ -92,7 +118,8 @@
           linkUrl: "https://beem.sa",
           dismissLabel: "إلغاء"
         }
-      }
+      },
+      comingSoon: defaultComingSoonSettings()
     },
     navigation: {
       homeLabel: "الرئيسية",
@@ -220,7 +247,7 @@
         }
       ],
       bottomLinks: [],
-      logos: [],
+      logos: defaultFooterLogos(),
       copyrightText: "",
       legalText: "",
       cookies: {

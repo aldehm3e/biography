@@ -1,6 +1,37 @@
 <?php
 declare(strict_types=1);
 
+function cms_saudi_tech_logo_path(): string
+{
+    return 'assets/images/saudi-tech.svg';
+}
+
+function cms_default_coming_soon_settings(): array
+{
+    return [
+        'enabled' => false,
+        'entityName' => '',
+        'title' => 'قريباً',
+        'message' => 'نعمل على تجهيز الموقع ليظهر بصورة تليق بكم.',
+        'heroImage' => 'assets/images/hero1.jpg',
+        'logo' => cms_saudi_tech_logo_path(),
+    ];
+}
+
+function cms_default_footer_logos(): array
+{
+    return [
+        [
+            'id' => 'footer-logo-saudi-tech',
+            'label' => 'تقنية سعودية',
+            'alt' => 'تقنية سعودية',
+            'url' => '',
+            'src' => cms_saudi_tech_logo_path(),
+            'visible' => true,
+        ],
+    ];
+}
+
 function cms_default_interface_texts(): array
 {
     return [
@@ -198,6 +229,7 @@ function cms_default_site_data(): array
             'shellNoticeText' => 'هذا موقع شخصي مستقل وغير تابع لأي جهة حكومية.',
             'pageFeedback' => cms_default_page_feedback_settings(),
             'notificationSettings' => cms_default_notification_settings(),
+            'comingSoon' => cms_default_coming_soon_settings(),
         ],
         'navigation' => [
             'homeLabel' => 'الرئيسية',
@@ -253,7 +285,7 @@ function cms_default_site_data(): array
                 ],
             ],
             'bottomLinks' => [],
-            'logos' => [],
+            'logos' => cms_default_footer_logos(),
             'copyrightText' => '',
             'legalText' => '',
             'cookies' => [
@@ -315,6 +347,10 @@ function cms_fetch_site_data(PDO $pdo): array
         $storedNotificationSettings = json_decode((string) ($settings['notification_settings_json'] ?? ''), true);
         if (is_array($storedNotificationSettings)) {
             $data['settings']['notificationSettings'] = cms_normalize_notification_settings($storedNotificationSettings, $data['settings']['notificationSettings']);
+        }
+        $storedComingSoon = json_decode((string) ($settings['coming_soon_json'] ?? ''), true);
+        if (is_array($storedComingSoon)) {
+            $data['settings']['comingSoon'] = cms_normalize_coming_soon_settings($storedComingSoon, $data['settings']['comingSoon']);
         }
     }
 
@@ -682,6 +718,7 @@ function cms_ensure_site_settings_columns(PDO $pdo): void
         'footer_json' => 'LONGTEXT',
         'page_feedback_json' => 'LONGTEXT',
         'notification_settings_json' => 'LONGTEXT',
+        'coming_soon_json' => 'LONGTEXT',
     ];
 
     cms_ensure_columns($pdo, 'site_settings', $columns);
@@ -871,6 +908,7 @@ function cms_normalize_site_data(array $input): array
         'shellNoticeText' => cms_string($settings['shellNoticeText'] ?? $settings['shell_notice_text'] ?? $default['settings']['shellNoticeText'], 255) ?: $default['settings']['shellNoticeText'],
         'pageFeedback' => cms_normalize_page_feedback_settings($settings['pageFeedback'] ?? $settings['page_feedback'] ?? [], $default['settings']['pageFeedback']),
         'notificationSettings' => cms_normalize_notification_settings($settings['notificationSettings'] ?? $settings['notification_settings'] ?? [], $default['settings']['notificationSettings']),
+        'comingSoon' => cms_normalize_coming_soon_settings($settings['comingSoon'] ?? $settings['coming_soon'] ?? [], $default['settings']['comingSoon']),
     ];
 
     $data['navigation'] = [
@@ -1544,6 +1582,25 @@ function cms_normalize_notification_settings(mixed $settings, array $defaults): 
     return $output;
 }
 
+function cms_normalize_coming_soon_settings(mixed $settings, array $defaults): array
+{
+    $output = $defaults ?: cms_default_coming_soon_settings();
+    if (!is_array($settings)) {
+        return $output;
+    }
+
+    $output['enabled'] = cms_bool($settings['enabled'] ?? $settings['isEnabled'] ?? $output['enabled'] ?? false, false);
+    $output['entityName'] = cms_string($settings['entityName'] ?? $settings['entity_name'] ?? $output['entityName'] ?? '', 255);
+    $output['title'] = cms_string($settings['title'] ?? $output['title'] ?? '', 120) ?: (string) ($output['title'] ?? 'قريباً');
+    $output['message'] = cms_string($settings['message'] ?? $output['message'] ?? '', 700) ?: (string) ($output['message'] ?? '');
+    $output['heroImage'] = cms_safe_path($settings['heroImage'] ?? $settings['hero_image'] ?? $output['heroImage'] ?? '');
+    $output['heroImage'] = $output['heroImage'] ?: (string) ($defaults['heroImage'] ?? 'assets/images/hero1.jpg');
+    $output['logo'] = cms_safe_path($settings['logo'] ?? $settings['logoPath'] ?? $settings['logo_path'] ?? $output['logo'] ?? '');
+    $output['logo'] = $output['logo'] ?: cms_saudi_tech_logo_path();
+
+    return $output;
+}
+
 function cms_normalize_footer(mixed $footer, array $defaults): array
 {
     if (!is_array($footer)) {
@@ -1666,13 +1723,14 @@ function cms_save_settings(PDO $pdo, array $data): void
     $footerJson = json_encode($data['footer'] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $pageFeedbackJson = json_encode($data['settings']['pageFeedback'] ?? cms_default_page_feedback_settings(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $notificationSettingsJson = json_encode($data['settings']['notificationSettings'] ?? cms_default_notification_settings(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    $comingSoonJson = json_encode($data['settings']['comingSoon'] ?? cms_default_coming_soon_settings(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     $stmt = $pdo->prepare(
         'INSERT INTO site_settings (id, site_name, brand_name, brand_slogan, brand_logo, site_icon, language, direction, theme, phone_number, email,
          shell_topbar_text, shell_topbar_short_text, shell_verify_label, shell_verify_title, shell_verify_description,
-         shell_security_title, shell_security_description, shell_notice_text, interface_texts_json, footer_json, page_feedback_json, notification_settings_json)
+         shell_security_title, shell_security_description, shell_notice_text, interface_texts_json, footer_json, page_feedback_json, notification_settings_json, coming_soon_json)
          VALUES (1, :site_name, :brand_name, :brand_slogan, :brand_logo, :site_icon, :language, :direction, :theme, :phone_number, :email,
          :shell_topbar_text, :shell_topbar_short_text, :shell_verify_label, :shell_verify_title, :shell_verify_description,
-         :shell_security_title, :shell_security_description, :shell_notice_text, :interface_texts_json, :footer_json, :page_feedback_json, :notification_settings_json)
+         :shell_security_title, :shell_security_description, :shell_notice_text, :interface_texts_json, :footer_json, :page_feedback_json, :notification_settings_json, :coming_soon_json)
          ON DUPLICATE KEY UPDATE site_name = VALUES(site_name), brand_name = VALUES(brand_name), brand_slogan = VALUES(brand_slogan),
          brand_logo = VALUES(brand_logo), site_icon = VALUES(site_icon), language = VALUES(language), direction = VALUES(direction), theme = VALUES(theme),
          phone_number = VALUES(phone_number), email = VALUES(email), shell_topbar_text = VALUES(shell_topbar_text),
@@ -1680,7 +1738,8 @@ function cms_save_settings(PDO $pdo, array $data): void
          shell_verify_title = VALUES(shell_verify_title), shell_verify_description = VALUES(shell_verify_description),
          shell_security_title = VALUES(shell_security_title), shell_security_description = VALUES(shell_security_description),
          shell_notice_text = VALUES(shell_notice_text), interface_texts_json = VALUES(interface_texts_json), footer_json = VALUES(footer_json),
-         page_feedback_json = VALUES(page_feedback_json), notification_settings_json = VALUES(notification_settings_json)'
+         page_feedback_json = VALUES(page_feedback_json), notification_settings_json = VALUES(notification_settings_json),
+         coming_soon_json = VALUES(coming_soon_json)'
     );
     $stmt->execute([
         'site_name' => $data['settings']['siteName'],
@@ -1705,6 +1764,7 @@ function cms_save_settings(PDO $pdo, array $data): void
         'footer_json' => $footerJson === false ? '{}' : $footerJson,
         'page_feedback_json' => $pageFeedbackJson === false ? '{}' : $pageFeedbackJson,
         'notification_settings_json' => $notificationSettingsJson === false ? '{}' : $notificationSettingsJson,
+        'coming_soon_json' => $comingSoonJson === false ? '{}' : $comingSoonJson,
     ]);
 }
 

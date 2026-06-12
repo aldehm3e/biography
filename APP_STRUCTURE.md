@@ -1,13 +1,13 @@
 # App Structure
 
 Author: Eng. Abdulrahman alsaedi  
-Last QA pass: 2026-06-11
+Last QA pass: 2026-06-12
 
 ## Purpose
 
 Biography CMS is an Arabic-first personal website with a lightweight PHP/MySQL content manager. The public website is static HTML enhanced by JavaScript. The saved content, users, uploads, pages, projects, footer, notifications, and integrations are persisted through PHP APIs and MySQL/MariaDB after installation.
 
-There is no build step. A user should be able to upload/copy the repository to a PHP web root, run `install/`, and then manage content from `admin.html`.
+There is no required build step for normal installation because generated CSS/JS assets are committed with the project. Developers should rerun `node scripts\build-performance-assets.mjs` only after changing the public/admin asset split or NDS component bundle inputs.
 
 ## High-Level Runtime
 
@@ -45,14 +45,28 @@ The database is the source of truth after install. Browser `localStorage` is onl
 
 | File | Responsibilities |
 | --- | --- |
-| `js/default-data.js` | Defines `window.DEFAULT_SITE_DATA`, contact icon options, page content modes, integration types, Saudi map defaults, and admin auth defaults. |
+| `js/default-data.js` | Defines `window.DEFAULT_SITE_DATA`, contact icon options, page content modes, integration types, Saudi map defaults, coming-soon defaults, footer logo defaults, and admin auth defaults. |
 | `js/store.js` | Data access layer. Normalizes data, loads/saves site JSON, manages auth calls, uploads, admin users, preview data, and local cache fallback. |
-| `js/app.js` | Public shell rendering. Handles header, footer, pages, projects, project detail, search, login/account modals, notifications, cookie consent, Google Analytics, sharing, and NDS header/dropdown behavior. |
-| `js/admin.js` | Admin panel. Handles permissions, editors, drag/reorder, uploads, preview, save flows, users, integrations, footer cookie links, system tools, and admin side menu. |
+| `js/app.js` | Public shell rendering. Handles header, footer, coming-soon mode, pages, projects, project detail, search, login/account modals, notifications, cookie consent, Google Analytics, sharing, and NDS header/dropdown behavior. |
+| `js/admin.js` | Admin panel. Handles permissions, settings including coming-soon controls, editors, drag/reorder, uploads, preview, save flows, users, integrations, footer cookie links, system tools, and admin side menu. |
 | `js/saudi-map-data.js` | Fixed Saudi region metadata used by the public map, defaults, and admin editor. |
 | `js/nds-local-components.js` | Local helpers that complement the NDS vendor components. |
-| `css/custom.css` | Main app theme and layout layer on top of local NDS assets. |
+| `js/nds-public.bundle.min.js` | Generated public NDS component bundle loaded by public pages to reduce request count. |
+| `js/nds-admin.bundle.min.js` | Generated admin NDS component bundle loaded by `admin.html`, including admin-only NDS modules such as upload/progress/sidemenu support. |
+| `css/custom.css` | Public/shared app theme and layout layer on top of local NDS assets. |
+| `css/admin.css` | Generated admin-only CSS split from `css/custom.css`; loaded only by `admin.html`. |
 | `assets/data/saudi-map.svg` | Saudi Arabia regions and associated islands rendered as heat-map SVG paths. |
+| `assets/images/saudi-tech.svg` | Default `تقنية سعودية` logo used by fresh footer defaults and the coming-soon page. |
+| `.htaccess` | Apache performance rules for Brotli/gzip compression, long-lived asset caching, and no-cache HTML/PHP responses. |
+| `scripts/build-performance-assets.mjs` | Developer generator for the admin CSS split and public/admin NDS bundles. Not required during normal install when generated files are present. |
+
+## Frontend Performance Assets
+
+- Public pages load the shared public stylesheet and `js/nds-public.bundle.min.js`.
+- `admin.html` loads the shared public stylesheet, `css/admin.css`, and `js/nds-admin.bundle.min.js`.
+- `.htaccess` improves Apache delivery when the host has `mod_brotli`, `mod_deflate`, `mod_expires`, and `mod_headers` enabled. Hosts that do not support one of those modules skip that block through `<IfModule>`.
+- The Saudi map SVG remains referenced by `data-map-src` and is fetched by `js/app.js` only when the map section is near the viewport.
+- If an NDS component source file changes, rerun `node scripts\build-performance-assets.mjs` and include the regenerated CSS/JS files in the update.
 
 ## Backend API
 
@@ -107,11 +121,14 @@ The database is the source of truth after install. Browser `localStorage` is onl
 | --- | --- |
 | `cms_default_interface_texts()` | Default UI text labels. |
 | `cms_default_site_data()` | Full default site data model. |
+| `cms_default_coming_soon_settings()` | Default disabled coming-soon settings, hero image, and Saudi Tech logo path. |
+| `cms_default_footer_logos()` | Default fresh-install footer logos, including `تقنية سعودية`. |
 | `cms_fetch_site_data()` | Reads all DB tables and returns the frontend JSON model. |
 | `cms_ensure_content_schema()` | Adds compatible columns/tables for older installs, outside active transactions. |
 | `cms_save_site_data()` | Normalizes and fully replaces content tables inside a transaction. |
 | `cms_save_site_data_for_admin()` | Permission-aware save. Full save requires `backup`; otherwise only permitted sections are merged into current data. |
 | `cms_normalize_site_data()` | Normalizes the full incoming JSON model. |
+| `cms_normalize_coming_soon_settings()` | Normalizes the public coming-soon toggle, text, hero image path, and logo path. |
 | `cms_safe_path()` | Rejects empty paths and path traversal. |
 | `cms_normalize_pages()` | Enforces unique slugs, one-level subpages, valid parent links, and root-only navigation visibility. |
 | `cms_normalize_footer()` | Normalizes footer columns, icon groups, bottom links, logos, and cookie settings. |
@@ -125,7 +142,7 @@ Fresh install creates these tables in both `install/schema.sql` and `api/install
 | Table | Purpose |
 | --- | --- |
 | `admin_users` | Admin accounts, password hashes, roles, permissions, active flag. |
-| `site_settings` | Brand/settings/shell/interface/footer JSON. |
+| `site_settings` | Brand/settings/shell/interface/footer JSON, plus `coming_soon_json`. |
 | `navigation_items` | Core navigation labels. |
 | `hero_slides` | Home hero carousel media/content. |
 | `main_page` | Main profile fields, intro, biography, avatar, home numbers headings, and `region_map_json`. |
@@ -150,6 +167,7 @@ The frontend expects this JSON shape:
 
 ```text
 settings
+  comingSoon
 navigation
 texts
 home
@@ -181,7 +199,7 @@ Keep new features inside one of these roots unless a schema/data-model change is
 
 | Permission | Admin Area |
 | --- | --- |
-| `settings` | Brand, shell/topbar, interface text. |
+| `settings` | Brand, shell/topbar, coming-soon page, interface text. |
 | `home` | Profile, hero media, biography, numbers, skills, experience, achievements. |
 | `footer` | Footer labels, links, social/app icon groups, cookie popup. |
 | `projects` | Projects editor. |
@@ -207,6 +225,7 @@ Owner role always receives `*`.
 5. Installer connects to DB and runs `install/schema.sql`.
 6. Installer creates the first owner admin user.
 7. Installer seeds default site data or optional JSON seed.
+   Fresh defaults include the `تقنية سعودية` footer logo and a disabled coming-soon page configuration.
 8. Installer writes `api/config.php`.
 9. Installer writes `install/install.lock`.
 
@@ -316,7 +335,8 @@ Read/dismiss state is local browser state so public users do not mutate the data
 
 - Keep NDS classes and component semantics where possible.
 - Prefer local NDS vendor assets under `assets/vendor/nds/`.
-- Use `css/custom.css` for application-specific composition and fixes.
+- Use `css/custom.css` for public/shared application composition and fixes.
+- Keep admin-only composition in `css/admin.css` through the generator when possible.
 - Do not edit an external upstream NDS repo.
 - Header, drawer, side menu, form controls, cookies, dropmenus, buttons, and cards should follow NDS class naming and interaction expectations.
 
@@ -399,4 +419,8 @@ When adding a new API endpoint:
 - HTML and CSS local asset references were checked.
 - Live `get-site.php`, `me.php`, and `install/` smoke checks are run against the active XAMPP copy at `C:\xampp\htdocs\Biography`.
 - Runtime script/cache keys were refreshed so installed users receive the current JS/CSS.
+- Fresh install defaults now include `assets/images/saudi-tech.svg` as the small footer logo, and settings include a disabled coming-soon page configuration stored in `site_settings.coming_soon_json`.
 - `save-site.php` now rejects empty or invalid site-data payloads to prevent accidental content resets.
+- Public/admin CSS split and public/admin NDS bundles passed JavaScript syntax checks.
+- Local Apache header checks confirmed Brotli compression and immutable cache headers for generated CSS/JS/SVG assets.
+- Saudi map lazy-load QA confirmed no SVG request before the map is near view, one SVG fetch after scroll, region rendering, and tooltip hover behavior.

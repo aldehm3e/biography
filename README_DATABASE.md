@@ -71,7 +71,9 @@ The schema creates tables for:
 - notifications
 - backups or supporting CMS data
 
-Footer structure, page feedback settings, notification rules, announcement popup settings, and interface text overrides are stored as JSON fields in `site_settings`.
+Footer structure, page feedback settings, notification rules, announcement popup settings, coming-soon settings, and interface text overrides are stored as JSON fields in `site_settings`.
+
+`site_settings.coming_soon_json` stores the public coming-soon toggle, entity/person name, title, message, hero image path, and logo path. Existing installs receive this column through `cms_ensure_content_schema()`; fresh installs create it from both schema files.
 
 ## Page Data Rules
 

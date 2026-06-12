@@ -101,6 +101,7 @@
     cleanData.settings = cleanData.settings || {};
     cleanData.settings.pageFeedback = normalizePageFeedback(cleanData.settings.pageFeedback);
     cleanData.settings.notificationSettings = normalizeNotificationSettings(cleanData.settings.notificationSettings);
+    cleanData.settings.comingSoon = normalizeComingSoon(cleanData.settings.comingSoon);
     cleanData.navigation = cleanData.navigation || {};
     cleanData.home = cleanData.home || {};
     cleanData.home.heroSlides = normalizeArray(cleanData.home.heroSlides);
@@ -231,6 +232,20 @@
     ["title", "subject", "linkLabel", "linkUrl", "dismissLabel"].forEach(function (key) {
       output.popup[key] = String(output.popup[key] || "");
     });
+    return output;
+  }
+
+  function normalizeComingSoon(value) {
+    var defaults = window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.settings && window.DEFAULT_SITE_DATA.settings.comingSoon || {};
+    var output = mergeObject(defaults, value && typeof value === "object" ? value : {});
+    output.enabled = output.enabled === true;
+    ["entityName", "title", "message", "heroImage", "logo"].forEach(function (key) {
+      output[key] = String(output[key] || "");
+    });
+    output.title = output.title || "قريباً";
+    output.message = output.message || "نعمل على تجهيز الموقع ليظهر بصورة تليق بكم.";
+    output.heroImage = output.heroImage || "assets/images/hero1.jpg";
+    output.logo = output.logo || "assets/images/saudi-tech.svg";
     return output;
   }
 

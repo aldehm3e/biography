@@ -214,16 +214,17 @@ if ($installerLocked) {
 }
 ?>
 <!doctype html>
-<html lang="ar" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Biography CMS Installer</title>
+  <link rel="icon" href="../assets/images/saudi-tech.svg" type="image/svg+xml">
   <link rel="stylesheet" href="../css/nds-icons-full.css">
   <link rel="stylesheet" href="../css/nds-local-components.css">
   <link rel="stylesheet" href="../css/custom.css">
 </head>
-<body>
+<body class="installer-page">
   <main class="nds-content-section">
     <div class="site-container nds-section-wrapper">
       <div class="nds-section-head">
@@ -281,5 +282,9 @@ if ($installerLocked) {
       <?php endif; ?>
     </div>
   </main>
+  <footer class="installer-footer" aria-label="Installer footer">
+    <span>Powered by</span>
+    <img src="../assets/images/saudi-tech.svg" width="32" height="58" loading="lazy" alt="تقنية سعودية">
+  </footer>
 </body>
 </html>

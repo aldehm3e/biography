@@ -20,7 +20,8 @@
   <link rel="stylesheet" href="css/nds-icons-full.css?v=nds-pulled-social-icons-20260528">
   <link rel="stylesheet" href="css/nds-hgi-rounded-stroke.css?v=hgi-font-block-20260608">
   <link rel="stylesheet" href="css/nds-local-components.css?v=notification-refit-20260530">
-  <link rel="stylesheet" href="css/custom.css?v=saudi-map-metric-icon-20260611">
+  <link rel="stylesheet" href="css/custom.css?v=coming-soon-20260612">
+  <link rel="stylesheet" href="css/admin.css?v=perf-20260611">
 </head>
 <body data-page="admin">
   <header class="site-header">
@@ -236,6 +237,11 @@
                   <li>
                     <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="settings" data-settings-section="identity">
                       <span class="nds-label">الهوية والتواصل</span>
+                    </button>
+                  </li>
+                  <li>
+                    <button class="nds-btn nds-subtle nds-indicator" type="button" data-admin-tab="settings" data-settings-section="coming-soon">
+                      <span class="nds-label">صفحة قريباً</span>
                     </button>
                   </li>
                   <li>
@@ -465,6 +471,46 @@
                   <div class="nds-form-container">
                     <div class="nds-form-header"><label for="siteTheme"><span class="nds-label">الثيم</span></label></div>
                     <div class="nds-form-control"><input class="nds-input" id="siteTheme" name="siteTheme" type="text"></div>
+                  </div>
+                </div>
+                </section>
+                <section class="admin-settings-section" data-settings-section-panel="coming-soon" hidden>
+                <div class="panel-heading compact-heading">
+                  <div>
+                    <h3 class="section-minor-title">صفحة قريباً</h3>
+                    <p class="nds-card-description">انشر واجهة انتظار بسيطة للزوار قبل إطلاق المحتوى الكامل، مع بقاء لوحة الإدارة متاحة للتعديل.</p>
+                  </div>
+                  <button class="nds-btn nds-primary" type="submit"><span class="nds-label">حفظ الإعدادات</span></button>
+                </div>
+                <label class="check-line"><input class="nds-check" id="comingSoonEnabled" name="comingSoonEnabled" type="checkbox"> <span>نشر صفحة قريباً للزوار</span></label>
+                <div class="form-grid">
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="comingSoonEntityName"><span class="nds-label">اسم الجهة أو الفرد</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="comingSoonEntityName" name="comingSoonEntityName" type="text" placeholder="مثال: تقنية سعودية"></div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="comingSoonTitle"><span class="nds-label">عنوان الصفحة</span></label></div>
+                    <div class="nds-form-control"><input class="nds-input" id="comingSoonTitle" name="comingSoonTitle" type="text" placeholder="قريباً"></div>
+                  </div>
+                </div>
+                <div class="nds-form-container">
+                  <div class="nds-form-header"><label for="comingSoonMessage"><span class="nds-label">النص المختصر</span></label></div>
+                  <div class="nds-form-control textarea-control"><textarea class="nds-input" id="comingSoonMessage" name="comingSoonMessage" rows="3"></textarea></div>
+                </div>
+                <div class="form-grid">
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="comingSoonHeroImage"><span class="nds-label">صورة الهيرو الكبيرة</span></label></div>
+                    <div class="uploadable-control-row">
+                      <div class="nds-form-control upload-path-control"><input class="nds-input" id="comingSoonHeroImage" name="comingSoonHeroImage" type="text" placeholder="مثال: uploads/images/coming-soon.jpg"></div>
+                      <div class="nds-form-control upload-file-control" data-upload-label="رفع صورة"><input class="nds-input file-input" type="file" data-media-upload="hero-image" data-upload-target-name="comingSoonHeroImage" accept=".jpg,.jpeg,.png,.webp,.svg"></div>
+                    </div>
+                  </div>
+                  <div class="nds-form-container">
+                    <div class="nds-form-header"><label for="comingSoonLogo"><span class="nds-label">شعار صفحة قريباً</span></label></div>
+                    <div class="uploadable-control-row">
+                      <div class="nds-form-control upload-path-control"><input class="nds-input" id="comingSoonLogo" name="comingSoonLogo" type="text" placeholder="assets/images/saudi-tech.svg"></div>
+                      <div class="nds-form-control upload-file-control" data-upload-label="رفع شعار"><input class="nds-input file-input" type="file" data-media-upload="footer-logo" data-upload-target-name="comingSoonLogo" accept=".jpg,.jpeg,.png,.webp,.svg"></div>
+                    </div>
                   </div>
                 </div>
                 </section>
@@ -1396,27 +1442,12 @@
   </footer>
 
   <script src="js/saudi-map-data.js?v=saudi-map-20260611"></script>
-  <script src="js/default-data.js?v=saudi-map-metric-icon-20260611"></script>
-  <script src="js/store.js?v=saudi-map-metric-icon-20260611"></script>
+  <script src="js/default-data.js?v=coming-soon-20260612"></script>
+  <script src="js/store.js?v=coming-soon-20260612"></script>
   <script src="js/home-number-icons.js?v=home-numbers-bg-size-20260604"></script>
-  <script src="assets/vendor/nds/components/js/nds-core.js"></script>
-  <script src="assets/vendor/nds/components/js/nds-cityWeather.js?v=auto-location-20260607"></script>
-  <script src="assets/vendor/nds/components/js/nds-backdrop.js?v=nds-source-20260604"></script>
-  <script src="assets/vendor/nds/components/js/nds-mainnav.js?v=nds-source-20260604"></script>
-  <script src="assets/vendor/nds/components/js/nds-drawer.js"></script>
-  <script src="assets/vendor/nds/components/js/nds-sidemenu.js?v=nds-source-20260604"></script>
-  <script src="assets/vendor/nds/components/js/nds-scroll-more.js"></script>
-  <script src="assets/vendor/nds/components/js/nds-modal.js?v=nds-source-20260604"></script>
-  <script src="assets/vendor/nds/components/js/nds-feedback.js"></script>
-  <script src="assets/vendor/nds/components/js/nds-progress.js"></script>
-  <script src="assets/vendor/nds/components/js/nds-upload.js"></script>
-  <script src="assets/vendor/nds/components/js/nds-forms.js"></script>
-  <script src="assets/vendor/nds/components/js/nds-alert.js?v=nds-source-20260604"></script>
-  <script src="assets/vendor/nds/components/js/nds-cookies.js"></script>
-  <script src="assets/vendor/nds/components/js/nds-user-feedback.js?v=separate-system-items-20260605"></script>
-  <script src="assets/vendor/nds/components/js/nds-breadcrumb.js"></script>
+  <script src="js/nds-admin.bundle.min.js?v=perf-20260611"></script>
   <script src="js/nds-local-components.js"></script>
-  <script src="js/app.js?v=saudi-map-metric-icon-20260611"></script>
-  <script src="js/admin.js?v=saudi-map-metric-icon-20260611"></script>
+  <script src="js/app.js?v=coming-soon-20260612"></script>
+  <script src="js/admin.js?v=coming-soon-20260612"></script>
 </body>
 </html>

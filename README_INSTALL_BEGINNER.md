@@ -21,6 +21,7 @@ After installation, open `admin.html` and manage content from the admin panel:
 
 - brand name
 - logo
+- coming-soon page before launch
 - home page content
 - hero slides
 - home numbers/statistics
@@ -169,6 +170,25 @@ uploads/
 
 The `uploads/` folder contains uploaded images, videos, logos, icons, and documents.
 
+## Files To Include When Uploading Updates
+
+When uploading a new version, also include these generated/support files:
+
+```text
+.htaccess
+css/admin.css
+js/nds-public.bundle.js
+js/nds-public.bundle.min.js
+js/nds-admin.bundle.js
+js/nds-admin.bundle.min.js
+scripts/build-performance-assets.mjs
+assets/images/saudi-tech.svg
+```
+
+The website can be installed normally when these files are present. The `assets/images/saudi-tech.svg` file is the default `تقنية سعودية` logo. The `scripts/` file is for developers who need to regenerate the generated CSS/JS files later.
+
+`.htaccess` improves Apache compression and browser caching. If the hosting server does not support one of the Apache modules, the related block is skipped safely.
+
 ## First Test After Installation
 
 1. Open `admin.html`.
@@ -180,6 +200,21 @@ The `uploads/` folder contains uploaded images, videos, logos, icons, and docume
 7. Confirm the change stayed.
 
 If the change stays after refresh, the database is working.
+
+## Publish A Coming-Soon Page Before Launch
+
+Use this when you do not want the public site to look empty before content is ready.
+
+1. Open `admin.html`.
+2. Go to `الإعدادات > صفحة قريباً`.
+3. Turn on `نشر صفحة قريباً للزوار`.
+4. Enter the entity or individual name.
+5. Choose a large hero image.
+6. Keep or change the `تقنية سعودية` logo.
+7. Save settings.
+8. Open `index.html` and confirm visitors see the coming-soon page.
+
+Turn the same switch off when the full site is ready to go live.
 
 ## Upload Test
 

@@ -42,6 +42,8 @@
     homeNumbersSettleTimer: null,
     homeNumbersCleanup: null,
     saudiMapPromise: null,
+    saudiMapObserver: null,
+    saudiMapLazyHandler: null,
     clockTimer: null,
     topbarScrollLastY: 0,
     topbarScrollFrame: null,
@@ -812,6 +814,25 @@
     return hasHomeHeroContent(home) || hasHomeBodyContent(home);
   }
 
+  function comingSoonSettings(data) {
+    var defaults = window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.settings && window.DEFAULT_SITE_DATA.settings.comingSoon || {};
+    var settings = data && data.settings && data.settings.comingSoon || {};
+    var output = Object.assign({}, defaults, settings && typeof settings === "object" ? settings : {});
+    output.enabled = output.enabled === true;
+    ["entityName", "title", "message", "heroImage", "logo"].forEach(function (key) {
+      output[key] = String(output[key] || "");
+    });
+    output.title = output.title || "قريباً";
+    output.message = output.message || "نعمل على تجهيز الموقع ليظهر بصورة تليق بكم.";
+    output.heroImage = output.heroImage || "assets/images/hero1.jpg";
+    output.logo = output.logo || "assets/images/saudi-tech.svg";
+    return output;
+  }
+
+  function isComingSoonActive(data) {
+    return document.body && document.body.dataset.page !== "admin" && comingSoonSettings(data).enabled === true;
+  }
+
   function applyDocumentSettings(data) {
     document.documentElement.lang = data.settings.language || "ar";
     document.documentElement.dir = data.settings.direction || "rtl";
@@ -1004,6 +1025,82 @@
       console.error("Footer render failed", error);
     }
     updateClock();
+  }
+
+  function clearComingSoonPage() {
+    var root = qs("[data-coming-soon-page]");
+    if (document.body) delete document.body.dataset.comingSoon;
+    qsa("[data-coming-soon-hidden]").forEach(function (node) {
+      delete node.dataset.comingSoonHidden;
+      node.hidden = false;
+    });
+    if (root) root.remove();
+  }
+
+  function hideMainContentForComingSoon(root) {
+    var main = qs("main");
+    if (!main) return;
+    Array.prototype.forEach.call(main.children, function (child) {
+      if (child === root || child.matches(".toast")) return;
+      child.dataset.comingSoonHidden = "true";
+      child.hidden = true;
+    });
+  }
+
+  function renderComingSoonPage(data) {
+    var main = qs("main");
+    var settings = comingSoonSettings(data);
+    var root;
+    var media;
+    var heroImage;
+    var content;
+    var logo;
+    var entityName = settings.entityName || data.settings.siteName || data.settings.brandName || (data.home && data.home.ownerName) || "";
+    if (!main) return;
+
+    root = qs("[data-coming-soon-page]");
+    if (!root) {
+      root = el("section", "coming-soon-page");
+      root.dataset.comingSoonPage = "";
+      root.setAttribute("aria-labelledby", "comingSoonTitle");
+      main.insertBefore(root, main.firstElementChild);
+    }
+
+    root.hidden = false;
+    root.innerHTML = "";
+    if (document.body) document.body.dataset.comingSoon = "true";
+    document.title = settings.title + (entityName ? " | " + entityName : "");
+
+    media = el("div", "coming-soon-media");
+    heroImage = document.createElement("img");
+    heroImage.alt = entityName || settings.title;
+    heroImage.loading = "eager";
+    heroImage.decoding = "async";
+    heroImage.fetchPriority = "high";
+    setImageSource(heroImage, settings.heroImage);
+    media.append(heroImage);
+
+    content = el("div", "coming-soon-content");
+    if (settings.logo) {
+      logo = document.createElement("img");
+      logo.className = "coming-soon-logo";
+      logo.alt = "تقنية سعودية";
+      logo.loading = "eager";
+      logo.decoding = "async";
+      logo.width = 96;
+      logo.height = 96;
+      setImageSource(logo, settings.logo);
+      content.append(logo);
+    }
+    if (hasText(entityName)) content.append(el("p", "coming-soon-entity", entityName));
+    var title = el("h1", "coming-soon-title", settings.title);
+    title.id = "comingSoonTitle";
+    content.append(title);
+    if (hasText(settings.message)) content.append(el("p", "coming-soon-message", settings.message));
+
+    root.append(media);
+    root.append(content);
+    hideMainContentForComingSoon(root);
   }
 
   function currentAuthConfig() {
@@ -6859,17 +6956,96 @@
   function loadSaudiMapSvg(host) {
     var src = host && host.dataset.mapSrc;
     if (!host || !src) return Promise.resolve();
-    if (qs("[data-saudi-map-svg]", host)) return Promise.resolve();
+    if (qs("[data-saudi-map-svg]", host)) {
+      host.dataset.saudiMapLoad = "ready";
+      return Promise.resolve();
+    }
     if (appState.saudiMapPromise) return appState.saudiMapPromise;
+    host.dataset.saudiMapLoad = "loading";
     appState.saudiMapPromise = fetch(src, { cache: "force-cache" }).then(function (response) {
       if (!response.ok) throw new Error("Map unavailable");
       return response.text();
     }).then(function (svgText) {
       host.insertAdjacentHTML("afterbegin", svgText);
+      host.dataset.saudiMapLoad = "ready";
     }).catch(function () {
+      host.dataset.saudiMapLoad = "error";
       host.insertAdjacentHTML("afterbegin", '<p class="saudi-map-fallback">الخريطة غير متاحة حالياً.</p>');
     });
     return appState.saudiMapPromise;
+  }
+
+  function clearSaudiMapLazyLoad() {
+    if (appState.saudiMapObserver) {
+      appState.saudiMapObserver.disconnect();
+      appState.saudiMapObserver = null;
+    }
+    if (appState.saudiMapLazyHandler) {
+      window.removeEventListener("scroll", appState.saudiMapLazyHandler);
+      window.removeEventListener("resize", appState.saudiMapLazyHandler);
+      appState.saudiMapLazyHandler = null;
+    }
+  }
+
+  function isSaudiMapNearViewport(section, margin) {
+    var rect;
+    var viewportHeight;
+    if (!section || section.hidden) return false;
+    rect = section.getBoundingClientRect();
+    viewportHeight = window.innerHeight || document.documentElement.clientHeight || 0;
+    margin = Number(margin) || 0;
+    return rect.top < viewportHeight + margin && rect.bottom > -margin;
+  }
+
+  function runSaudiMapLoad(host) {
+    clearSaudiMapLazyLoad();
+    loadSaudiMapSvg(host).then(function () {
+      if (!host.isConnected) return;
+      applySaudiMapData(host, host._saudiMapPendingConfig || {});
+    });
+  }
+
+  function scheduleSaudiMapLoad(section, host, config) {
+    var margin = 700;
+    if (!host) return;
+    host._saudiMapPendingConfig = config;
+    if (qs("[data-saudi-map-svg]", host)) {
+      applySaudiMapData(host, config);
+      return;
+    }
+    if (appState.saudiMapPromise) {
+      appState.saudiMapPromise.then(function () {
+        if (!host.isConnected) return;
+        applySaudiMapData(host, host._saudiMapPendingConfig || config);
+      });
+      return;
+    }
+    host.dataset.saudiMapLoad = "waiting";
+    clearSaudiMapLazyLoad();
+    if (isSaudiMapNearViewport(section, margin)) {
+      runSaudiMapLoad(host);
+      return;
+    }
+    appState.saudiMapLazyHandler = function () {
+      if (isSaudiMapNearViewport(section, margin)) {
+        runSaudiMapLoad(host);
+      }
+    };
+    window.addEventListener("scroll", appState.saudiMapLazyHandler, { passive: true });
+    window.addEventListener("resize", appState.saudiMapLazyHandler);
+    window.requestAnimationFrame(appState.saudiMapLazyHandler);
+    if (!("IntersectionObserver" in window)) {
+      return;
+    }
+    appState.saudiMapObserver = new IntersectionObserver(function (entries) {
+      var isNearViewport = entries.some(function (entry) {
+        return entry.isIntersecting || entry.intersectionRatio > 0;
+      });
+      if (isNearViewport) runSaudiMapLoad(host);
+    }, {
+      rootMargin: "700px 0px"
+    });
+    appState.saudiMapObserver.observe(section);
   }
 
   function renderSaudiRegionMap(home) {
@@ -6882,7 +7058,10 @@
     var isVisible = visibleSaudiRegionMap(home);
     if (!section) return;
     section.hidden = !isVisible;
-    if (!isVisible) return;
+    if (!isVisible) {
+      clearSaudiMapLazyLoad();
+      return;
+    }
 
     if (title) {
       title.textContent = config.title || "";
@@ -6897,10 +7076,7 @@
       legendTitle.hidden = !hasText(config.metricLabel);
     }
     if (!host) return;
-    loadSaudiMapSvg(host).then(function () {
-      if (!host.isConnected) return;
-      applySaudiMapData(host, config);
-    });
+    scheduleSaudiMapLoad(section, host, config);
   }
 
   function heroSlidesSignature(slides) {
@@ -7923,6 +8099,17 @@
   function paintSite(data) {
     appState.data = data;
     renderShared(appState.data);
+    if (isComingSoonActive(appState.data)) {
+      renderComingSoonPage(appState.data);
+      if (window.NDS && window.NDS.Mainnav && window.NDS.Mainnav.init) window.NDS.Mainnav.init();
+      if (window.NDS && window.NDS.Sidemenu && window.NDS.Sidemenu.init) window.NDS.Sidemenu.init();
+      updateHeaderActions(appState.data);
+      revealHeaderShell();
+      document.documentElement.dataset.siteRendered = "true";
+      startHomeInitialTopGuard();
+      return;
+    }
+    clearComingSoonPage();
     if (document.body.dataset.page === "home") renderHome(appState.data);
     if (document.body.dataset.page === "projects") renderProjectsPage(appState.data);
     if (document.body.dataset.page === "project-detail") renderProjectDetailPage(appState.data);
@@ -7944,13 +8131,13 @@
     return window.SiteStore.load().then(function (loadedData) {
       paintSite(loadedData);
       document.documentElement.dataset.siteLoading = "false";
-      renderAnnouncementPopup(appState.data);
+      if (!isComingSoonActive(appState.data)) renderAnnouncementPopup(appState.data);
     }).catch(function (error) {
       appState.data = window.SiteStore.current();
       paintSite(appState.data);
       showToast(error.message || "تعذر تحميل بيانات الموقع", "error");
       document.documentElement.dataset.siteLoading = "false";
-      renderAnnouncementPopup(appState.data);
+      if (!isComingSoonActive(appState.data)) renderAnnouncementPopup(appState.data);
     });
   }
 

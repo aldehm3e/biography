@@ -633,6 +633,58 @@
     return (item && (item.title || item.name || item.meta)) || fallback || "";
   }
 
+  function defaultComingSoonSettings() {
+    return cloneData(window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.settings && window.DEFAULT_SITE_DATA.settings.comingSoon || {
+      enabled: false,
+      entityName: "",
+      title: "قريباً",
+      message: "نعمل على تجهيز الموقع ليظهر بصورة تليق بكم.",
+      heroImage: "assets/images/hero1.jpg",
+      logo: "assets/images/saudi-tech.svg"
+    });
+  }
+
+  function comingSoonSettings() {
+    var defaults = defaultComingSoonSettings();
+    var current = data && data.settings && data.settings.comingSoon || {};
+    var output = Object.assign({}, defaults, current && typeof current === "object" ? current : {});
+    output.enabled = output.enabled === true;
+    ["entityName", "title", "message", "heroImage", "logo"].forEach(function (key) {
+      output[key] = String(output[key] || "");
+    });
+    output.title = output.title || defaults.title || "قريباً";
+    output.message = output.message || defaults.message || "";
+    output.heroImage = output.heroImage || defaults.heroImage || "assets/images/hero1.jpg";
+    output.logo = output.logo || defaults.logo || "assets/images/saudi-tech.svg";
+    data.settings = data.settings || {};
+    data.settings.comingSoon = output;
+    return output;
+  }
+
+  function fillComingSoonFields() {
+    var settings = comingSoonSettings();
+    setChecked("comingSoonEnabled", settings.enabled);
+    setValue("comingSoonEntityName", settings.entityName);
+    setValue("comingSoonTitle", settings.title);
+    setValue("comingSoonMessage", settings.message);
+    setValue("comingSoonHeroImage", settings.heroImage);
+    setValue("comingSoonLogo", settings.logo);
+  }
+
+  function collectComingSoonSettings() {
+    var defaults = defaultComingSoonSettings();
+    data.settings = data.settings || {};
+    data.settings.comingSoon = {
+      enabled: field("comingSoonEnabled") ? field("comingSoonEnabled").checked : defaults.enabled === true,
+      entityName: value("comingSoonEntityName"),
+      title: value("comingSoonTitle") || defaults.title || "قريباً",
+      message: value("comingSoonMessage") || defaults.message || "",
+      heroImage: value("comingSoonHeroImage") || defaults.heroImage || "assets/images/hero1.jpg",
+      logo: value("comingSoonLogo") || defaults.logo || "assets/images/saudi-tech.svg"
+    };
+    return data.settings.comingSoon;
+  }
+
   function defaultNotificationSettings() {
     return cloneData(window.DEFAULT_SITE_DATA && window.DEFAULT_SITE_DATA.settings && window.DEFAULT_SITE_DATA.settings.notificationSettings || {
       enabled: true,
@@ -2093,6 +2145,7 @@
     setValue("shellSecurityTitle", data.settings.shellSecurityTitle);
     setValue("shellSecurityDescription", data.settings.shellSecurityDescription);
     setValue("shellNoticeText", data.settings.shellNoticeText);
+    fillComingSoonFields();
     fillInterfaceTextFields();
     setValue("homeLabel", data.navigation.homeLabel);
     setValue("pagesLabel", data.navigation.pagesLabel);
@@ -2253,6 +2306,7 @@
     data.settings.shellSecurityTitle = value("shellSecurityTitle");
     data.settings.shellSecurityDescription = value("shellSecurityDescription");
     data.settings.shellNoticeText = value("shellNoticeText");
+    collectComingSoonSettings();
     collectInterfaceTextFields();
     if (dataSignature(data) !== dataSignature(previousData)) {
       notifySectionUpdated("settings", {

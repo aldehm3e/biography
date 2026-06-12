@@ -13,9 +13,14 @@ This file is the main project handoff. Read it before changing code.
 - Installer: `install/`
 - Backend API: `api/`
 - Runtime uploads: `uploads/`
-- Main styling: `css/custom.css`
+- Public styling: `css/custom.css`
+- Admin-only styling: `css/admin.css`
 - Public behavior: `js/app.js`
 - Admin behavior: `js/admin.js`
+- Generated NDS bundles: `js/nds-public.bundle.min.js`, `js/nds-admin.bundle.min.js`
+- Performance asset generator: `scripts/build-performance-assets.mjs`
+- Apache performance rules: `.htaccess`
+- Saudi Tech logo asset: `assets/images/saudi-tech.svg`
 - Default empty data: `js/default-data.js`
 - Database repository: `api/content/site-repository.php`
 
@@ -46,6 +51,8 @@ http://localhost/Biography/install/
 - Hero slides support desktop and mobile media.
 - Home number/statistic cards support editable titles, values, icons, visibility, and slider display.
 - Optional Saudi region heat map under the home numbers section, with editable title, subtitle, metric label, metric icon, visibility, and per-region values.
+- Coming-soon publishing mode from settings, with entity/person name, large hero image, and Saudi Tech logo before the full site goes live.
+- Fresh installs include a small `تقنية سعودية` footer logo by default.
 - NDS-inspired header, menus, modals, buttons, cards, breadcrumbs, and share controls.
 - Uploads for images, video, logos, and icons.
 
@@ -57,6 +64,7 @@ http://localhost/Biography/install/
 - Do not edit `api/config.php` into Git. It contains real database credentials.
 - Do not overwrite production `api/config.php`, `install/install.lock`, or `uploads/` during updates.
 - Do not modify the original NDS reference repo/folder. Use the local vendor copy only when needed.
+- Keep generated performance assets in sync when NDS component files or the public/admin asset split changes.
 - Keep page/subpage management inside `الصفحات`; do not bring back a separate site-structure admin section.
 - Keep subpages out of the main header as independent items. They belong under their parent page menu.
 - Test desktop and mobile after header, dropdown, page, upload, or admin editor changes.
@@ -90,7 +98,13 @@ git status --short
 3. Make focused changes only.
 4. For code edits, keep existing vanilla PHP/JS/CSS patterns.
 5. Run syntax checks before handoff.
-6. If testing locally in this workspace, sync tested files to the active XAMPP copy:
+6. If frontend performance assets change, regenerate them:
+
+```powershell
+node scripts\build-performance-assets.mjs
+```
+
+7. If testing locally in this workspace, sync tested files to the active XAMPP copy:
 
 ```text
 C:\xampp\htdocs\Biography
@@ -141,12 +155,15 @@ Browser QA:
 - Header search, notifications, admin menu, subpage menus, and hamburger menus do not stay open together.
 - Share menu opens on every click and does not auto-open on refresh.
 - Mobile and desktop both remain usable.
+- Public pages load the public NDS bundle; `admin.html` loads the admin NDS bundle and `css/admin.css`.
+- If the Saudi map is visible, the SVG loads only when the map section is near the viewport.
 
 ## Content Editing Notes
 
 Use the admin panel for normal content:
 
 - `الإعدادات`: brand, logo, language, labels, verification text, interface text.
+- `الإعدادات > صفحة قريباً`: publish or disable the coming-soon public page, and set the entity/person name, launch title, message, hero image, and logo.
 - `الرئيسية`: owner content, biography, hero slides, `في أرقام`, Saudi map, skills, experience, achievements.
 - `المشاريع`: project cards and project media.
 - `البطاقات`: card collection pages, card titles/subtitles, optional detail links, and header visibility.
